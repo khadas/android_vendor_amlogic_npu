@@ -1,0 +1,288 @@
+##############################################################################
+#
+#    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+#
+#    The material in this file is confidential and contains trade secrets
+#    of Vivante Corporation. This is proprietary information owned by
+#    Vivante Corporation. No part of this work may be disclosed,
+#    reproduced, copied, transmitted, or used in any way for any purpose,
+#    without the express written permission of Vivante Corporation.
+#
+##############################################################################
+
+
+#
+# Linux build file for libVSC library.
+#
+
+################################################################################
+# Include common definitions.
+
+include $(AQROOT)/makefile.linux.def
+
+################################################################################
+# Define target module name.
+
+ifeq ($(gcdSTATIC_LINK), 1)
+  STATIC            := 1
+  TARGET_NAME       := libVSC.a
+else
+  DYNAMIC           := 1
+  TARGET_NAME       := libVSC.so
+  TARGET_SONAME     := libVSC.so
+endif
+
+################################################################################
+# Installation directory.
+
+INSTALL_DIR         := $(SDK_DIR)/drivers
+
+ifndef FIXED_ARCH_TYPE
+
+TARGET_MODULE       := $(OBJ_DIR)/$(TARGET_NAME)
+
+################################################################################
+# Supply additional include directories.
+
+INCLUDE := -I$(AQROOT)/hal/inc \
+           -I$(AQARCH)/cmodel/inc \
+           -I$(AQROOT)/hal/user \
+           -I$(AQROOT)/hal/user/arch \
+           -I$(AQROOT)/hal/user/archvg \
+           -I$(AQROOT)/hal/os/linux/user \
+           -I$(AQROOT)/compiler/libVSC/include
+
+CFLAGS += $(INCLUDE)
+
+################################################################################
+# Add extra flags for object files.
+
+ifneq ($(USE_ARMCC), 1)
+  ifeq ($(EGL_API_DFB), 1)
+    CFLAGS += -pipe -fPIC
+  else
+    ifeq ($(EGL_API_WL), 1)
+      CFLAGS += -fPIC -Werror
+    else
+      CFLAGS += -fPIC -Werror -ansi
+    endif
+  endif
+endif
+
+ifeq ($(EGL_API_DFB), 1)
+  CFLAGS += -DPIC
+endif
+
+################################################################################
+# Define flags for the linker.
+
+ifneq ($(USE_ARMCC), 1)
+  LFLAGS += -Wl,--version-script=libVSC.map -Wl,-z,defs
+endif
+
+ifeq ($(USE_ARMCC),1)
+  LFLAGS += --shared -L--soname=,$(TARGET_SONAME)
+else
+  LFLAGS += -Wall -Wl,-z,defs -shared -Wl,-soname,$(TARGET_SONAME)
+endif
+
+################################################################################
+# Supply dependent libraries.
+
+LIBS := -L$(SDK_DIR)/drivers -L$(GAL_DIR)/user/$(OBJ_DIR) -lGAL -lm
+
+################################################################################
+# Describe object files.
+
+OBJECTS := \
+	$(OBJ_DIR)/gc_vsc_lib_gl_builtin.o \
+	$(OBJ_DIR)/gc_vsc_lib_gl_patch.o \
+	$(OBJ_DIR)/gc_vsc_lib_common.o \
+	$(OBJ_DIR)/gc_vsc_old_hw_code_gen.o \
+	$(OBJ_DIR)/gc_vsc_old_hw_linker.o \
+	$(OBJ_DIR)/gc_vsc_old_compiler.o \
+	$(OBJ_DIR)/gc_vsc_old_recompile.o \
+	$(OBJ_DIR)/gc_vsc_old_preprocess.o \
+	$(OBJ_DIR)/gc_vsc_old_linker.o \
+	$(OBJ_DIR)/gc_vsc_old_optimizer_dump.o \
+	$(OBJ_DIR)/gc_vsc_old_optimizer.o \
+	$(OBJ_DIR)/gc_vsc_old_optimizer_loadtime.o \
+	$(OBJ_DIR)/gc_vsc_old_optimizer_util.o \
+
+ifeq ($(VSC_VIR_BUILD),1)
+OBJECTS += \
+	$(OBJ_DIR)/gc_vsc_asm_al_codec.o \
+	$(OBJ_DIR)/gc_vsc_chip_uarch_caps.o \
+	$(OBJ_DIR)/gc_vsc_chip_mc_codec.o \
+	$(OBJ_DIR)/gc_vsc_chip_mc_dump.o \
+	$(OBJ_DIR)/gc_vsc_chip_state_programming.o \
+	$(OBJ_DIR)/gc_vsc_drvi_compile.o \
+	$(OBJ_DIR)/gc_vsc_drvi_ep_dump.o \
+	$(OBJ_DIR)/gc_vsc_drvi_ep_io.o \
+	$(OBJ_DIR)/gc_vsc_drvi_link.o \
+	$(OBJ_DIR)/gc_vsc_gcsl_vir_converter.o \
+	$(OBJ_DIR)/gc_vsc_vir_gcsl_converter.o \
+	$(OBJ_DIR)/gc_vsc_utils_array.o \
+	$(OBJ_DIR)/gc_vsc_utils_base_node.o \
+	$(OBJ_DIR)/gc_vsc_utils_bit_op.o \
+	$(OBJ_DIR)/gc_vsc_utils_data_digest.o \
+	$(OBJ_DIR)/gc_vsc_utils_dump.o \
+	$(OBJ_DIR)/gc_vsc_utils_err.o \
+	$(OBJ_DIR)/gc_vsc_utils_math.o \
+	$(OBJ_DIR)/gc_vsc_utils_bm.o \
+	$(OBJ_DIR)/gc_vsc_utils_bv.o \
+	$(OBJ_DIR)/gc_vsc_utils_sv.o \
+	$(OBJ_DIR)/gc_vsc_utils_dg.o \
+	$(OBJ_DIR)/gc_vsc_utils_udg.o \
+	$(OBJ_DIR)/gc_vsc_utils_hash.o \
+	$(OBJ_DIR)/gc_vsc_utils_io.o \
+	$(OBJ_DIR)/gc_vsc_utils_bi_list.o \
+	$(OBJ_DIR)/gc_vsc_utils_uni_list.o \
+	$(OBJ_DIR)/gc_vsc_utils_mm.o \
+	$(OBJ_DIR)/gc_vsc_utils_mm_arena.o \
+	$(OBJ_DIR)/gc_vsc_utils_mm_buddy.o \
+	$(OBJ_DIR)/gc_vsc_utils_mm_primary_pool.o \
+	$(OBJ_DIR)/gc_vsc_utils_string.o \
+	$(OBJ_DIR)/gc_vsc_utils_block_table.o \
+	$(OBJ_DIR)/gc_vsc_utils_tree.o \
+	$(OBJ_DIR)/gc_vsc_vir_cfa.o \
+	$(OBJ_DIR)/gc_vsc_vir_ts_dfa_iterator.o \
+	$(OBJ_DIR)/gc_vsc_vir_ms_dfa_iterator.o \
+	$(OBJ_DIR)/gc_vsc_vir_du.o \
+	$(OBJ_DIR)/gc_vsc_vir_liveness.o \
+	$(OBJ_DIR)/gc_vsc_vir_ssa.o \
+	$(OBJ_DIR)/gc_vsc_vir_inst_scheduler.o \
+	$(OBJ_DIR)/gc_vsc_vir_mc_gen.o \
+	$(OBJ_DIR)/gc_vsc_vir_reg_alloc.o \
+	$(OBJ_DIR)/gc_vsc_vir_uniform_alloc.o \
+	$(OBJ_DIR)/gc_vsc_vir_dump.o \
+	$(OBJ_DIR)/gc_vsc_vir_ir.o \
+	$(OBJ_DIR)/gc_vsc_vir_io.o \
+	$(OBJ_DIR)/gc_vsc_vir_symbol_table.o \
+	$(OBJ_DIR)/gc_vsc_vir_ll_2_ll_expand.o \
+	$(OBJ_DIR)/gc_vsc_vir_ll_2_ll_scalar.o \
+	$(OBJ_DIR)/gc_vsc_vir_ll_2_ll_machine.o \
+	$(OBJ_DIR)/gc_vsc_vir_lower_common_func.o \
+	$(OBJ_DIR)/gc_vsc_vir_pattern.o \
+	$(OBJ_DIR)/gc_vsc_vir_hl_2_hl_expand.o \
+	$(OBJ_DIR)/gc_vsc_vir_hl_2_ml.o \
+	$(OBJ_DIR)/gc_vsc_vir_hl_2_ml_expand.o \
+	$(OBJ_DIR)/gc_vsc_vir_ll_2_mc.o \
+	$(OBJ_DIR)/gc_vsc_vir_ml_2_ll.o \
+	$(OBJ_DIR)/gc_vsc_vir_linker.o \
+	$(OBJ_DIR)/gc_vsc_options.o \
+	$(OBJ_DIR)/gc_vsc_vir_pass_mnger.o \
+	$(OBJ_DIR)/gc_vsc_vir_cfo.o \
+	$(OBJ_DIR)/gc_vsc_vir_cpp.o \
+	$(OBJ_DIR)/gc_vsc_vir_cse.o \
+	$(OBJ_DIR)/gc_vsc_vir_dce.o \
+	$(OBJ_DIR)/gc_vsc_vir_inline.o \
+	$(OBJ_DIR)/gc_vsc_vir_misc_opts.o \
+	$(OBJ_DIR)/gc_vsc_vir_peephole.o \
+	$(OBJ_DIR)/gc_vsc_vir_scalarization.o \
+	$(OBJ_DIR)/gc_vsc_vir_simplification.o \
+	$(OBJ_DIR)/gc_vsc_vir_fcp.o \
+	$(OBJ_DIR)/gc_vsc_vir_uniform.o \
+	$(OBJ_DIR)/gc_vsc_vir_cpf.o \
+	$(OBJ_DIR)/gc_vsc_vir_ep_gen.o \
+	$(OBJ_DIR)/gc_vsc_vir_ep_back_patch.o \
+	$(OBJ_DIR)/gc_vsc_vir_static_patch.o \
+	$(OBJ_DIR)/gc_vsc_vir_vectorization.o \
+	$(OBJ_DIR)/gc_vsc_vir_loop.o \
+	$(OBJ_DIR)/gc_vsc_vir_param_opts.o \
+	$(OBJ_DIR)/gc_vsc_debug.o \
+
+endif
+
+################################################################################
+# Define targets.
+
+.PHONY: all clean install
+
+all: $(TARGET_MODULE)
+
+clean:
+	@rm -rf $(OBJ_DIR)
+
+install: all
+	@mkdir -p $(INSTALL_DIR)
+	@-cp $(TARGET_MODULE) $(INSTALL_DIR)
+
+################################################################################
+# Module rules.
+
+ifeq ($(STATIC),1)
+$(TARGET_MODULE): $(OBJECTS)
+	$(AR) -r -c $@ $(OBJECTS)
+ifneq ($(USE_ARMCC), 1)
+	$(RANLIB) $@
+endif
+endif
+
+ifeq ($(DYNAMIC),1)
+
+$(TARGET_MODULE): $(wildcard $(AQROOT)/hal/user/$(OBJ_DIR)/libGAL.so \
+                             $(AQROOT)/hal/user/$(OBJ_DIR)/libGAL.a)
+
+$(TARGET_MODULE): $(OBJECTS)
+	$(CC) $(LFLAGS) -o $@ $(OBJECTS) $(LIBS)
+endif
+
+################################################################################
+# Object rules.
+
+vpath
+vpath %.c lib
+vpath %.c old_impl
+vpath %.c old_impl/optimizer
+
+ifeq ($(VSC_VIR_BUILD),1)
+  vpath %.c asm
+  vpath %.c chip/gpu
+  vpath %.c drvi
+  vpath %.c utils
+  vpath %.c utils/array
+  vpath %.c utils/base
+  vpath %.c utils/bitvector
+  vpath %.c utils/graph
+  vpath %.c utils/hash
+  vpath %.c utils/io
+  vpath %.c utils/list
+  vpath %.c utils/mm
+  vpath %.c utils/string
+  vpath %.c utils/table
+  vpath %.c utils/tree
+  vpath %.c vir/analysis
+  vpath %.c vir/codegen
+  vpath %.c vir/ir
+  vpath %.c vir/lower
+  vpath %.c vir/linker
+  vpath %.c vir/passmanager
+  vpath %.c vir/transform
+  vpath %.c debug
+endif
+
+$(OBJ_DIR)/%.o: %.c
+	@mkdir -p $(OBJ_DIR)
+	$(CC) -c $(CFLAGS) -MMD -o $@ $<
+
+# object dependencies.
+-include $(OBJECTS:.o=.d)
+
+else # FIXED_ARCH_TYPE
+
+OBJECTS :=
+
+clean: rmfile
+
+install: cpfile
+
+.PHONY: cpfile rmfile
+cpfile:
+	@-cp -f $(FIXED_ARCH_TYPE)/$(TARGET_NAME) $(INSTALL_DIR)
+
+rmfile:
+	@-rm -f $(INSTALL_DIR)/$(TARGET_NAME)
+
+endif # End FIXED_ARCH_TYPE
+
