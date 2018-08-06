@@ -155,6 +155,7 @@ extern struct device *galcore_device;
 \******************************************************************************/
 typedef struct _gcsIOMMU * gckIOMMU;
 
+#if gcdSECURE_USER
 typedef struct _gcsUSER_MAPPING * gcsUSER_MAPPING_PTR;
 typedef struct _gcsUSER_MAPPING
 {
@@ -177,6 +178,7 @@ typedef struct _gcsUSER_MAPPING
     gctINT8_PTR                 end;
 }
 gcsUSER_MAPPING;
+#endif
 
 typedef struct _gcsINTEGER_DB * gcsINTEGER_DB_PTR;
 typedef struct _gcsINTEGER_DB
@@ -210,7 +212,9 @@ struct _gckOS
     /* signal id database. */
     gcsINTEGER_DB               signalDB;
 
+#if gcdSECURE_USER
     gcsUSER_MAPPING_PTR         userMap;
+#endif
 
     /* workqueue for os timer. */
     struct workqueue_struct *   workqueue;

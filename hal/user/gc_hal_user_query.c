@@ -339,44 +339,44 @@ gcoHAL_IsFeatureAvailable1(
 **
 **  OUTPUT:
 **
-**      gctPHYS_ADDR * InternalAddress
+**      gctUINT32 * InternalPhysName
 **          Pointer to a variable that will hold the physical address of the
-**          internal memory.  If 'InternalAddress' is gcvNULL, no information about
+**          internal memory.  If 'InternalPhysName' is gcvNULL, no information about
 **          the internal memory will be returned.
 **
 **      gctSIZE_T * InternalSize
 **          Pointer to a variable that will hold the size of the internal
-**          memory.  'InternalSize' cannot be gcvNULL if 'InternalAddress' is not
+**          memory.  'InternalSize' cannot be gcvNULL if 'InternalPhysName' is not
 **          gcvNULL.
 **
-**      gctPHYS_ADDR * ExternalAddress
+**      gctUINT32 * ExternalPhysName
 **          Pointer to a variable that will hold the physical address of the
-**          external memory.  If 'ExternalAddress' is gcvNULL, no information about
+**          external memory.  If 'ExternalPhysName' is gcvNULL, no information about
 **          the external memory will be returned.
 **
 **      gctSIZE_T * ExternalSize
 **          Pointer to a variable that will hold the size of the external
-**          memory.  'ExternalSize' cannot be gcvNULL if 'ExternalAddress' is not
+**          memory.  'ExternalSize' cannot be gcvNULL if 'ExternalPhysName' is not
 **          gcvNULL.
 **
-**      gctPHYS_ADDR * ContiguousAddress
+**      gctUINT32 * ContiguousPhysName
 **          Pointer to a variable that will hold the physical address of the
-**          contiguous memory.  If 'ContiguousAddress' is gcvNULL, no information
+**          contiguous memory.  If 'ContiguousPhysName' is gcvNULL, no information
 **          about the contiguous memory will be returned.
 **
 **      gctSIZE_T * ContiguousSize
 **          Pointer to a variable that will hold the size of the contiguous
-**          memory.  'ContiguousSize' cannot be gcvNULL if 'ContiguousAddress' is
+**          memory.  'ContiguousSize' cannot be gcvNULL if 'ContiguousPhysName' is
 **          not gcvNULL.
 */
 gceSTATUS
 gcoHAL_QueryVideoMemory(
     IN gcoHAL Hal,
-    OUT gctPHYS_ADDR * InternalAddress,
+    OUT gctUINT32 * InternalPhysName,
     OUT gctSIZE_T * InternalSize,
-    OUT gctPHYS_ADDR * ExternalAddress,
+    OUT gctUINT32 * ExternalPhysName,
     OUT gctSIZE_T * ExternalSize,
-    OUT gctPHYS_ADDR * ContiguousAddress,
+    OUT gctUINT32 * ContiguousPhysName,
     OUT gctSIZE_T * ContiguousSize
     )
 {
@@ -385,15 +385,15 @@ gcoHAL_QueryVideoMemory(
     gcmHEADER();
 
     status = gcoOS_QueryVideoMemory(gcvNULL,
-                                    InternalAddress, InternalSize,
-                                    ExternalAddress, ExternalSize,
-                                    ContiguousAddress, ContiguousSize);
+                                    InternalPhysName, InternalSize,
+                                    ExternalPhysName, ExternalSize,
+                                    ContiguousPhysName, ContiguousSize);
 
-    gcmFOOTER_ARG("status=%d InternalAddress=0x%x InternalSize=%lu "
-                  "ExternalAddress=0x%x ExternalSize=%lu ContiguousAddress=0x%x "
-                  "ContiguousSize=%lu", status, gcmOPT_POINTER(InternalAddress),
-                  gcmOPT_VALUE(InternalSize), gcmOPT_POINTER(ExternalAddress),
-                  gcmOPT_VALUE(ExternalSize), gcmOPT_POINTER(ContiguousAddress),
+    gcmFOOTER_ARG("status=%d InternalPhysName=0x%x InternalSize=%lu "
+                  "ExternalPhysName=0x%x ExternalSize=%lu ContiguousPhysName=0x%x "
+                  "ContiguousSize=%lu", status, gcmOPT_VALUE(InternalPhysName),
+                  gcmOPT_VALUE(InternalSize), gcmOPT_VALUE(ExternalPhysName),
+                  gcmOPT_VALUE(ExternalSize), gcmOPT_VALUE(ContiguousPhysName),
                   gcmOPT_VALUE(ContiguousSize));
     return status;
 }

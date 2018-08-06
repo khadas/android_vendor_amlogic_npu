@@ -182,6 +182,7 @@ typedef struct _gckHARDWARE *       gckHARDWARE;
 
 #define gcdMAX_DRAW_BUFFERS            16
 
+#define gcdMAX_3DGPU_COUNT             4
 /*******************************************************************************
 **
 **  gcmVERIFY_OBJECT
@@ -331,16 +332,8 @@ gckOS_FreeMemory(
 gceSTATUS
 gckOS_AllocatePagedMemory(
     IN gckOS Os,
-    IN gctSIZE_T Bytes,
-    OUT gctPHYS_ADDR * Physical
-    );
-
-/* Allocate paged memory. */
-gceSTATUS
-gckOS_AllocatePagedMemoryEx(
-    IN gckOS Os,
     IN gctUINT32 Flag,
-    IN gctSIZE_T Bytes,
+    IN OUT gctSIZE_T * Bytes,
     OUT gctUINT32 * Gid,
     OUT gctPHYS_ADDR * Physical
     );
@@ -352,8 +345,7 @@ gckOS_LockPages(
     IN gctPHYS_ADDR Physical,
     IN gctSIZE_T Bytes,
     IN gctBOOL Cacheable,
-    OUT gctPOINTER * Logical,
-    OUT gctSIZE_T * PageCount
+    OUT gctPOINTER * Logical
     );
 
 /* Map pages. */
@@ -526,17 +518,6 @@ gckOS_UnmapMemoryEx(
 /* Unmap physical memory from the process space. */
 gceSTATUS
 gckOS_UnmapMemory(
-    IN gckOS Os,
-    IN gctPHYS_ADDR Physical,
-    IN gctSIZE_T Bytes,
-    IN gctPOINTER Logical
-    );
-
-/* Unmap user logical memory out of physical memory.
- * This function is only supported in Linux currently.
- */
-gceSTATUS
-gckOS_UnmapUserLogical(
     IN gckOS Os,
     IN gctPHYS_ADDR Physical,
     IN gctSIZE_T Bytes,
@@ -1085,7 +1066,8 @@ gckOS_WrapMemory(
     IN gcsUSER_MEMORY_DESC_PTR Desc,
     OUT gctSIZE_T *Bytes,
     OUT gctPHYS_ADDR * Physical,
-    OUT gctBOOL *Contiguous
+    OUT gctBOOL *Contiguous,
+    OUT gctSIZE_T * PageCountCpu
     );
 
 gceSTATUS
@@ -1231,7 +1213,7 @@ gceSTATUS
 gckOS_QueryOption(
     IN gckOS Os,
     IN gctCONST_STRING Option,
-    OUT gctUINT32 * Value
+    OUT gctUINT64 * Value
     );
 
 /******************************************************************************\
@@ -1652,12 +1634,6 @@ gckKERNEL_Notify(
     IN gceNOTIFY Notifcation
     );
 
-gceSTATUS
-gckKERNEL_QuerySettings(
-    IN gckKERNEL Kernel,
-    OUT gcsKERNEL_SETTINGS * Settings
-    );
-
 /*******************************************************************************
 **
 **  gckKERNEL_Recovery
@@ -1837,15 +1813,6 @@ gckHARDWARE_UpdateQueueTail(
     IN gckHARDWARE Hardware,
     IN gctPOINTER Logical,
     IN gctUINT32 Offset
-    );
-
-/* Convert logical address to hardware specific address. */
-gceSTATUS
-gckHARDWARE_ConvertLogical(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN gctBOOL InUserSpace,
-    OUT gctUINT32 * Address
     );
 
 /* Interrupt manager. */

@@ -97,6 +97,23 @@ gcoSHADER_BindUniform(
     );
 
 gceSTATUS
+gcoSHADER_BindUniformCombinedMode(
+    IN gcoHAL Hal,
+    IN gctUINT32 Address,
+    IN gctINT32 Physical,
+    IN gctSIZE_T Columns,
+    IN gctSIZE_T Rows,
+    IN gctSIZE_T Arrays,
+    IN gctBOOL   IsRowMajor,
+    IN gctSIZE_T MatrixStride,
+    IN gctSIZE_T ArrayStride,
+    IN gctCONST_POINTER Values[],
+    IN gctUINT32 ValuesCount,
+    IN gceUNIFORMCVT Convert,
+    IN gcSHADER_KIND Type
+    );
+
+gceSTATUS
 gcoSHADER_BindBufferBlock(
     IN gcoHAL Hal,
     IN gctUINT32 Address,

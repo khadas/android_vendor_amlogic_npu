@@ -96,7 +96,7 @@ typedef struct _gcsNN_CUSTOMIZED_FEATURE
     gctFLOAT axiBusWriteBWLimit;
     gctFLOAT axiBusTotalBWLimit;
     gctUINT  vipSWTiling;
-    gctUINT  profileMode;
+    gctUINT  ddrLatency;
 } gcsNN_CUSTOMIZED_FEATURE;
 
 /* Features are unified (hardcoded) for hardwares */
@@ -110,6 +110,17 @@ typedef struct _gcsNN_UNIFIED_FEATURE
     gctUINT  vipVectorPrune;
     gctUINT  vipCachedReadFromSram;
     gctUINT  vipImagePartialCache;
+    gctUINT  uscCacheControllers;
+    gctUINT  kernelStorageOptimization : 1;
+    gctUINT  conv1x1HalfPerformance : 1;
+    gctUINT  per3DTileBubble : 1;
+    gctUINT  cacheLineModeDisabled : 1;
+    gctUINT  swConv1x1To1x2 : 1;
+    gctUINT  tpLocalizationReorderDisabled : 1;
+    gctUINT  zdp3NoCompressFix : 1;
+    gctUINT  asyncCopyPerfFix : 1;
+    gctUINT  accurateTileBW : 1;
+    gctUINT  zxdp3KernelReadConflictFix : 1;
 } gcsNN_UNIFIED_FEATURE;
 
 /* Features are derived from above ones */
@@ -150,20 +161,18 @@ typedef struct _gcsSystemInfo
 gcsSystemInfo;
 
 
-#if gcdENABLE_3D
-#if gcdSYNC
 #define gcPLS_INITIALIZER \
 { \
     gcvNULL, /* gcoOS object.      */ \
     gcvNULL, /* gcoHAL object.     */ \
     0, /* internalSize       */ \
-    gcvNULL, /* internalPhysical   */ \
+    0, /* internalPhysName   */ \
     gcvNULL, /* internalLogical    */ \
     0, /* externalSize       */ \
-    gcvNULL, /* externalPhysical   */ \
+    0, /* externalPhysName   */ \
     gcvNULL, /* externalLogical    */ \
     0, /* contiguousSize     */ \
-    gcvNULL, /* contiguousPhysical */ \
+    0, /* contiguousPhysName */ \
     gcvNULL, /* contiguousLogical  */ \
     gcvNULL, /* eglDisplayInfo     */ \
     gcvNULL, /* eglSurfaceInfo     */ \
@@ -181,63 +190,6 @@ gcsSystemInfo;
     gcvPATCH_NOTINIT,/* global patchID     */ \
     gcvNULL, /* global fenceID*/ \
 }
-#else
-#define gcPLS_INITIALIZER \
-{ \
-    gcvNULL, /* gcoOS object.      */ \
-    gcvNULL, /* gcoHAL object.     */ \
-    0, /* internalSize       */ \
-    gcvNULL, /* internalPhysical   */ \
-    gcvNULL, /* internalLogical    */ \
-    0, /* externalSize       */ \
-    gcvNULL, /* externalPhysical   */ \
-    gcvNULL, /* externalLogical    */ \
-    0, /* contiguousSize     */ \
-    gcvNULL, /* contiguousPhysical */ \
-    gcvNULL, /* contiguousLogical  */ \
-    gcvNULL, /* eglDisplayInfo     */ \
-    gcvNULL, /* eglSurfaceInfo     */ \
-    gcvSURF_A8R8G8B8,/* eglConfigFormat    */ \
-    gcvNULL, /* reference          */ \
-    0, /* processID          */ \
-    0, /* threadID           */ \
-    gcvFALSE, /* exiting            */ \
-    gcvFALSE, /* Special flag for NP2 texture. */ \
-    gcvFALSE, /* device open.       */ \
-    gcvNULL, /* destructor         */ \
-    gcvNULL, /* accessLock         */ \
-    gcvNULL, /* GL FE compiler lock*/ \
-    gcvNULL, /* CL FE compiler lock*/ \
-    gcvPATCH_NOTINIT,/* global patchID     */ \
-}
-#endif
-#else
-#define gcPLS_INITIALIZER \
-{ \
-    gcvNULL, /* gcoOS object.      */ \
-    gcvNULL, /* gcoHAL object.     */ \
-    0, /* internalSize       */ \
-    gcvNULL, /* internalPhysical   */ \
-    gcvNULL, /* internalLogical    */ \
-    0, /* externalSize       */ \
-    gcvNULL, /* externalPhysical   */ \
-    gcvNULL, /* externalLogical    */ \
-    0, /* contiguousSize     */ \
-    gcvNULL, /* contiguousPhysical */ \
-    gcvNULL, /* contiguousLogical  */ \
-    gcvNULL, /* eglDisplayInfo     */ \
-    gcvNULL, /* eglSurfaceInfo     */ \
-    gcvSURF_A8R8G8B8,/* eglConfigFormat    */ \
-    gcvNULL, /* reference          */ \
-    0, /* processID          */ \
-    0, /* threadID           */ \
-    gcvFALSE, /* exiting            */ \
-    gcvFALSE, /* Special flag for NP2 texture. */ \
-    gcvFALSE, /* device open.       */ \
-    gcvNULL, /* destructor        */ \
-    gcvNULL, /* accessLock        */ \
-}
-#endif
 
 /******************************************************************************\
 ******************************* Thread local storage *************************
@@ -657,11 +609,11 @@ gcoOS_AddRecordAllocation(gctSIZE_T Size);
 gceSTATUS
 gcoHAL_QueryVideoMemory(
     IN gcoHAL Hal,
-    OUT gctPHYS_ADDR * InternalAddress,
+    OUT gctUINT32 * InternalPhysName,
     OUT gctSIZE_T * InternalSize,
-    OUT gctPHYS_ADDR * ExternalAddress,
+    OUT gctUINT32 * ExternalPhysName,
     OUT gctSIZE_T * ExternalSize,
-    OUT gctPHYS_ADDR * ContiguousAddress,
+    OUT gctUINT32 * ContiguousPhysName,
     OUT gctSIZE_T * ContiguousSize
     );
 
@@ -669,7 +621,7 @@ gcoHAL_QueryVideoMemory(
 gceSTATUS
 gcoHAL_MapMemory(
     IN gcoHAL Hal,
-    IN gctPHYS_ADDR Physical,
+    IN gctUINT32 PhysName,
     IN gctSIZE_T NumberOfBytes,
     OUT gctPOINTER * Logical
     );
@@ -678,7 +630,7 @@ gcoHAL_MapMemory(
 gceSTATUS
 gcoHAL_UnmapMemory(
     IN gcoHAL Hal,
-    IN gctPHYS_ADDR Physical,
+    IN gctUINT32 PhysName,
     IN gctSIZE_T NumberOfBytes,
     IN gctPOINTER Logical
     );
@@ -687,7 +639,7 @@ gcoHAL_UnmapMemory(
 gceSTATUS
 gcoHAL_ScheduleUnmapMemory(
     IN gcoHAL Hal,
-    IN gctPHYS_ADDR Physical,
+    IN gctUINT32 PhysName,
     IN gctSIZE_T NumberOfBytes,
     IN gctPOINTER Logical
     );
@@ -718,7 +670,7 @@ gcoOS_LockVideoMemory(
     IN gctPOINTER Handle,
     IN gctBOOL InUserSpace,
     IN gctBOOL InCacheable,
-    OUT gctUINT32 * Physical,
+    OUT gctUINT32 * Address,
     OUT gctPOINTER * Logical
     );
 
@@ -991,7 +943,7 @@ gcoHAL_LockVideoMemory(
     IN gctUINT32 Node,
     IN gctBOOL Cacheable,
     IN gceENGINE engine,
-    OUT gctUINT32 * Physical,
+    OUT gctUINT32 * Address,
     OUT gctPOINTER * Logical
     );
 
@@ -1235,26 +1187,6 @@ gcoOS_DeviceControl(
     IN gctSIZE_T OutputBufferSize
     );
 
-/* Allocate non paged memory. */
-gceSTATUS
-gcoOS_AllocateNonPagedMemory(
-    IN gcoOS Os,
-    IN gctBOOL InUserSpace,
-    IN gctUINT32 Flags,
-    IN OUT gctSIZE_T * Bytes,
-    OUT gctPHYS_ADDR * Physical,
-    OUT gctPOINTER * Logical
-    );
-
-/* Free non paged memory. */
-gceSTATUS
-gcoOS_FreeNonPagedMemory(
-    IN gcoOS Os,
-    IN gctPHYS_ADDR Physical,
-    IN gctPOINTER Logical,
-    IN gctSIZE_T Bytes
-    );
-
 #define gcmOS_SAFE_FREE(os, mem) \
     gcoOS_Free(os, mem); \
     mem = gcvNULL
@@ -1351,6 +1283,22 @@ gcoOS_DupFD(
     IN gcoOS Os,
     IN gctINT FD,
     OUT gctINT * FD2
+    );
+
+/* Lock a file. */
+gceSTATUS
+gcoOS_LockFile(
+    IN gcoOS Os,
+    IN gctFILE File,
+    IN gctBOOL Shared,
+    IN gctBOOL Block
+    );
+
+/* Unlock a file. */
+gceSTATUS
+gcoOS_UnlockFile(
+    IN gcoOS Os,
+    IN gctFILE File
     );
 
 /* Create an endpoint for communication. */
@@ -1627,11 +1575,11 @@ gcoOS_GetPhysicalSystemMemorySize(
 gceSTATUS
 gcoOS_QueryVideoMemory(
     IN gcoOS Os,
-    OUT gctPHYS_ADDR * InternalAddress,
+    OUT gctUINT32 * InternalPhysName,
     OUT gctSIZE_T * InternalSize,
-    OUT gctPHYS_ADDR * ExternalAddress,
+    OUT gctUINT32 * ExternalPhysName,
     OUT gctSIZE_T * ExternalSize,
-    OUT gctPHYS_ADDR * ContiguousAddress,
+    OUT gctUINT32 * ContiguousPhysName,
     OUT gctSIZE_T * ContiguousSize
     );
 
@@ -2358,7 +2306,7 @@ gcoSURF_MapUserSurface(
     IN gcoSURF Surface,
     IN gctUINT Alignment,
     IN gctPOINTER Logical,
-    IN gctUINT32 Physical
+    IN gctPHYS_ADDR_T Physical
     );
 
 /* Wrapp surface with known logical/GPU address */
@@ -2367,7 +2315,7 @@ gcoSURF_WrapSurface(
     IN gcoSURF Surface,
     IN gctUINT Alignment,
     IN gctPOINTER Logical,
-    IN gctUINT32 Physical
+    IN gctUINT32 Address
     );
 
 
@@ -4018,8 +3966,8 @@ gcoOS_Dump(
 **      gctSTRING Tag
 **          Tag for dump.
 **
-**      gctUINT32 Physical
-**          Physical address of buffer.
+**      gctUINT32 Address
+**          GPU address of buffer.
 **
 **      gctPOINTER Logical
 **          Logical address of buffer.
@@ -4036,7 +3984,7 @@ gceSTATUS
 gcoOS_DumpBuffer(
     IN gcoOS Os,
     IN gceDUMP_BUFFER_TYPE Type,
-    IN gctUINT32 Physical,
+    IN gctUINT32 Address,
     IN gctPOINTER Logical,
     IN gctSIZE_T Offset,
     IN gctSIZE_T Bytes

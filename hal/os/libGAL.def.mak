@@ -25,7 +25,6 @@ EXPORTS
     gcoOS_AddSignalHandler
     gcoOS_Allocate
     gcoOS_AllocateMemory
-    gcoOS_AllocateNonPagedMemory
     gcoOS_AllocateSharedMemory
     gcoOS_AtomConstruct
     gcoOS_AtomDestroy
@@ -55,7 +54,6 @@ EXPORTS
     gcoOS_Flush
     gcoOS_Free
     gcoOS_FreeLibrary
-    gcoOS_FreeNonPagedMemory
     gcoOS_FreeSharedMemory
     gcoOS_FreeThreadData
     gcoOS_FreeMemory
@@ -139,6 +137,8 @@ EXPORTS
     gcoOS_DetectProcessByName
     gcoOS_DetectProcessByEncryptedName
     gcoOS_FscanfI
+    gcoOS_LockFile
+    gcoOS_UnlockFile
 
     gcoOS_SysTraceBegin
     gcoOS_SysTraceEnd
@@ -621,6 +621,7 @@ EXPORTS
     gcLoadShaders
     gcInvokeThreadWalker
     gcoSHADER_BindUniform
+    gcoSHADER_BindUniformCombinedMode
     gcoSHADER_ProgramUniform
     gcoSHADER_ProgramUniformEx
     gcoSHADER_BindBufferBlock
@@ -745,7 +746,6 @@ EXPORTS
     gcoVX_Commit
     gcoVX_AllocateMemory
     gcoVX_FreeMemory
-    gcoVX_DestroyInstruction
     gcoVX_KernelConstruct
     gcoVX_LockKernel
     gcoVX_Replay

@@ -299,14 +299,6 @@ __RemoveRecordFromProcessDB(
 
     switch (Record->info.command)
     {
-    case gcvHAL_FREE_NON_PAGED_MEMORY:
-        gcmkVERIFY_OK(gckKERNEL_RemoveProcessDB(
-            Event->kernel,
-            Record->processID,
-            gcvDB_NON_PAGED,
-            gcmUINT64_TO_PTR(Record->info.u.FreeNonPagedMemory.logical)));
-        break;
-
     case gcvHAL_UNLOCK_VIDEO_MEMORY:
         gcmkVERIFY_OK(gckKERNEL_RemoveProcessDB(
             Event->kernel,
@@ -964,7 +956,6 @@ gckEVENT_AddList(
     gctBOOL acquired = gcvFALSE;
     gcsEVENT_PTR record = gcvNULL;
     gcsEVENT_QUEUE_PTR queue;
-    gckKERNEL kernel = Event->kernel;
 
     gcmkHEADER_ARG("Event=0x%x Interface=0x%x",
                    Event, Interface);
@@ -979,8 +970,7 @@ gckEVENT_AddList(
 
     /* Verify the event command. */
     gcmkASSERT
-        (  (Interface->command == gcvHAL_FREE_NON_PAGED_MEMORY)
-        || (Interface->command == gcvHAL_WRITE_DATA)
+        (  (Interface->command == gcvHAL_WRITE_DATA)
         || (Interface->command == gcvHAL_UNLOCK_VIDEO_MEMORY)
         || (Interface->command == gcvHAL_SIGNAL)
         || (Interface->command == gcvHAL_TIMESTAMP)
@@ -1028,24 +1018,6 @@ gckEVENT_AddList(
 #ifdef __QNXNTO__
     record->kernel = Event->kernel;
 #endif
-
-    /* Unmap user space logical address.
-     * Linux kernel does not support unmap the memory of other process any more since 3.5.
-     * Let's unmap memory of self process before submit the event to gpu.
-     * */
-    switch(Interface->command)
-    {
-    case gcvHAL_FREE_NON_PAGED_MEMORY:
-        gcmkONERROR(gckOS_UnmapUserLogical(
-                        Event->os,
-                        gcmNAME_TO_PTR(Interface->u.FreeNonPagedMemory.physName),
-                        (gctSIZE_T) Interface->u.FreeNonPagedMemory.bytes,
-                        gcmUINT64_TO_PTR(Interface->u.FreeNonPagedMemory.logical)));
-        break;
-
-    default:
-        break;
-    }
 
     /* Acquire the mutex. */
     gcmkONERROR(gckOS_AcquireMutex(Event->os, Event->eventListMutex, gcvINFINITE));
@@ -1161,71 +1133,6 @@ gckEVENT_Unlock(
     iface.command                           = gcvHAL_UNLOCK_VIDEO_MEMORY;
     iface.u.UnlockVideoMemory.node          = gcmPTR_TO_UINT64(Node);
     iface.u.UnlockVideoMemory.asynchroneous = 0;
-
-    /* Append it to the queue. */
-    gcmkONERROR(gckEVENT_AddList(Event, &iface, FromWhere, gcvFALSE, gcvTRUE));
-
-    /* Success. */
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
-
-OnError:
-    /* Return the status. */
-    gcmkFOOTER();
-    return status;
-}
-
-/*******************************************************************************
-**
-**  gckEVENT_FreeNonPagedMemory
-**
-**  Schedule an event to free non-paged memory.
-**
-**  INPUT:
-**
-**      gckEVENT Event
-**          Pointer to an gckEVENT object.
-**
-**      gctPHYS_ADDR Physical
-**          Physical address of non-paged memory to free.
-**
-**      gctPOINTER Logical
-**          Logical address of non-paged memory to free.
-**
-**      gctSIZE_T Bytes
-**          Number of bytes of non-paged memory to free.
-**
-**      gceKERNEL_WHERE FromWhere
-**          Place in the pipe where the event needs to be generated.
-*/
-gceSTATUS
-gckEVENT_FreeNonPagedMemory(
-    IN gckEVENT Event,
-    IN gctPHYS_ADDR Physical,
-    IN gctPOINTER Logical,
-    IN gctSIZE_T Bytes,
-    IN gceKERNEL_WHERE FromWhere
-    )
-{
-    gceSTATUS status;
-    gcsHAL_INTERFACE iface;
-    gckKERNEL kernel = Event->kernel;
-
-    gcmkHEADER_ARG("Event=0x%x Bytes=%lu Physical=0x%x Logical=0x%x "
-                   "FromWhere=%d",
-                   Event, Bytes, Physical, Logical, FromWhere);
-
-    /* Verify the arguments. */
-    gcmkVERIFY_OBJECT(Event, gcvOBJ_EVENT);
-    gcmkVERIFY_ARGUMENT(Physical != gcvNULL);
-    gcmkVERIFY_ARGUMENT(Logical != gcvNULL);
-    gcmkVERIFY_ARGUMENT(Bytes > 0);
-
-    /* Create an event. */
-    iface.command = gcvHAL_FREE_NON_PAGED_MEMORY;
-    iface.u.FreeNonPagedMemory.bytes    = Bytes;
-    iface.u.FreeNonPagedMemory.physName = gcmPTR_TO_NAME(Physical);
-    iface.u.FreeNonPagedMemory.logical  = gcmPTR_TO_UINT64(Logical);
 
     /* Append it to the queue. */
     gcmkONERROR(gckEVENT_AddList(Event, &iface, FromWhere, gcvFALSE, gcvTRUE));
@@ -1375,12 +1282,10 @@ gckEVENT_Submit(
     gctBOOL acquired = gcvFALSE;
     gckCOMMAND command = gcvNULL;
     gctBOOL commitEntered = gcvFALSE;
-#if !gcdNULL_DRIVER
     gctUINT32 bytes;
     gctPOINTER buffer;
     gctUINT32 executeBytes;
     gctUINT32 flushBytes;
-#endif
 
 #if gcdINTERRUPT_STATISTIC
     gctINT32 oldValue;
@@ -1459,20 +1364,6 @@ gckEVENT_Submit(
             gcmkONERROR(gckOS_ReleaseMutex(Event->os, Event->eventListMutex));
             acquired = gcvFALSE;
 
-#if gcdNULL_DRIVER
-#if gcdINTERRUPT_STATISTIC
-            gcmkVERIFY_OK(gckOS_AtomIncrement(
-                Event->os,
-                Event->interruptCount,
-                &oldValue
-                ));
-#endif
-
-            /* Notify immediately on infinite hardware. */
-            gcmkONERROR(gckEVENT_Interrupt(Event, 1 << id));
-
-            gcmkONERROR(gckEVENT_Notify(Event, 0));
-#else
 
             if (command->feType == gcvHW_FE_WAIT_LINK)
             {
@@ -1599,6 +1490,12 @@ gckEVENT_Submit(
                 /* Execute the hardware event. */
                 gcmkONERROR(gckCOMMAND_ExecuteMultiChannel(command, 0, 0, executeBytes));
             }
+
+#if gcdNULL_DRIVER
+            /* Notify immediately on infinite hardware. */
+            gcmkONERROR(gckEVENT_Interrupt(Event, 1 << id));
+
+            gcmkONERROR(gckEVENT_Notify(Event, 0));
 #endif
         }
 
@@ -1851,7 +1748,6 @@ gckEVENT_Notify(
     gctBOOL acquired = gcvFALSE;
     gctSIGNAL signal;
     gctUINT pending = 0;
-    gckKERNEL kernel = Event->kernel;
 
 #if gcmIS_DEBUG(gcdDEBUG_TRACE)
     gctINT eventNumber = 0;
@@ -2095,31 +1991,6 @@ gckEVENT_Notify(
 
             switch (record->info.command)
             {
-            case gcvHAL_FREE_NON_PAGED_MEMORY:
-                gcmkTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_EVENT,
-                               "gcvHAL_FREE_NON_PAGED_MEMORY: 0x%x",
-                               gcmNAME_TO_PTR(record->info.u.FreeNonPagedMemory.physName));
-
-                /* Free non-paged memory. */
-                status = gckOS_FreeNonPagedMemory(
-                            Event->os,
-                            gcmNAME_TO_PTR(record->info.u.FreeNonPagedMemory.physName),
-                            gcmUINT64_TO_PTR(record->info.u.FreeNonPagedMemory.logical),
-                            (gctSIZE_T) record->info.u.FreeNonPagedMemory.bytes);
-
-                if (gcmIS_SUCCESS(status))
-                {
-#if gcdSECURE_USER
-                    gcmkVERIFY_OK(gckKERNEL_FlushTranslationCache(
-                        Event->kernel,
-                        cache,
-                        gcmUINT64_TO_PTR(record->record.u.FreeNonPagedMemory.logical),
-                        (gctSIZE_T) record->record.u.FreeNonPagedMemory.bytes));
-#endif
-                }
-                gcmRELEASE_NAME(record->info.u.FreeNonPagedMemory.physName);
-                break;
-
             case gcvHAL_WRITE_DATA:
 #ifndef __QNXNTO__
                 /* Convert physical into logical address. */
@@ -2483,10 +2354,6 @@ _PrintRecord(
 {
     switch (record->info.command)
     {
-    case gcvHAL_FREE_NON_PAGED_MEMORY:
-        gcmkPRINT("      gcvHAL_FREE_NON_PAGED_MEMORY");
-            break;
-
     case gcvHAL_WRITE_DATA:
         gcmkPRINT("      gcvHAL_WRITE_DATA");
        break;

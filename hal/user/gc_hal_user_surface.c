@@ -2361,8 +2361,8 @@ gcoSURF_QueryVidMemNode(
 **          Logical pointer to the user allocated surface or gcvNULL if no
 **          logical pointer has been provided.
 **
-**      gctUINT32 Physical
-**          Physical pointer(GPU address) to the user allocated surface.
+**      gctUINT32 Address
+**          GPU address to the user allocated surface.
 **
 **  OUTPUT:
 **
@@ -2373,7 +2373,7 @@ gcoSURF_WrapSurface(
     IN gcoSURF Surface,
     IN gctUINT Alignment,
     IN gctPOINTER Logical,
-    IN gctUINT32 Physical
+    IN gctUINT32 Address
     )
 {
     gceSTATUS status = gcvSTATUS_OK;
@@ -2381,8 +2381,8 @@ gcoSURF_WrapSurface(
 
     gceHARDWARE_TYPE currentType = gcvHARDWARE_INVALID;
 
-    gcmHEADER_ARG("Surface=0x%x Alignment=%u Logical=0x%x Physical=%08x",
-              Surface, Alignment, Logical, Physical);
+    gcmHEADER_ARG("Surface=0x%x Alignment=%u Logical=0x%x Address=%08x",
+              Surface, Alignment, Logical, Address);
 
     /* Verify the arguments. */
     gcmVERIFY_OBJECT(Surface, gcvOBJ_SURF);
@@ -2410,8 +2410,8 @@ gcoSURF_WrapSurface(
 
             gcmGETHARDWAREADDRESS(Surface->node, address);
 
-            if ((Physical != gcvINVALID_ADDRESS) &&
-                (Physical != address))
+            if ((Address != gcvINVALID_ADDRESS) &&
+                (Address != address))
             {
                 status = gcvSTATUS_INVALID_ARGUMENT;
                 break;
@@ -2452,10 +2452,10 @@ gcoSURF_WrapSurface(
         Surface->node.u.normal.node = 0;
 
         Surface->node.logical                 = Logical;
-        gcsSURF_NODE_SetHardwareAddress(&Surface->node, Physical);
+        gcsSURF_NODE_SetHardwareAddress(&Surface->node, Address);
         Surface->node.count                   = 1;
 
-        Surface->node.u.wrapped.physical = Physical;
+        Surface->node.u.wrapped.physical = Address;
     }
     while (gcvFALSE);
 
@@ -2484,7 +2484,7 @@ gcoSURF_WrapSurface(
 **          Logical pointer to the user allocated surface or gcvNULL if no
 **          logical pointer has been provided.
 **
-**      gctUINT32 Physical
+**      gctPHYS_ADDR_T Physical
 **          Physical pointer to the user allocated surface or gcvINVALID_ADDRESS if no
 **          physical pointer has been provided.
 **
@@ -2497,7 +2497,7 @@ gcoSURF_MapUserSurface(
     IN gcoSURF Surface,
     IN gctUINT Alignment,
     IN gctPOINTER Logical,
-    IN gctUINT32 Physical
+    IN gctPHYS_ADDR_T Physical
     )
 {
     gceSTATUS status = gcvSTATUS_OK;
@@ -2507,7 +2507,7 @@ gcoSURF_MapUserSurface(
     gctUINT32 address;
     gcsUSER_MEMORY_DESC desc;
 
-    gcmHEADER_ARG("Surface=0x%x Alignment=%u Logical=0x%x Physical=%08x",
+    gcmHEADER_ARG("Surface=0x%x Alignment=%u Logical=0x%x Physical=%010llx",
               Surface, Alignment, Logical, Physical);
 
     /* Verify the arguments. */
@@ -11115,7 +11115,7 @@ gcsSURF_NODE_Construct(
 
     iface.command   = gcvHAL_ALLOCATE_LINEAR_VIDEO_MEMORY;
 
-    gcmSAFECASTSIZET(alvm->bytes, Bytes);
+    alvm->bytes = Bytes;
 
     alvm->alignment = Alignment;
     alvm->type      = Type;
@@ -11138,7 +11138,7 @@ gcsSURF_NODE_Construct(
 
         Node->u.normal.node = alvm->node;
         Node->pool          = alvm->pool;
-        Node->size          = alvm->bytes;
+        Node->size          = (gctSIZE_T)alvm->bytes;
     }
     else
     {

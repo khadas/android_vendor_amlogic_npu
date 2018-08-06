@@ -97,16 +97,16 @@ gckKERNEL_QueryVideoMemory(
 
     /* Get internal memory size and physical address. */
     Interface->u.QueryVideoMemory.internalSize = device->internalSize;
-    Interface->u.QueryVideoMemory.internalPhysical = device->internalPhysicalName;
+    Interface->u.QueryVideoMemory.internalPhysName = device->internalPhysName;
 
     /* Get external memory size and physical address. */
     Interface->u.QueryVideoMemory.externalSize = device->externalSize;
-    Interface->u.QueryVideoMemory.externalPhysical = device->externalPhysicalName;
+    Interface->u.QueryVideoMemory.externalPhysName = device->externalPhysName;
 
     /* Get contiguous memory size and physical address. */
     Interface->u.QueryVideoMemory.contiguousSize = device->contiguousSize;
-    Interface->u.QueryVideoMemory.contiguousPhysical = device->contiguousPhysicalName;
-	
+    Interface->u.QueryVideoMemory.contiguousPhysName = device->contiguousPhysName;
+
     /* Success. */
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
@@ -399,29 +399,4 @@ gckKERNEL_Notify(
     /* Success. */
     gcmkFOOTER();
     return status;
-}
-
-gceSTATUS
-gckKERNEL_QuerySettings(
-    IN gckKERNEL Kernel,
-    OUT gcsKERNEL_SETTINGS * Settings
-    )
-{
-    gckGALDEVICE device;
-
-    gcmkHEADER_ARG("Kernel=%p", Kernel);
-
-    /* Verify the arguments. */
-    gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
-    gcmkVERIFY_ARGUMENT(Settings != gcvNULL);
-
-    /* Extract the pointer to the gckGALDEVICE class. */
-    device = (gckGALDEVICE) Kernel->context;
-
-    /* Fill in signal. */
-    Settings->signal = device->signal;
-
-    /* Success. */
-    gcmkFOOTER_ARG("Settings->signal=%d", Settings->signal);
-    return gcvSTATUS_OK;
 }

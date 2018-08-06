@@ -1069,16 +1069,6 @@ gckEVENT_AddList(
     IN gctBOOL FromKernel
     );
 
-/* Schedule a FreeNonPagedMemory event. */
-gceSTATUS
-gckEVENT_FreeNonPagedMemory(
-    IN gckEVENT Event,
-    IN gctPHYS_ADDR Physical,
-    IN gctPOINTER Logical,
-    IN gctSIZE_T Bytes,
-    IN gceKERNEL_WHERE FromWhere
-    );
-
 /* Schedule a FreeVideoMemory event. */
 gceSTATUS
 gckEVENT_FreeVideoMemory(

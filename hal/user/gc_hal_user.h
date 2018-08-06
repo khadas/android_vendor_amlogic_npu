@@ -624,6 +624,12 @@ gcoHARDWARE_GetMultiGPUMode(
     );
 
 gceSTATUS
+gcoHARDWARE_GetConfigGpuCount(
+        IN gcoHARDWARE Hardware,
+        OUT gctUINT32 *CoreCount
+        );
+
+gceSTATUS
 gcoHARDWARE_MultiGPUSync(
     IN gcoHARDWARE Hardware,
     OUT gctUINT32_PTR *Memory
@@ -652,7 +658,7 @@ gceSTATUS gcoHARDWARE_MultiGPUSyncV3(
 gceSTATUS
 gcoHARDWARE_MultiGPUCacheFlush(
     IN gcoHARDWARE Hardware,
-    OUT gctUINT32_PTR *Memory
+    INOUT gctUINT32_PTR *Memory
     );
 
 gceSTATUS
@@ -2811,6 +2817,7 @@ typedef enum _gceVX_PatternMode
     gcvVX_PARTTERN_MODE_BOX,
     gcvVX_PARTTERN_MODE_CROSS,
     gcvVX_PARTTERN_MODE_DISK,
+    gcvVX_PARTTERN_MODE_OTHER,
 }
 gceVX_PatternMode;
 
@@ -2912,12 +2919,16 @@ typedef struct _vx_drv_option
     gctUINT enableNNInt16Alu;
     gctUINT enableTfQuant;
     gctUINT enableNNXYDP9;
+    gctUINT enableNNXYDP6;
+    gctUINT enableSwtilingPhase1;
     gctUINT enableSwtilingPhase2;
+    gctUINT enableHandleBranch; /*merge more branches to use AB Buffer for SWTiling for arch model*/
     gctUINT enableNNFirstPixelPooling;
     gctUINT enablePrintOperaTarget;
     gctUINT enableSaveNetworkBinary;
     gctUINT enableGraphCommandBuffer;
     gctUINT nnFormulaOpt;
+    gctUINT ddrLatency;
     gctFLOAT ddrReadBWLimit;
     gctFLOAT ddrWriteBWLimit;
     gctFLOAT ddrTotalBWLimit;
@@ -2932,8 +2943,6 @@ typedef struct _vx_drv_option
     gctSTRING graphPerfLogFile;
     gctUINT nnZeroRunLen;
     gctINT  tpZeroRunLen;
-    gctUINT enableNNFCAccel;
-    gctUINT nnFCAccelThreshold;
     gctUINT enableNNArchPerfPrint;
     gctUINT enableNNLayerDump;
     gctUINT enableInterleave8;
@@ -2945,7 +2954,10 @@ typedef struct _vx_drv_option
 #define COLLECT_PERF_RUN       0
 #define COLLECT_PERF_ESTIMATE  1
     gctUINT collectPerfType;
-    gctUINT enableAdapter;
+    gctUINT enableGraphAdapter;
+    gctUINT enableZdpOpt;
+    gctUINT nn1x1To1xN;
+    gctUINT enableGraphTranform;
 }
 vx_drv_option;
 
@@ -3216,6 +3228,7 @@ typedef struct _gcoVX_Hardware_Context
     gctPOINTER              *devices;
 #endif
 
+    gctBOOL             hasBarrier;
 }
 gcoVX_Hardware_Context;
 
@@ -4565,9 +4578,10 @@ gcoHARDWARE_BindUniformEx(
     IN gctBOOL IsRowMajor,
     IN gctUINT MatrixStride,
     IN gctUINT ArrayStride,
-    IN gctCONST_POINTER Values,
+    IN gctCONST_POINTER Values[],
     IN gceUNIFORMCVT Convert,
-    IN gcSHADER_KIND Type
+    IN gcSHADER_KIND Type,
+    IN gctBOOL CombinedMode /* every GPU has his own uniform value*/
     );
 
 gceSTATUS

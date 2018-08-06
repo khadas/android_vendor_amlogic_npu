@@ -132,9 +132,6 @@ ifeq ($(VIVANTE_ENABLE_3D),1)
              $(OBJ_DIR)/gc_hal_user_shader.o \
              $(OBJ_DIR)/gc_hal_user_resource.o
 
-  ifeq ($(USE_OPENCL),1)
-    OBJECTS += $(OBJ_DIR)/gc_hal_user_cl.o
-  endif
 
   ifeq ($(USE_OPENVX),1)
     OBJECTS += $(OBJ_DIR)/gc_hal_user_vx.o

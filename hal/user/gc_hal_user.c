@@ -185,6 +185,7 @@ _FillInOptions(
     gcOptions[gcvOPTION_OCL_IN_THREAD] = gcvTRUE;
     gcOptions[gcvOPTION_COMPRESSION_DEC400] = gcvTRUE;
     gcOptions[gcvOPTION_OCL_VIR_SHADER] = gcvTRUE;
+    gcOptions[gcvOPTION_OCL_USE_MULTI_DEVICES] = gcvFALSE;
 
 
     gcOptions[gcvOPTION_FBO_PREFER_MEM] = gcvFALSE;
@@ -232,6 +233,22 @@ _FillInOptions(
         }
     }
 
+    /* if VIV_MGPU_AFFINITY is COMBINED , VIV_OCL_USE_MULTI_DEVICE is ignore
+        if VIV_MGPU_AFFINITY is INDEPENENT, single device if VIV_OCL_USE_MULTI_DEVICE is false else get mulit-device .
+    */
+    envctrl = gcvNULL;
+    gcoOS_GetEnv(gcvNULL,"VIV_OCL_USE_MULTI_DEVICE", &envctrl);
+    if(envctrl == gcvNULL || envctrl[0] == '0')
+    {
+
+         gcOptions[gcvOPTION_OCL_USE_MULTI_DEVICES] = gcvFALSE;
+
+    }
+    else  if(envctrl[0] == '1')/* VIV_MGPU_AFFINITY is INDEPENENT */
+    {
+         gcOptions[gcvOPTION_OCL_USE_MULTI_DEVICES] = gcvTRUE;
+    }
+
 #if gcdUSE_VX
     envctrl = gcvNULL;
     gcOptions[gcvOPTION_OVX_ENABLE_NN_ZDP3] = gcvTRUE;
@@ -254,12 +271,12 @@ _FillInOptions(
     }
 
     envctrl = gcvNULL;
-    gcOptions[gcvOPTION_OVX_ENABLE_NN_SWTILING_PHASE1] = gcvTRUE;
-    if (gcmIS_SUCCESS(gcoOS_GetEnv(gcvNULL, "VIV_VX_ENABLE_SWTILING_PHASE1", &envctrl)) && envctrl)
+    gcOptions[gcvOPTION_OVX_ENABLE_NN_STRIDE] = gcvTRUE;
+    if (gcmIS_SUCCESS(gcoOS_GetEnv(gcvNULL, "VIV_VX_ENABLE_NN_STRIDE", &envctrl)) && envctrl)
     {
         if (gcmIS_SUCCESS(gcoOS_StrCmp(envctrl, "0")))
         {
-            gcOptions[gcvOPTION_OVX_ENABLE_NN_SWTILING_PHASE1] = gcvFALSE;
+            gcOptions[gcvOPTION_OVX_ENABLE_NN_STRIDE] = gcvFALSE;
         }
     }
 
@@ -716,8 +733,8 @@ OnError:
 **      gcoHAL Hal
 **          Pointer to an gcoHAL object.
 **
-**      gctPHYS_ADDR Physical
-**          Physical address of video memory to map.
+**      gctUINT32 PhysName
+**          Physical memory name of video memory to map.
 **
 **      gctSIZE_T NumberOfBytes
 **          Number of bytes to map.
@@ -731,7 +748,7 @@ OnError:
 gceSTATUS
 gcoHAL_MapMemory(
     IN gcoHAL Hal,
-    IN gctPHYS_ADDR Physical,
+    IN gctUINT32 PhysName,
     IN gctSIZE_T NumberOfBytes,
     OUT gctPOINTER * Logical
     )
@@ -739,15 +756,15 @@ gcoHAL_MapMemory(
     gcsHAL_INTERFACE iface;
     gceSTATUS status;
 
-    gcmHEADER_ARG("Physical=0x%x NumberOfBytes=%lu",
-                  Physical, NumberOfBytes);
+    gcmHEADER_ARG("PhysName=0x%x NumberOfBytes=%lu",
+                  PhysName, NumberOfBytes);
 
     /* Verify the arguments. */
     gcmVERIFY_ARGUMENT(Logical != gcvNULL);
 
     /* Call kernel API to map the memory. */
     iface.command              = gcvHAL_MAP_MEMORY;
-    iface.u.MapMemory.physical = gcmPTR2INT32(Physical);
+    iface.u.MapMemory.physName = PhysName;
     iface.u.MapMemory.bytes    = NumberOfBytes;
     gcmONERROR(gcoHAL_Call(gcvNULL, &iface));
 
@@ -775,8 +792,8 @@ OnError:
 **      gcoHAL Hal
 **          Pointer to an gcoHAL object.
 **
-**      gctPHYS_ADDR Physical
-**          Physical address of video memory to unmap.
+**      gctUINT32 PhysName
+**          Physical memory name of video memory to unmap.
 **
 **      gctSIZE_T NumberOfBytes
 **          Number of bytes to unmap.
@@ -791,7 +808,7 @@ OnError:
 gceSTATUS
 gcoHAL_UnmapMemory(
     IN gcoHAL Hal,
-    IN gctPHYS_ADDR Physical,
+    IN gctUINT32 PhysName,
     IN gctSIZE_T NumberOfBytes,
     IN gctPOINTER Logical
     )
@@ -799,15 +816,15 @@ gcoHAL_UnmapMemory(
     gcsHAL_INTERFACE iface;
     gceSTATUS status;
 
-    gcmHEADER_ARG("Physical=0x%x NumberOfBytes=%lu Logical=0x%x",
-                  Physical, NumberOfBytes, Logical);
+    gcmHEADER_ARG("PhysName=0x%x NumberOfBytes=%lu Logical=0x%x",
+                  PhysName, NumberOfBytes, Logical);
 
     /* Verify the arguments. */
     gcmVERIFY_ARGUMENT(Logical != gcvNULL);
 
     /* Call kernel API to unmap the memory. */
     iface.command                = gcvHAL_UNMAP_MEMORY;
-    iface.u.UnmapMemory.physical = gcmPTR2INT32(Physical);
+    iface.u.UnmapMemory.physName = PhysName;
     iface.u.UnmapMemory.bytes    = NumberOfBytes;
     iface.u.UnmapMemory.logical  = gcmPTR_TO_UINT64(Logical);
     status = gcoHAL_Call(gcvNULL, &iface);
@@ -828,8 +845,8 @@ gcoHAL_UnmapMemory(
 **      gcoHAL Hal
 **          Pointer to an gcoHAL object.
 **
-**      gctPHYS_ADDR Physical
-**          Physical address of video memory to unmap.
+**      gctUINT32 PhysName
+**          Physical memory name of video memory to unmap.
 **
 **      gctSIZE_T NumberOfBytes
 **          Number of bytes to unmap.
@@ -844,7 +861,7 @@ gcoHAL_UnmapMemory(
 gceSTATUS
 gcoHAL_ScheduleUnmapMemory(
     IN gcoHAL Hal,
-    IN gctPHYS_ADDR Physical,
+    IN gctUINT32 PhysName,
     IN gctSIZE_T NumberOfBytes,
     IN gctPOINTER Logical
     )
@@ -852,8 +869,8 @@ gcoHAL_ScheduleUnmapMemory(
     gceSTATUS status;
     gcsHAL_INTERFACE iface;
 
-    gcmHEADER_ARG("Physical=0x%x NumberOfBytes=%lu Logical=0x%x",
-                  Physical, NumberOfBytes, Logical);
+    gcmHEADER_ARG("PhysName=0x%x NumberOfBytes=%lu Logical=0x%x",
+                  PhysName, NumberOfBytes, Logical);
 
     /* Verify the arguments. */
     gcmVERIFY_ARGUMENT(NumberOfBytes > 0);
@@ -863,7 +880,7 @@ gcoHAL_ScheduleUnmapMemory(
     iface.command                = gcvHAL_UNMAP_MEMORY;
     iface.engine                 = gcvENGINE_RENDER;
     iface.u.UnmapMemory.bytes    = NumberOfBytes;
-    iface.u.UnmapMemory.physical = gcmPTR2INT32(Physical);
+    iface.u.UnmapMemory.physName = PhysName;
     iface.u.UnmapMemory.logical  = gcmPTR_TO_UINT64(Logical);
     status = gcoHAL_ScheduleEvent(gcvNULL, &iface);
 
@@ -2369,7 +2386,7 @@ gcoHAL_AllocateVideoMemory(
 
     iface.command   = gcvHAL_ALLOCATE_LINEAR_VIDEO_MEMORY;
 
-    gcmSAFECASTSIZET(alvm->bytes, *Bytes);
+    alvm->bytes = *Bytes;
 
     alvm->alignment = Alignment;
     alvm->type      = (gctUINT32)Type;
@@ -2379,7 +2396,7 @@ gcoHAL_AllocateVideoMemory(
     gcmONERROR(gcoHAL_Call(gcvNULL, &iface));
 
     *Node  = alvm->node;
-    *Bytes = alvm->bytes;
+    *Bytes = (gctSIZE_T)alvm->bytes;
 
     gcmFOOTER_NO();
     return gcvSTATUS_OK;
@@ -2394,7 +2411,7 @@ gcoHAL_LockVideoMemory(
     IN gctUINT32 Node,
     IN gctBOOL Cacheable,
     IN gceENGINE engine,
-    OUT gctUINT32 * Physical,
+    OUT gctUINT32 * Address,
     OUT gctPOINTER * Logical
     )
 {
@@ -2435,10 +2452,10 @@ gcoHAL_LockVideoMemory(
         return status;
     }
 
-    if (Physical)
+    if (Address)
     {
         /* Return physical address. */
-        *Physical = iface.u.LockVideoMemory.address;
+        *Address = iface.u.LockVideoMemory.address;
     }
 
     if (Logical)
@@ -2448,7 +2465,7 @@ gcoHAL_LockVideoMemory(
     }
 
     /* Success. */
-    gcmFOOTER_ARG("*Physical=0x%x *Logical=0x%x", gcmOPT_VALUE(Physical), gcmOPT_VALUE(Logical));
+    gcmFOOTER_ARG("*Address=0x%x *Logical=0x%x", gcmOPT_VALUE(Address), gcmOPT_VALUE(Logical));
     return gcvSTATUS_OK;
 
 OnError:

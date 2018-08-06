@@ -29,7 +29,6 @@
         gcLoadKernel*;
         gcInvokeThreadWalker*;
 
-        gcoCL_*;
 
         gcoVG_*;
 

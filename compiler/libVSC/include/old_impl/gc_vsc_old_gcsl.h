@@ -198,6 +198,9 @@ typedef enum _gcSHADER_KIND {
 #define _SHADER_GL33_VERSION      gcmCC('\0', _SHADER_GL_VERSION_SIG, '\3', '\3')
 #define _SHADER_GL40_VERSION      gcmCC('\0', _SHADER_GL_VERSION_SIG, '\0', '\4')
 
+#define gcShader_IsCL(S)           (GetShaderType(S) == gcSHADER_TYPE_CL && (((S)->compilerVersion[0] & 0xFFFF) == _cldLanguageType))
+#define gcShader_IsGlCompute(S)    (GetShaderType(S) == gcSHADER_TYPE_COMPUTE && (((S)->compilerVersion[0] & 0xFFFF) != _cldLanguageType))
+
 /* Client version. */
 typedef enum _gcSL_OPCODE
 {
@@ -1030,6 +1033,7 @@ typedef enum _gcSHADER_VAR_CATEGORY
     gcSHADER_VAR_CATEGORY_GL_IMAGE_FOR_IMAGE_T,
     gcSHADER_VAR_CATEGORY_WORK_THREAD_COUNT, /* the number of concurrent work thread. */
     gcSHADER_VAR_CATEGORY_WORK_GROUP_COUNT, /* the number of concurrent work group. */
+    gcSHADER_VAR_CATEGORY_WORK_GROUP_ID_OFFSET, /* the workGroupId offset, for multi-GPU only. */
 }
 gcSHADER_VAR_CATEGORY;
 
@@ -1185,6 +1189,7 @@ typedef enum _gceUNIFORM_FLAGS
     gcvUNIFORM_KIND_STORAGE_BLOCK_ADDRESS       = 19,
     gcvUNIFORM_KIND_GENERAL_PATCH               = 20,
     gcvUNIFORM_KIND_IMAGE_EXTRA_LAYER           = 21,
+    gcvUNIFORM_KIND_TEMP_REG_SPILL_ADDRESS      = 22,
 
     /* Use this to check if this flag is a special uniform kind. */
     gcvUNIFORM_FLAG_SPECIAL_KIND_MASK           = 0x1F,
@@ -1216,6 +1221,7 @@ typedef enum _gceUNIFORM_FLAGS
     gcvUNIFORM_FLAG_MOVED_TO_CUBO               = 0x8000000,
     gcvUNIFORM_FLAG_TREAT_SAMPLER_AS_CONST      = 0x10000000,
     gcvUNIFORM_FLAG_WITH_INITIALIZER            = 0x20000000,
+    gcvUNIFORM_FLAG_FORCE_ACTIVE                = 0x40000000,
 }
 gceUNIFORM_FLAGS;
 
@@ -1289,6 +1295,7 @@ gceUNIFORM_FLAGS;
                                               GetUniformKind(u) == gcvUNIFORM_KIND_UBO_ADDRESS)
 #define isUniformPrintfAddress(u)            (GetUniformKind(u) == gcvUNIFORM_KIND_PRINTF_ADDRESS)
 #define isUniformWorkItemPrintfBufferSize(u) (GetUniformKind(u) == gcvUNIFORM_KIND_WORKITEM_PRINTF_BUFFER_SIZE)
+#define isUniformTempRegSpillAddress(u)      (GetUniformKind(u) == gcvUNIFORM_KIND_TEMP_REG_SPILL_ADDRESS)
 
 #define hasUniformKernelArgKind(u)          (isUniformKernelArg(u)  ||       \
                                              isUniformKernelArgLocal(u) ||   \
@@ -1330,6 +1337,7 @@ gceUNIFORM_FLAGS;
 #define isUniformMovedToAUBO(u)                     (isUniformMovedToDUBO(u) || isUniformMovedToCUBO(u))
 #define isUniformTreatSamplerAsConst(u)             (((u)->_flags & gcvUNIFORM_FLAG_TREAT_SAMPLER_AS_CONST) != 0)
 #define isUniformWithInitializer(u)                 (((u)->_flags & gcvUNIFORM_FLAG_WITH_INITIALIZER) != 0)
+#define isUniformForceActive(u)                     (((u)->_flags & gcvUNIFORM_FLAG_FORCE_ACTIVE) != 0)
 
 #define SetUniformUsedInShader(u)           ((u)->_flags |= gcvUNIFORM_FLAG_USED_IN_SHADER)
 #define ResetUniformUsedInShader(u)         ((u)->_flags &= ~gcvUNIFORM_FLAG_USED_IN_SHADER)
@@ -1348,6 +1356,20 @@ gceUNIFORM_FLAGS;
 #define isUniformGlImageForImaget(u)        ((u)->_varCategory == gcSHADER_VAR_CATEGORY_GL_IMAGE_FOR_IMAGE_T)
 #define isUniformWorkThreadCount(u)         ((u)->_varCategory == gcSHADER_VAR_CATEGORY_WORK_THREAD_COUNT)
 #define isUniformWorkGroupCount(u)          ((u)->_varCategory == gcSHADER_VAR_CATEGORY_WORK_GROUP_COUNT)
+#define isUniformWorkGroupIdOffset(u)       ((u)->_varCategory == gcSHADER_VAR_CATEGORY_WORK_GROUP_ID_OFFSET)
+
+#define isUniformBasicType(u)               (isUniformNormal((u))                   || \
+                                             isUniformBlockMember((u))              || \
+                                             isUniformBlockAddress((u))             || \
+                                             isUniformLodMinMax((u))                || \
+                                             isUniformLevelBaseSize((u))            || \
+                                             isUniformSampleLocation((u))           || \
+                                             isUniformMultiSampleBuffers((u))       || \
+                                             isUniformGlSamplerForImaget((u))       || \
+                                             isUniformGlImageForImaget((u))         || \
+                                             isUniformWorkThreadCount((u))          || \
+                                             isUniformWorkGroupCount((u))           || \
+                                             isUniformWorkGroupIdOffset((u)))
 
 #define isUniformSampler(u)                 (isUniformNormal(u) && (gcmType_Kind(GetUniformType(u)) == gceTK_SAMPLER))
 
@@ -1697,6 +1719,9 @@ typedef enum _gceATTRIBUTE_Flag
 
     /* The location is set by driver. */
     gcATTRIBUTE_LOC_SET_BY_DRIVER   = 0x200000,
+    gcATTRIBUTE_LOC_HAS_ALIAS       = 0x400000, /* aliased with another attribute (same location) */
+
+    gcATTRIBUTE_REG_ALLOCATED       = 0x800000, /* register allocated for this attribute */
 } gceATTRIBUTE_Flag;
 
 #define gcmATTRIBUTE_isTexture(att)             (((att)->flags_ & gcATTRIBUTE_ISTEXTURE) != 0)
@@ -1721,6 +1746,8 @@ typedef enum _gceATTRIBUTE_Flag
 #define gcmATTRIBUTE_isCompilerGen(att)         (((att)->flags_ & gcATTRIBUTE_COMPILERGEN) != 0)
 #define gcmATTRIBUTE_isUseAsInterpolate(att)    (((att)->flags_ & gcATTRIBUTE_ISUSEASINTERPOLATE) != 0)
 #define gcmATTRIBUTE_isLocSetByDriver(att)      (((att)->flags_ & gcATTRIBUTE_LOC_SET_BY_DRIVER) != 0)
+#define gcmATTRIBUTE_hasAlias(att)              (((att)->flags_ & gcATTRIBUTE_LOC_HAS_ALIAS) != 0)
+#define gcmATTRIBUTE_isRegAllocated(att)        (((att)->flags_ & gcATTRIBUTE_REG_ALLOCATED) != 0)
 
 #define gcmATTRIBUTE_SetIsTexture(att, v)   \
         ((att)->flags_ = ((att)->flags_ & ~gcATTRIBUTE_ISTEXTURE) | \
@@ -1808,6 +1835,14 @@ typedef enum _gceATTRIBUTE_Flag
 #define gcmATTRIBUTE_SetLocSetByDriver(att, v)  \
         ((att)->flags_ = ((att)->flags_ & ~gcATTRIBUTE_LOC_SET_BY_DRIVER) | \
                           ((v) == gcvFALSE ? 0 : gcATTRIBUTE_LOC_SET_BY_DRIVER))
+
+#define gcmATTRIBUTE_SetLocHasAlias(att, v)  \
+        ((att)->flags_ = ((att)->flags_ & ~gcATTRIBUTE_LOC_HAS_ALIAS) | \
+                          ((v) == gcvFALSE ? 0 : gcATTRIBUTE_LOC_HAS_ALIAS))
+
+#define gcmATTRIBUTE_SetRegAllocated(att, v)  \
+        ((att)->flags_ = ((att)->flags_ & ~gcATTRIBUTE_REG_ALLOCATED) | \
+                          ((v) == gcvFALSE ? 0 : gcATTRIBUTE_REG_ALLOCATED))
 
 /* Forwarded declaration */
 typedef struct _gcSHADER *              gcSHADER;
@@ -4096,6 +4131,7 @@ typedef enum _gcSHADER_FLAGS
     gcSHADER_FLAG_FORCE_ALL_OUTPUT_INVARIANT= 0x400000, /* Force all outputs to be invariant. */
     gcSHADER_FLAG_CONSTANT_MEMORY_REFERENCED= 0x800000, /* constant memory reference in the shader (library) through linking. */
     gcSHADER_FLAG_HAS_DEFINE_MAIN_FUNC      = 0x1000000, /* Whether the shader defines a main function, for GL shader only. */
+    gcSHADER_FLAG_ENABLE_MULTI_GPU          = 0x2000000, /* whether enable multi-GPU. */
 } gcSHADER_FLAGS;
 
 #define gcShaderIsOldHeader(Shader)             (((Shader)->flags & gcSHADER_FLAG_OLDHEADER) != 0)
@@ -4123,6 +4159,7 @@ typedef enum _gcSHADER_FLAGS
 #define gcShaderForceAllOutputInvariant(Shader) (((Shader)->flags & gcSHADER_FLAG_FORCE_ALL_OUTPUT_INVARIANT) != 0)
 #define gcShaderConstantMemoryReferenced(Shader) (((Shader)->flags & gcSHADER_FLAG_CONSTANT_MEMORY_REFERENCED) != 0)
 #define gcShaderHasDefineMainFunc(Shader)       (((Shader)->flags & gcSHADER_FLAG_HAS_DEFINE_MAIN_FUNC) != 0)
+#define gcShaderEnableMultiGPU(Shader)          (((Shader)->flags & gcSHADER_FLAG_ENABLE_MULTI_GPU) != 0)
 
 #define gcShaderGetFlag(Shader)                 (Shader)->flags)
 
@@ -4168,6 +4205,8 @@ typedef enum _gcSHADER_FLAGS
 #define gcShaderClrConstantMemoryReferenced(Shader)   do { (Shader)->flags &= ~gcSHADER_FLAG_CONSTANT_MEMORY_REFERENCED; } while (0)
 #define gcShaderSetHasDefineMainFunc(Shader)    do { (Shader)->flags |= gcSHADER_FLAG_HAS_DEFINE_MAIN_FUNC; } while (0)
 #define gcShaderClrHasDefineMainFunc(Shader)    do { (Shader)->flags &= ~gcSHADER_FLAG_HAS_DEFINE_MAIN_FUNC; } while (0)
+#define gcShaderSetEnableMultiGPU(Shader)       do { (Shader)->flags |= gcSHADER_FLAG_ENABLE_MULTI_GPU; } while (0)
+#define gcShaderClrEnableMultiGPU(Shader)       do { (Shader)->flags &= ~gcSHADER_FLAG_ENABLE_MULTI_GPU; } while (0)
 
 #define gcShaderSetFlag(Shader, Flag)           do { (Shader)->flags = (Flag); } while (0)
 

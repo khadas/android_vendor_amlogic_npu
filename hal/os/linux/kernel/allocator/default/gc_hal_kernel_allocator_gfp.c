@@ -284,7 +284,7 @@ _GFPAlloc(
 {
     gceSTATUS status;
     gctUINT i;
-    u32 gfp = GFP_KERNEL | gcdNOWARN;
+    u32 gfp = GFP_KERNEL | __GFP_HIGHMEM | gcdNOWARN;
     gctBOOL contiguous = Flags & gcvALLOC_FLAG_CONTIGUOUS;
 
     struct gfp_alloc *priv = (struct gfp_alloc *)Allocator->privateData;
@@ -310,8 +310,18 @@ _GFPAlloc(
 
     mdlPriv = kzalloc(sizeof(struct gfp_mdl_priv), GFP_KERNEL | __GFP_NORETRY);
 
+    if (!mdlPriv)
+    {
+        gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+    }
+
 #if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
-    gfp |= (Flags & gcvALLOC_FLAG_4GB_ADDR) ? __GFP_DMA32 : __GFP_HIGHMEM;
+    if (Flags & gcvALLOC_FLAG_4GB_ADDR)
+    {
+        /* remove __GFP_HIGHMEM bit, add __GFP_DMA32 bit */
+        gfp &= ~__GFP_HIGHMEM;
+        gfp |= __GFP_DMA32;
+    }
 #endif
 
     if (contiguous)
@@ -352,7 +362,7 @@ _GFPAlloc(
 
         mdlPriv->dma_addr = dma_map_page(galcore_device,
                 mdlPriv->contiguousPages, 0, NumPages * PAGE_SIZE,
-                DMA_TO_DEVICE);
+                DMA_FROM_DEVICE);
 
         if (!mdlPriv->dma_addr)
         {
@@ -409,7 +419,7 @@ _GFPAlloc(
         }
 
         result = dma_map_sg(galcore_device,
-                    mdlPriv->sgt.sgl, mdlPriv->sgt.nents, DMA_TO_DEVICE);
+                    mdlPriv->sgt.sgl, mdlPriv->sgt.nents, DMA_FROM_DEVICE);
 
         if (result != mdlPriv->sgt.nents)
         {

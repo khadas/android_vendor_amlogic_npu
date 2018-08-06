@@ -52,11 +52,7 @@
 *
 *****************************************************************************/
 
-#include <linux/io.h>
-#include <linux/kernel.h>
-#include <dt-bindings/clock/amlogic,g12a-clkc.h>
-#include <linux/clk.h>
-#include <linux/clk-provider.h>
+
 #include "gc_hal_kernel_linux.h"
 #include "gc_hal_kernel_platform.h"
 
@@ -92,88 +88,9 @@ _AdjustParam(
     return gcvSTATUS_OK;
 }
 
-int _RegWrite(unsigned int reg, unsigned int writeval)
-{
-	void __iomem *vaddr;
-	reg = round_down(reg, 0x3);
-	
-	vaddr = ioremap(reg, 0x4);
-	writel(writeval, vaddr);
-	iounmap(vaddr);
-	
-	return 0;
-}
-
-int _RegRead(unsigned int reg,unsigned int *readval)
-{
-	void __iomem *vaddr;
-	reg = round_down(reg, 0x3);
-	vaddr = ioremap(reg, 0x4);
-	*readval = readl(vaddr);
-	iounmap(vaddr);
-	return 0;
-}
-//us
-void delay(unsigned int time)
-{
-	int i,j;
-	for(j=0;j<1000;j++)
-	{
-		for(i = 0;i<time;i++);
-	}
-}
-
-static void set_clock(struct platform_device *pdev)
-{
-	struct clk *npu_axi_clk = NULL;
-	struct clk *npu_core_clk = NULL;
-	npu_axi_clk = clk_get(&pdev->dev, "cts_vipnanoq_axi_clk_composite");
-	if (IS_ERR(npu_axi_clk))
-	{
-		printk("%s: get npu_axi_clk error!!!\n", __func__);
-		return;
-	}
-	else
-	{
-		clk_prepare_enable(npu_axi_clk);
-	}
-	clk_set_rate(npu_axi_clk, MAX_NANOQ_FREQ);
-	
-	npu_core_clk = clk_get(&pdev->dev, "cts_vipnanoq_core_clk_composite");
-	if (IS_ERR(npu_core_clk))
-	{
-		printk("%s: get npu_core_clk error!!!\n", __func__);
-		return;
-	}
-	else
-	{
-		clk_prepare_enable(npu_core_clk);
-	}
-	clk_set_rate(npu_core_clk, MAX_NANOQ_FREQ);
-	return;
-}
-gceSTATUS
-_GetPower(IN gcsPLATFORM *Platform)
-{
-	unsigned int readReg=0;
-	printk("_GetPower enter\n");
-	_RegRead(AO_RTI_GEN_PWR_SLEEP0,&readReg);
-	readReg = (readReg & 0xfffcffff);
-	_RegWrite(AO_RTI_GEN_PWR_SLEEP0, readReg);
-	_RegRead(AO_RTI_GEN_PWR_ISO0,&readReg);
-	readReg = (readReg & 0xfffcffff);
-	_RegWrite(AO_RTI_GEN_PWR_ISO0, readReg);
-	_RegWrite(HHI_NANOQ_MEM_PD_REG0, 0x0);
-	_RegWrite(HHI_NANOQ_MEM_PD_REG1, 0x0);
-	set_clock(Platform->device);
-	delay(500);
-    return gcvSTATUS_OK;
-}
-
 static struct soc_platform_ops default_ops =
 {
     .adjustParam   = _AdjustParam,
-	.getPower  = _GetPower,
 };
 
 static struct soc_platform default_platform =
@@ -202,8 +119,28 @@ static struct platform_device *default_dev;
 int soc_platform_init(struct platform_driver *pdrv,
             struct soc_platform **platform)
 {
+    int ret;
+    default_dev = platform_device_alloc(pdrv->driver.name, -1);
+
+    if (!default_dev) {
+        printk(KERN_ERR "galcore: platform_device_alloc failed.\n");
+        return -ENOMEM;
+    }
+
+    /* Add device */
+    ret = platform_device_add(default_dev);
+    if (ret) {
+        printk(KERN_ERR "galcore: platform_device_add failed.\n");
+        goto put_dev;
+    }
+
     *platform = &default_platform;
     return 0;
+
+put_dev:
+    platform_device_put(default_dev);
+
+    return ret;
 }
 
 int soc_platform_terminate(struct soc_platform *platform)

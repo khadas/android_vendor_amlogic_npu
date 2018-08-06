@@ -101,7 +101,7 @@ gckKERNEL_FindDatabase(
     gctSIZE_T slot;
     gctBOOL acquired = gcvFALSE;
 
-    gcmkHEADER_ARG("Kernel=0x%x ProcessID=%d LastProcessID=%d",
+    gcmkHEADER_ARG("Kernel=%p ProcessID=%d LastProcessID=%d",
                    Kernel, ProcessID, LastProcessID);
 
     /* Compute the hash for the database. */
@@ -200,7 +200,7 @@ gckKERNEL_DeinitDatabase(
     IN gcsDATABASE_PTR Database
     )
 {
-    gcmkHEADER_ARG("Kernel=0x%x Database=0x%x", Kernel, Database);
+    gcmkHEADER_ARG("Kernel=%p Database=%p", Kernel, Database);
 
     if (Database)
     {
@@ -270,7 +270,7 @@ gckKERNEL_NewRecord(
     gctBOOL acquired = gcvFALSE;
     gcsDATABASE_RECORD_PTR record = gcvNULL;
 
-    gcmkHEADER_ARG("Kernel=0x%x Database=0x%x", Kernel, Database);
+    gcmkHEADER_ARG("Kernel=%p Database=%p", Kernel, Database);
 
     /* Acquire the database mutex. */
     gcmkONERROR(
@@ -364,7 +364,7 @@ gckKERNEL_DeleteRecord(
     gcsDATABASE_RECORD_PTR record, previous;
     gctUINT32 slot = _GetSlot(Database, Data);
 
-    gcmkHEADER_ARG("Kernel=0x%x Database=0x%x Type=%d Data=0x%x",
+    gcmkHEADER_ARG("Kernel=%p Database=%p Type=%d Data=%p",
                    Kernel, Database, Type, Data);
 
     /* Acquire the database mutex. */
@@ -473,7 +473,7 @@ gckKERNEL_FindRecord(
     gcsDATABASE_RECORD_PTR record;
     gctUINT32 slot = _GetSlot(Database, Data);
 
-    gcmkHEADER_ARG("Kernel=0x%x Database=0x%x Type=%d Data=0x%x",
+    gcmkHEADER_ARG("Kernel=%p Database=%p Type=%d Data=%p",
                    Kernel, Database, Type, Data);
 
     /* Acquire the database mutex. */
@@ -561,7 +561,7 @@ gckKERNEL_CreateProcessDB(
     gctSIZE_T slot;
     gctUINT32 i;
 
-    gcmkHEADER_ARG("Kernel=0x%x ProcessID=%d", Kernel, ProcessID);
+    gcmkHEADER_ARG("Kernel=%p ProcessID=%d", Kernel, ProcessID);
 
     /* Compute the hash for the database. */
     slot = ProcessID % gcmCOUNTOF(Kernel->db->db);
@@ -782,8 +782,8 @@ gckKERNEL_AddProcessDB(
     gctUINT32 vidMemType;
     gcePOOL vidMemPool;
 
-    gcmkHEADER_ARG("Kernel=0x%x ProcessID=%d Type=%d Pointer=0x%x "
-                   "Physical=0x%x Size=%lu",
+    gcmkHEADER_ARG("Kernel=%p ProcessID=%d Type=%d Pointer=%p "
+                   "Physical=%p Size=%lu",
                    Kernel, ProcessID, Type, Pointer, Physical, Size);
 
     /* Verify the arguments. */
@@ -982,7 +982,7 @@ gckKERNEL_RemoveProcessDB(
     gctUINT32 vidMemType;
     gcePOOL vidMemPool;
 
-    gcmkHEADER_ARG("Kernel=0x%x ProcessID=%d Type=%d Pointer=0x%x",
+    gcmkHEADER_ARG("Kernel=%p ProcessID=%d Type=%d Pointer=%p",
                    Kernel, ProcessID, Type, Pointer);
 
     /* Verify the arguments. */
@@ -1079,7 +1079,7 @@ gckKERNEL_FindProcessDB(
     gceSTATUS status;
     gcsDATABASE_PTR database;
 
-    gcmkHEADER_ARG("Kernel=0x%x ProcessID=%d Type=%d Pointer=0x%x",
+    gcmkHEADER_ARG("Kernel=%p ProcessID=%d Type=%d Pointer=%p",
                    Kernel, ProcessID, ThreadID, Type, Pointer);
 
     /* Verify the arguments. */
@@ -1137,7 +1137,7 @@ gckKERNEL_DestroyProcessDB(
     gctSIZE_T slot;
     gctUINT32 i;
 
-    gcmkHEADER_ARG("Kernel=0x%x ProcessID=%d", Kernel, ProcessID);
+    gcmkHEADER_ARG("Kernel=%p ProcessID=%d", Kernel, ProcessID);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
@@ -1249,18 +1249,13 @@ gckKERNEL_DestroyProcessDB(
 
             case gcvDB_NON_PAGED:
                 physical = gcmNAME_TO_PTR(record->physical);
-                /* Unmap user logical memory first. */
-                status = gckOS_UnmapUserLogical(Kernel->os,
-                                                physical,
-                                                record->bytes,
-                                                record->data);
 
                 /* Free the non paged memory. */
-                status = gckEVENT_FreeNonPagedMemory(record->kernel->eventObj,
-                                                     physical,
-                                                     record->data,
-                                                     record->bytes,
-                                                     gcvKERNEL_PIXEL);
+                status = gckOS_FreeNonPagedMemory(Kernel->os,
+                                                  physical,
+                                                  record->data,
+                                                  record->bytes);
+
                 gcmRELEASE_NAME(record->physical);
 
                 gcmkTRACE_ZONE(gcvLEVEL_WARNING, gcvZONE_DATABASE,
@@ -1471,7 +1466,7 @@ gckKERNEL_QueryProcessDB(
     gcsDATABASE_PTR database;
     gcePOOL vidMemPool;
 
-    gcmkHEADER_ARG("Kernel=0x%x ProcessID=%d Type=%d Info=0x%x",
+    gcmkHEADER_ARG("Kernel=%p ProcessID=%d Type=%d Info=%p",
                    Kernel, ProcessID, Type, Info);
 
     /* Verify the arguments. */
@@ -1550,7 +1545,7 @@ gckKERNEL_FindHandleDatbase(
     gceSTATUS status;
     gcsDATABASE_PTR database;
 
-    gcmkHEADER_ARG("Kernel=0x%x ProcessID=%d",
+    gcmkHEADER_ARG("Kernel=%p ProcessID=%d",
                    Kernel, ProcessID);
 
     /* Verify the arguments. */
@@ -1657,7 +1652,7 @@ gckKERNEL_DumpProcessDB(
     gctINT i, pid;
     gctUINT8 name[24];
 
-    gcmkHEADER_ARG("Kernel=0x%x", Kernel);
+    gcmkHEADER_ARG("Kernel=%p", Kernel);
 
     /* Acquire the database mutex. */
     gcmkVERIFY_OK(
@@ -1736,7 +1731,7 @@ gckKERNEL_DumpVidMemUsage(
         "COMMAND",
     };
 
-    gcmkHEADER_ARG("Kernel=0x%x ProcessID=%d",
+    gcmkHEADER_ARG("Kernel=%p ProcessID=%d",
                    Kernel, ProcessID);
 
     gcmSTATIC_ASSERT(gcmCOUNTOF(vidmemTypes) == gcvVIDMEM_TYPE_COUNT,

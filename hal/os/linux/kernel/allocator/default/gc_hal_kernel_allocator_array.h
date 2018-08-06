@@ -86,14 +86,14 @@ _DmabufAlloctorInit(
     );
 #endif
 
-//#ifndef NO_DMA_COHERENT  //zxw
+#ifndef NO_DMA_COHERENT
 extern gceSTATUS
 _DmaAlloctorInit(
     IN gckOS Os,
     IN gcsDEBUGFS_DIR *Parent,
     OUT gckALLOCATOR * Allocator
     );
-//#endif
+#endif
 
 /* Default allocator entry. */
 gcsALLOCATOR_DESC allocatorArray[] =
@@ -109,9 +109,9 @@ gcsALLOCATOR_DESC allocatorArray[] =
     gcmkDEFINE_ALLOCATOR_DESC("dmabuf", _DmabufAlloctorInit),
 #endif
 
-//#ifndef NO_DMA_COHERENT   //zxw
+#ifndef NO_DMA_COHERENT
     gcmkDEFINE_ALLOCATOR_DESC("dma", _DmaAlloctorInit),
-//#endif
+#endif
 
     gcmkDEFINE_ALLOCATOR_DESC("reserved-mem", _ReservedMemoryAllocatorInit),
 };

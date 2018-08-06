@@ -187,7 +187,7 @@ gcoQUEUE_AppendEvent(
     {
         if (Queue->maxUnlockBytes < Interface->u.UnlockVideoMemory.bytes)
         {
-            Queue->maxUnlockBytes = Interface->u.UnlockVideoMemory.bytes;
+            Queue->maxUnlockBytes = (gctUINT)Interface->u.UnlockVideoMemory.bytes;
         }
     }
 

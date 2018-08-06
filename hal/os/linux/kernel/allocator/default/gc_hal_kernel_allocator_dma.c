@@ -63,10 +63,6 @@
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
-#include <linux/of_reserved_mem.h>
-#include <linux/cma.h>
-#include <linux/dma-contiguous.h>
-
 
 #define _GC_OBJ_ZONE    gcvZONE_OS
 
@@ -133,26 +129,6 @@ _DebugfsCleanup(
     gckDEBUGFS_DIR_Deinit(&Allocator->debugfsDir);
 }
 
-//#ifdef CONFIG_ARM64
-static struct device *
-_GetDevice(
-    IN gckOS Os
-    )
-{
-    gcsPLATFORM *platform;
-
-    platform = Os->device->platform;
-
-    if (!platform)
-    {
-        return gcvNULL;
-    }
-
-    return &platform->device->dev;
-}
-//#endif
-unsigned int dma_addrs;
-
 static gceSTATUS
 _DmaAlloc(
     IN gckALLOCATOR Allocator,
@@ -164,20 +140,11 @@ _DmaAlloc(
     gceSTATUS status;
     u32 gfp = GFP_KERNEL | gcdNOWARN;
     gcsDMA_PRIV_PTR allocatorPriv = (gcsDMA_PRIV_PTR)Allocator->privateData;
-	//struct page *venc_pages;  //zxw
 
     struct mdl_dma_priv *mdlPriv=gcvNULL;
     gckOS os = Allocator->os;
 
-//#if defined CONFIG_ARM64  zxw
-    struct device *dev = _GetDevice(os);
-//#endif
-
     gcmkHEADER_ARG("Mdl=%p NumPages=0x%zx Flags=0x%x", Mdl, NumPages, Flags);
-	printk("zxw:Mdl=%p NumPages=0x%zx Flags=0x%x", Mdl, NumPages, Flags);
-//#if defined CONFIG_ARM64
-    gcmkVERIFY_ARGUMENT(dev);
-//#endif
 
     gcmkONERROR(gckOS_Allocate(os, sizeof(struct mdl_dma_priv), (gctPOINTER *)&mdlPriv));
 
@@ -187,22 +154,14 @@ _DmaAlloc(
         gfp |= __GFP_DMA32;
     }
 #endif
-//can test from alloc
-	//devp->venc_pages = dma_alloc_from_contiguous(dev,NumPages, 0);
 
-    mdlPriv->kvaddr  = dma_alloc_coherent(dev, NumPages * PAGE_SIZE, &mdlPriv->dmaHandle, gfp);
-/*
-#if defined CONFIG_ARM64
-        = dma_alloc_coherent(dev, NumPages * PAGE_SIZE, &mdlPriv->dmaHandle, gfp);
-		printk("CONFIG_ARM64 \n");
-#elif defined CONFIG_MIPS || defined CONFIG_CPU_CSKYV2 || defined CONFIG_PPC
-        = dma_alloc_coherent(gcvNULL, NumPages * PAGE_SIZE, &mdlPriv->dmaHandle, gfp);
-		printk("CONFIG_MIPS \n");
+    mdlPriv->kvaddr
+#if defined CONFIG_MIPS || defined CONFIG_CPU_CSKYV2 || defined CONFIG_PPC || defined CONFIG_ARM64
+        = dma_alloc_coherent(galcore_device, NumPages * PAGE_SIZE, &mdlPriv->dmaHandle, gfp);
 #else
-        = dma_alloc_writecombine(gcvNULL, NumPages * PAGE_SIZE,  &mdlPriv->dmaHandle, gfp);
-		printk("config else \n");
+        = dma_alloc_writecombine(galcore_device, NumPages * PAGE_SIZE,  &mdlPriv->dmaHandle, gfp);
 #endif
-*/
+
 #ifdef CONFLICT_BETWEEN_BASE_AND_PHYS
     if ((os->device->baseAddress & 0x80000000) != (mdlPriv->dmaHandle & 0x80000000))
     {
@@ -213,15 +172,13 @@ _DmaAlloc(
 
     if (mdlPriv->kvaddr == gcvNULL)
     {
-		printk("can't get kvaddr\n");
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
     }
 
     Mdl->priv = mdlPriv;
 
     Mdl->dmaHandle = mdlPriv->dmaHandle;
-	dma_addrs = Mdl->dmaHandle;
-	//printk("zxw:dma alloc phy addr is 0x%x\n",Mdl->dmaHandle);
+
     /* Statistic. */
     atomic_add(NumPages, &allocatorPriv->usage);
 
@@ -313,13 +270,11 @@ _DmaFree(
     struct mdl_dma_priv *mdlPriv=(struct mdl_dma_priv *)Mdl->priv;
     gcsDMA_PRIV_PTR allocatorPriv = (gcsDMA_PRIV_PTR)Allocator->privateData;
 
-//#if defined CONFIG_ARM64
-    dma_free_coherent(_GetDevice(os), Mdl->numPages * PAGE_SIZE, mdlPriv->kvaddr, mdlPriv->dmaHandle);
-//#elif defined CONFIG_MIPS || defined CONFIG_CPU_CSKYV2 || defined CONFIG_PPC
-//    dma_free_coherent(gcvNULL, Mdl->numPages * PAGE_SIZE, mdlPriv->kvaddr, mdlPriv->dmaHandle);
-//#else
-//    dma_free_writecombine(gcvNULL, Mdl->numPages * PAGE_SIZE, mdlPriv->kvaddr, mdlPriv->dmaHandle);
-//#endif
+#if defined CONFIG_MIPS || defined CONFIG_CPU_CSKYV2 || defined CONFIG_PPC || defined CONFIG_ARM64
+    dma_free_coherent(galcore_device, Mdl->numPages * PAGE_SIZE, mdlPriv->kvaddr, mdlPriv->dmaHandle);
+#else
+    dma_free_writecombine(galcore_device, Mdl->numPages * PAGE_SIZE, mdlPriv->kvaddr, mdlPriv->dmaHandle);
+#endif
 
     gckOS_Free(os, mdlPriv);
 
@@ -339,10 +294,7 @@ _DmaMmap(
 {
     struct mdl_dma_priv *mdlPriv = (struct mdl_dma_priv*)Mdl->priv;
     gceSTATUS status = gcvSTATUS_OK;
-    int ret = 0;   //zxw
-	gckOS os = Allocator->os;
-    struct device *dev = _GetDevice(os);
-	
+
     gcmkHEADER_ARG("Allocator=%p Mdl=%p vma=%p", Allocator, Mdl, vma);
 
     gcmkASSERT(skipPages + numPages <= Mdl->numPages);
@@ -356,15 +308,12 @@ _DmaMmap(
             numPages << PAGE_SHIFT,
             pgprot_writecombine(vma->vm_page_prot)) < 0)
 #else
-	printk("before dma_mmap_writecombine\n");
-	printk("PAGE_SHIFT:%d,ptr:%p,num:%ld\n",PAGE_SHIFT,(gctINT8_PTR)mdlPriv->kvaddr,numPages);
-	printk("vma-start:%ld,vma-end:%ld,flag:%ld\n",vma->vm_start,vma->vm_end,vma->vm_flags);
     /* map kernel memory to user space.. */
-	ret = dma_mmap_writecombine(dev,vma,
-								(gctINT8_PTR)mdlPriv->kvaddr + (skipPages << PAGE_SHIFT),
-								mdlPriv->dmaHandle + (skipPages << PAGE_SHIFT),
-								(numPages<<PAGE_SHIFT));
-	if (ret < 0)
+    if (dma_mmap_writecombine(gcvNULL,
+            vma,
+            (gctINT8_PTR)mdlPriv->kvaddr + (skipPages << PAGE_SHIFT),
+            mdlPriv->dmaHandle + (skipPages << PAGE_SHIFT),
+            numPages << PAGE_SHIFT) < 0)
 #endif
     {
         gcmkTRACE_ZONE(
@@ -372,10 +321,10 @@ _DmaMmap(
             "%s(%d): dma_mmap_attrs error",
             __FUNCTION__, __LINE__
             );
-		printk("dma_mmap_writecombine ret:%d\n",ret);
+
         status = gcvSTATUS_OUT_OF_MEMORY;
     }
-	printk("after dma_mmap_writecombine,status:%d\n",status);
+
     gcmkFOOTER();
     return status;
 }
@@ -428,12 +377,9 @@ _DmaMapUser(
     gctPOINTER userLogical = gcvNULL;
     gceSTATUS status = gcvSTATUS_OK;
 
-
     gcmkHEADER_ARG("Allocator=%p Mdl=%p Cacheable=%d", Allocator, Mdl, Cacheable);
 
-//#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
-#if 1
-	printk("_DmaMapUser,numpages:%d\n",Mdl->numPages);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
     userLogical = (gctPOINTER)vm_mmap(gcvNULL,
                     0L,
                     Mdl->numPages * PAGE_SIZE,
@@ -441,7 +387,6 @@ _DmaMapUser(
                     MAP_SHARED,
                     0);
 #else
-	printk("do_mmap_pgoff,numpages:%d\n",Mdl->numPages);
     down_write(&current->mm->mmap_sem);
     userLogical = (gctPOINTER)do_mmap_pgoff(gcvNULL,
                     0L,
@@ -460,7 +405,6 @@ _DmaMapUser(
 
     if (IS_ERR(userLogical))
     {
-    	printk("vm_mmap error\n");
         gcmkTRACE_ZONE(
             gcvLEVEL_INFO, gcvZONE_OS,
             "%s(%d): do_mmap_pgoff error",
@@ -477,7 +421,7 @@ _DmaMapUser(
         if (vma == gcvNULL)
         {
             up_write(&current->mm->mmap_sem);
-			printk("cannot find vma\n");
+
             gcmkTRACE_ZONE(
                 gcvLEVEL_INFO, gcvZONE_OS,
                 "%s(%d): find_vma error",
@@ -495,7 +439,7 @@ _DmaMapUser(
     }
     while (gcvFALSE);
     up_write(&current->mm->mmap_sem);
-	printk("over,status:%d\n",status);
+
 OnError:
     if (gcmIS_ERROR(status) && userLogical)
     {

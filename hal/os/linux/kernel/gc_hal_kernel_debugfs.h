@@ -60,9 +60,6 @@
 
  #define MAX_LINE_SIZE 768           /* Max bytes for a line of debug info */
 
-
- typedef struct _gcsDEBUGFS_Node gcsDEBUGFS_Node;
-
 typedef struct _gcsDEBUGFS_DIR *gckDEBUGFS_DIR;
 typedef struct _gcsDEBUGFS_DIR
 {
@@ -115,56 +112,4 @@ gckDEBUGFS_DIR_Deinit(
     IN gckDEBUGFS_DIR Dir
     );
 
-/*******************************************************************************
- **
- **                             System Related
- **
- *******************************************************************************/
-
-gctINT gckDEBUGFS_IsEnabled(void);
-
-gctINT gckDEBUGFS_Initialize(void);
-
-gctINT gckDEBUGFS_Terminate(void);
-
-
-/*******************************************************************************
- **
- **                             Node Related
- **
- *******************************************************************************/
-
-gctINT
-gckDEBUGFS_CreateNode(
-    IN gctPOINTER Device,
-    IN gctINT SizeInKB,
-    IN struct dentry * Root,
-    IN gctCONST_STRING NodeName,
-    OUT gcsDEBUGFS_Node **Node
-    );
-
-void gckDEBUGFS_FreeNode(
-            IN gcsDEBUGFS_Node  * Node
-            );
-
-
-
-void gckDEBUGFS_SetCurrentNode(
-            IN gcsDEBUGFS_Node  * Node
-            );
-
-
-
-void gckDEBUGFS_GetCurrentNode(
-            OUT gcsDEBUGFS_Node  ** Node
-            );
-
-
-ssize_t gckDEBUGFS_Print(
-                IN gctCONST_STRING  Message,
-                ...
-                );
-
 #endif
-
-

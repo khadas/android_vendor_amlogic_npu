@@ -10,7 +10,7 @@
 *
 *****************************************************************************/
 
-#include <stdio.h>
+
 #include "gc_hal_user_hardware_precomp.h"
 
 /* Zone used for header/footer. */
@@ -57,13 +57,12 @@ gcoHARDWARE_SelectPipe(
     /* Verify the arguments. */
     gcmVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
 
-/*	printf("gcoHARDWARE_SelectPipe 0\n");*/
     /* Is 2D pipe present? */
     if ((Pipe == gcvPIPE_2D) && !Hardware->hw2DEngine)
     {
         gcmONERROR(gcvSTATUS_NOT_SUPPORTED);
     }
-/*	printf("gcoHARDWARE_SelectPipe 1\n");*/
+
 #if gcdENABLE_3D
     if ((Pipe == gcvPIPE_3D) && !Hardware->features[gcvFEATURE_PIPE_3D])
     {
@@ -76,7 +75,6 @@ gcoHARDWARE_SelectPipe(
     {
 #if gcdENABLE_3D
         /* Set new pipe. */
-		printf("zxw:gcoHARDWARE_FlushPipe is begin\n");
         Hardware->currentPipe = Pipe;
         /* Flush current pipe. */
         gcmONERROR(gcoHARDWARE_FlushPipe(Hardware, Memory));
@@ -91,22 +89,51 @@ gcoHARDWARE_SelectPipe(
         {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
     gcmASSERT((gctUINT32)1 <= 1024);
     *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ? 31:27) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ? 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ? 31:27) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ? 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:26) - (0 ? 26:26) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ? 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
- 26:26) - (0 ? 26:26) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ? 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ? 25:16) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ? 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ? 25:16) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ? 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ? 15:0) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E00) & ((gctUINT32) ((((1 ? 15:0) - (0 ?
- 15:0) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ?
- 15:0)));    gcmSKIPSECUREUSER();
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E00) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
 };
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E00, Pipe);
     gcmENDSTATEBATCH_NEW(reserve, memory);
@@ -119,7 +146,7 @@ gcoHARDWARE_SelectPipe(
         stateDelta = stateDelta;
 #endif
     }
-/*	printf("gcoHARDWARE_SelectPipe end,status %d\n",status);*/
+
 OnError:
     /* Return status. */
     gcmFOOTER();

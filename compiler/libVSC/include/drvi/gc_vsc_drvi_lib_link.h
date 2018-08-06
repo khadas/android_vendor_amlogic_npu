@@ -140,6 +140,7 @@ typedef struct _VSC_LIB_LINK_IMAGE_READ_WRITE
 typedef struct _VSC_LIB_LINK_POINT
 {
     VSC_LIB_LINK_TYPE                 libLinkType;
+    gctBOOL                           linkImageIntrinsic;    /* do not link image lib functions if false */
 
     /* The interested function maitained by lib shader. NOTE only the interested function
        will be truely linked into main shader at each link point. If this function is NULL,

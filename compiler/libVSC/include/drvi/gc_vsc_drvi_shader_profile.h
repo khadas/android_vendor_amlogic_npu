@@ -985,7 +985,10 @@ typedef struct SHADER_EXECUTABLE_NATIVE_HINTS
         /* For GL(ES), it can be set TRUE or FALSE, for others, it must be set to FALSE */
         gctUINT                                          bLinkProgramPipeline : 1;
 
-        gctUINT                                          reserved         : 29;
+        /* What kind of memory access operations shader native holds, see SHADER_EDH_MEM_ACCESS_HINT */
+        gctUINT                                          memoryAccessHint : 6;
+
+        gctUINT                                          reserved         : 23;
     } globalStates;
 
     union
@@ -1143,7 +1146,16 @@ typedef struct SHADER_EXECUTABLE_DERIVED_HINTS
            output are all LE 4 */
         gctUINT                   bIoUSCAddrsPackedToOneReg       : 1;
 
-        gctUINT                   reserved                        : 10;
+        /* Whether enable multi-GPU. */
+        gctUINT                   bEnableMultiGPU                 : 1;
+
+        /* Whether enable robust out-of-bounds check for memory access . */
+        gctUINT                   bEnableRobustCheck              : 1;
+
+        gctUINT                   reserved                        : 8;
+
+        gctUINT                   gprSpillSize;  /* the byte count of register spill mem to be
+                                                  * allocated by driver in MultiGPU mode*/
     } globalStates;
 
     struct
@@ -1184,6 +1196,9 @@ typedef struct SHADER_EXECUTABLE_DERIVED_HINTS
             /* Shader has operation to calc gradient on x/y of RT */
             gctUINT               bDerivRTx                       : 1;
             gctUINT               bDerivRTy                       : 1;
+            /* shader has dsy IR before lowering to machine code, so it
+             * wouldn't count fwidth() as using DSY for yInvert purpose */
+            gctUINT               bDsyBeforeLowering              : 1;
 
             /* Shader has operation to discard pixel (such as texkill/discard) */
             gctUINT               bPxlDiscard                     : 1;
@@ -1211,9 +1226,8 @@ typedef struct SHADER_EXECUTABLE_DERIVED_HINTS
 
 #if gcdALPHA_KILL_IN_SHADER
             gctUINT               alphaClrKillInstsGened          : 1;
-            gctUINT               reserved                        : 1;
 #else
-            gctUINT               reserved                        : 2;
+            gctUINT               reserved                        : 1;
 #endif
         } ps;
 

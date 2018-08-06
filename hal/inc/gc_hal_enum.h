@@ -507,7 +507,25 @@ typedef enum _gceFEATURE
     gcvFEATURE_TP_REAL_INT16,
     gcvFEATURE_NN_FIRST_PIXEL_POOLING,
     gcvFEATURE_NN_STRIDE_SUPPORT,
+    gcvFEATURE_NN_XYDP6,
     gcvFEATURE_IMAGE_LS_NO_FULLMASK_FIX,
+    gcvFEATURE_TP_REORDER_FIX,
+    gcvFEATURE_NN_CONV1x1_PERF_FIX,
+    gcvFEATURE_NN_CACHELINE_MODE_PERF_FIX,
+    gcvFEATURE_NN_PER3DTILE_BUBBLE_FIX,
+    gcvFEATURE_SH_IO_CG_FIX,
+    gcvFEATURE_SWTILING_PHASE3,
+    gcvFEATURE_USC_STAY_LRU,
+    gcvFEATURE_NN_NONZERO_MIRROR_BORDER,
+    gcvFEATURE_NN_COEF_DECOMPRESS_PERF2X,
+    gcvFEATURE_4BIT_INPUT,
+    gcvFEATURE_COEF_COMPRESSION_ENHANCEMENT,
+    gcvFEATURE_NN_ZDP3_NO_COMPRESS_FIX,
+    gcvFEATURE_NN_ASYNC_COPY_PERF_FIX,
+    gcvFEATURE_OCB_COUNTER,
+    gcvFEATURE_NN_ZXDP3_KERNEL_READ_CONFLICT_FIX,
+
+    gcvFEATURE_USC_ATOMIC_FIX2,
     /* Insert features above this comment only. */
     gcvFEATURE_COUNT                /* Not a feature. */
 }
@@ -548,12 +566,13 @@ typedef enum _gceOPTION
     gcvOPTION_OCL_IN_THREAD,
     gcvOPTION_COMPRESSION_DEC400,
     gcvOPTION_OCL_VIR_SHADER,
+    gcvOPTION_OCL_USE_MULTI_DEVICES,
 
 #if gcdUSE_VX
     /* OVX options that HAL could access */
     gcvOPTION_OVX_ENABLE_NN_ZDP3 = 500,
     gcvOPTION_OVX_ENABLE_NN_ZDP6,
-    gcvOPTION_OVX_ENABLE_NN_SWTILING_PHASE1,
+    gcvOPTION_OVX_ENABLE_NN_STRIDE,
 #endif
 
     /* Insert option above this comment only */
@@ -2008,16 +2027,10 @@ typedef enum
 }
 gceENGINE;
 
-/* CORE enum. mod by zxw,set gcvCORE_COUNT from end to frant*/
+/* CORE enum. */
 typedef enum _gceCORE
 {
     gcvCORE_MAJOR,
-	gcvCORE_2D,
-    gcvCORE_VG,
-#if gcdDEC_ENABLE_AHB
-    gcvCORE_DEC,
-#endif
-    gcvCORE_COUNT,
     gcvCORE_3D1,
     gcvCORE_3D2,
     gcvCORE_3D3,
@@ -2025,7 +2038,13 @@ typedef enum _gceCORE
     gcvCORE_3D5,
     gcvCORE_3D6,
     gcvCORE_3D7,
-    gcvCORE_3D_MAX = gcvCORE_3D7
+    gcvCORE_3D_MAX = gcvCORE_3D7,
+    gcvCORE_2D,
+    gcvCORE_VG,
+#if gcdDEC_ENABLE_AHB
+    gcvCORE_DEC,
+#endif
+    gcvCORE_COUNT
 }
 gceCORE;
 

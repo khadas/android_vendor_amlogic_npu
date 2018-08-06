@@ -208,7 +208,7 @@ static int viv_ioctl_gem_create(struct drm_device *drm, void *data,
 
     /* ioctl output */
     gem_obj = kzalloc(sizeof(struct viv_gem_object), GFP_KERNEL);
-    drm_gem_private_object_init(drm, gem_obj, iface.u.AllocateLinearVideoMemory.bytes);
+    drm_gem_private_object_init(drm, gem_obj, (size_t)iface.u.AllocateLinearVideoMemory.bytes);
     ret = drm_gem_handle_create(file, gem_obj, &args->handle);
 
     viv_obj = container_of(gem_obj, struct viv_gem_object, base);

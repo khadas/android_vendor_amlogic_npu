@@ -132,6 +132,7 @@ struct _gcoBUFFER
         gctUINT32               hasHWTFB                    : 1;
         gctUINT32               hasProbe                    : 1;
         gctUINT32               hasComputeOnly              : 1;
+        gctUINT32               hasMCFE                     : 1;
 
     }hwFeature;
 };
@@ -278,7 +279,6 @@ _ConstructCommandBuffer(
     gcoCMDBUF commandBuffer = gcvNULL;
     gctSIZE_T objectSize    = 0;
     gctPOINTER pointer      = gcvNULL;
-    gctSIZE_T tmpSize       = 0;
 
     gcmHEADER_ARG("Bytes=%lu Info=0x%x", Bytes, Info);
 
@@ -339,7 +339,6 @@ _ConstructCommandBuffer(
         gcmONERROR(status);
 
         handle  = iface.u.AllocateLinearVideoMemory.node;
-        tmpSize = iface.u.AllocateLinearVideoMemory.bytes;
 
         /* Lock video memory for both CPU and GPU address. */
         iface.ignoreTLS = gcvFALSE;
@@ -365,7 +364,7 @@ _ConstructCommandBuffer(
         commandBuffer->videoMemNode = handle;
         commandBuffer->address = iface.u.LockVideoMemory.address;
         commandBuffer->logical = iface.u.LockVideoMemory.memory;
-        commandBuffer->bytes   = (gctUINT32)tmpSize;
+        commandBuffer->bytes   = (gctUINT32)Bytes;
 
         /* Initialize command buffer. */
         commandBuffer->free = commandBuffer->bytes;
@@ -492,7 +491,7 @@ _ConstructMirrorCommandBuffer(
 
             if (CommandBuffer->bytes != CommandBuffer->mirrors[i]->bytes)
             {
-                gcmONERROR(gcvSTATUS_NOT_SUPPORTED);
+                gcmONERROR(gcvSTATUS_OUT_OF_MEMORY);
             }
         }
     }
@@ -648,7 +647,7 @@ _FinishCommandBufferRange(
     /* Advance the offset for next commit. */
     newOffset = CommandBuffer->offset + Buffer->info.reservedTail;
 
-    if (gcoHARDWARE_IsFeatureAvailable(gcvNULL, gcvFEATURE_MCFE))
+    if (Buffer->hwFeature.hasMCFE)
     {
         newOffset = gcmALIGN(newOffset, 16);
     }
@@ -946,9 +945,9 @@ _GetCommandLocation(
     else
     {
         /* Allocate. */
-        if (gcmIS_ERROR(gcoOS_Allocate(gcvNULL,
-                                       sizeof(gcsHAL_COMMAND_LOCATION),
-                                       (gctPOINTER *)&cmdLoc)))
+        if (gcmIS_ERROR(gcoOS_AllocateSharedMemory(gcvNULL,
+                                                   sizeof(gcsHAL_COMMAND_LOCATION),
+                                                   (gctPOINTER *)&cmdLoc)))
         {
             return gcvNULL;
         }
@@ -972,9 +971,9 @@ _GetSubCommit(
     else
     {
         /* Allocate. */
-        if (gcmIS_ERROR(gcoOS_Allocate(gcvNULL,
-                                       sizeof(gcsHAL_SUBCOMMIT),
-                                       (gctPOINTER *)&subCommit)))
+        if (gcmIS_ERROR(gcoOS_AllocateSharedMemory(gcvNULL,
+                                                   sizeof(gcsHAL_SUBCOMMIT),
+                                                   (gctPOINTER *)&subCommit)))
         {
             return gcvNULL;
         }
@@ -1051,7 +1050,7 @@ _DestroyCommandLocations(
         gcsHAL_COMMAND_LOCATION * next = gcmUINT64_TO_PTR(cmdLoc->next);
 
         /* Free memory. */
-        gcoOS_Free(gcvNULL, cmdLoc);
+        gcmOS_SAFE_FREE_SHARED_MEMORY(gcvNULL, cmdLoc);
 
         cmdLoc = next;
     }
@@ -1069,7 +1068,7 @@ _DestroySubCommits(
         gcsHAL_SUBCOMMIT * next = gcmUINT64_TO_PTR(subCommit->next);
 
         /* Free memory. */
-        gcoOS_Free(gcvNULL, subCommit);
+        gcmOS_SAFE_FREE_SHARED_MEMORY(gcvNULL, subCommit);
 
         subCommit = next;
     }
@@ -1394,6 +1393,7 @@ gcoBUFFER_Construct(
     buffer->hwFeature.hasHWFence = gcoHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_FENCE_32BIT)
                                 || gcoHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_FENCE_64BIT);
     buffer->hwFeature.hasComputeOnly = gcoHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_COMPUTE_ONLY);
+    buffer->hwFeature.hasMCFE = gcoHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_MCFE);
     /* Initialize commits. */
     buffer->subCommitTail       = gcvNULL;
     buffer->commandLocationTail = gcvNULL;
@@ -1599,6 +1599,12 @@ gcoBUFFER_AddMCFESemaphorePatch(
 
     gcmHEADER_ARG("Buffer=0x%x Logical=%p, SemaHandle=%u",
                   Buffer, Logical, SemaHandle);
+
+    if (!Buffer->hwFeature.hasMCFE)
+    {
+        gcmFOOTER_ARG("status=%d", gcvSTATUS_INVALID_REQUEST);
+        return gcvSTATUS_INVALID_REQUEST;
+    }
 
     /* Add to temp mcfe semaphore patch list when temp buffer used. */
     patchList = _GetPatchItem(Buffer,
@@ -1932,7 +1938,7 @@ gcoBUFFER_Destroy(
     return gcvSTATUS_OK;
 }
 
-gcmINLINE gceSTATUS _CaptureCommandBuffer(gcoBUFFER Buffer, gcoCMDBUF commandBuffer)
+static gcmINLINE gceSTATUS _CaptureCommandBuffer(gcoBUFFER Buffer, gcoCMDBUF commandBuffer)
 {
     if (Buffer->captureEnabled)
     {
@@ -2139,18 +2145,30 @@ gcoBUFFER_Reserve(
 
     if (alignedBytes > commandBuffer->free || notInSamePage)
     {
-        /* Sent event to signal when command buffer completes. */
-        iface.command            = gcvHAL_SIGNAL;
-        iface.engine             = Buffer->info.engine;
-        iface.u.Signal.signal    = gcmPTR_TO_UINT64(commandBuffer->signal);
-        iface.u.Signal.auxSignal = 0;
-        iface.u.Signal.process   = gcmPTR_TO_UINT64(gcoOS_GetCurrentProcessID());
-        iface.u.Signal.fromWhere = gcvKERNEL_COMMAND;
+        if (!Buffer->dropCommandEnabled)
+        {
+            /* Sent event to signal when command buffer completes. */
+            iface.command            = gcvHAL_SIGNAL;
+            iface.engine             = Buffer->info.engine;
+            iface.u.Signal.signal    = gcmPTR_TO_UINT64(commandBuffer->signal);
+            iface.u.Signal.auxSignal = 0;
+            iface.u.Signal.process   = gcmPTR_TO_UINT64(gcoOS_GetCurrentProcessID());
+            iface.u.Signal.fromWhere = gcvKERNEL_COMMAND;
 
-        /* Send event. */
-        gcmONERROR(gcoHARDWARE_CallEvent(Buffer->hardware, &iface));
+            /* Send event. */
+            gcmONERROR(gcoHARDWARE_CallEvent(Buffer->hardware, &iface));
+        }
+        else
+        {
+            /* as we already commit true for the command buffer
+             * before capture with dropCommandEnabled, we could signal this commandbuffer
+             * right away.
+             */
+            gcmONERROR(gcoOS_Signal(gcvNULL, commandBuffer->signal, gcvTRUE));
+        }
 
-        if (gcoHARDWARE_IsFeatureAvailable(gcvNULL, gcvFEATURE_MCFE))
+
+        if (Buffer->hwFeature.hasMCFE)
         {
             /* Do not commit for MCFE, but accumulates more. */
             gcmONERROR(_LinkCommandLocation(Buffer, commandBuffer, 0));
@@ -2166,6 +2184,11 @@ gcoBUFFER_Reserve(
 
         /* Get new buffer. */
         commandBuffer = Buffer->commandBufferTail;
+
+        if (Buffer->captureEnabled)
+        {
+            Buffer->captureCommandOffset = commandBuffer->offset;
+        }
 
         if (resumeBytes == 0)
         {
@@ -2843,11 +2866,13 @@ gcoBUFFER_Capture(
         gcmASSERT(CaptureBuffer);
         gcmASSERT(InputSizeInByte);
         /* If we want to skip sending command to hardware during the capture,
-         * we need commit existing commands in current command buffer first.
+         * we need commit existing commands in current command buffer first
+         * and stall it. so we could make the command buffer could be used for
+         * capture only.
          */
         if (dropCommandEnabled)
         {
-            gcoHARDWARE_Commit(Buffer->hardware);
+            gcoHAL_Commit(Buffer->hal, gcvTRUE);
         }
         Buffer->captureEnabled = gcvTRUE;
         Buffer->captureBuffer = CaptureBuffer;
@@ -2905,7 +2930,7 @@ gceSTATUS gcoBUFFER_IsCaptureEnabled(
     gceSTATUS status = gcvSTATUS_FALSE;
     gcmHEADER_ARG("Buffer=%p", Buffer);
 
-    status = Buffer->captureEnabled ? gcvSTATUS_TRUE : gcvSTATUS_FALSE;
+    status = Buffer && Buffer->captureEnabled && Buffer->dropCommandEnabled? gcvSTATUS_TRUE : gcvSTATUS_FALSE;
 
     gcmFOOTER();
     return status;

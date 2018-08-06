@@ -60,54 +60,51 @@
 #if USE_LINUX_PCIE
 #include <linux/pci.h>
 #endif
-/*========add by zxw for g12b hardware reg define========*/
-#define AO_RTI_BASE           0xff800000
-#define AO_RTI_GEN_PWR_SLEEP0 (AO_RTI_BASE + (0x3a<<2))   //0xff8000e8
-#define AO_RTI_GEN_PWR_ISO0   (AO_RTI_BASE + (0x3b<<2))   //0xff8000ec
-
-#define HHI_BASE_ADDR         0xff63c000
-#define HHI_NANOQ_MEM_PD_REG0 (HHI_BASE_ADDR+(0x43<<2))
-#define HHI_NANOQ_MEM_PD_REG1 (HHI_BASE_ADDR+(0x44<<2))
-
-#define MAX_NANOQ_FREQ        800000000
 
 typedef struct _gcsMODULE_PARAMETERS
 {
-    gctINT  irqLine;
-    gctUINT registerMemBase;
-    gctUINT registerMemSize;
-    gctINT  irqLine2D;
-    gctUINT registerMemBase2D;
-    gctUINT registerMemSize2D;
-    gctINT  irqLineVG;
-    gctUINT registerMemBaseVG;
-    gctUINT registerMemSizeVG;
-    gctUINT contiguousSize;
-    gctUINT contiguousBase;
-    gctUINT contiguousRequested;
-    gctUINT externalSize;
-    gctUINT externalBase;
-    gctUINT bankSize;
-    gctINT  fastClear;
-    gceCOMPRESSION_OPTION compression;
-    gctINT  powerManagement;
-    gctINT  gpuProfiler;
-    gctINT  signal;
-    gctUINT baseAddress;
-    gctUINT physSize;
-    gctUINT logFileSize;
-    gctUINT recovery;
-    gctUINT stuckDump;
-    gctUINT showArgs;
-    gctUINT gpu3DMinClock;
-    gctBOOL registerMemMapped;
-    gctPOINTER registerMemAddress;
-    gctUINT userClusterMask;
-    gctINT  irqs[gcvCORE_COUNT];
-    gctUINT registerBases[gcvCORE_COUNT];
-    gctUINT registerSizes[gcvCORE_COUNT];
-    gctUINT chipIDs[gcvCORE_COUNT];
-    gctUINT sRAMBases[gcvSRAM_COUNT];
+    gctINT                  irqs[gcvCORE_COUNT];
+    gctPHYS_ADDR_T          registerBases[gcvCORE_COUNT];
+    gctSIZE_T               registerSizes[gcvCORE_COUNT];
+    gctINT                  bars[gcvCORE_COUNT];
+
+    gctPOINTER              registerBasesMapped[gcvCORE_COUNT];
+
+    gctUINT                 chipIDs[gcvCORE_COUNT];
+
+    /* Contiguous memory pool. */
+    gctPHYS_ADDR_T          contiguousBase;
+    gctSIZE_T               contiguousSize;
+    gctBOOL                 contiguousRequested;
+
+    /* External memory pool. */
+    gctPHYS_ADDR_T          externalBase;
+    gctSIZE_T               externalSize;
+
+    /* SRAM. */
+    gctPHYS_ADDR_T          sRAMBases[gcvCORE_COUNT][gcvSRAM_COUNT];
+
+    gctPHYS_ADDR_T          baseAddress;
+    gctSIZE_T               physSize;
+    gctSIZE_T               bankSize;
+
+    gctUINT                 recovery;
+    gctINT                  powerManagement;
+
+    gctINT                  enableMmu;
+    gctINT                  fastClear;
+    gceCOMPRESSION_OPTION   compression;
+    gctUINT                 gpu3DMinClock;
+    gctUINT                 userClusterMask;
+    gctUINT                 smallBatch;
+
+    /* Debug or other information. */
+    gctUINT                 stuckDump;
+    gctINT                  gpuProfiler;
+
+    /* device type, 0 for char device, 1 for misc device. */
+    gctUINT                 deviceType;
+    gctUINT                 showArgs;
 }
 gcsMODULE_PARAMETERS;
 
@@ -258,23 +255,6 @@ typedef struct soc_platform_ops
     gceSTATUS
     (*shrinkMemory)(
         IN gcsPLATFORM * Platform
-        );
-
-    /*******************************************************************************
-    **
-    **  cache
-    **
-    **  Cache operation.
-    */
-    gceSTATUS
-    (*cache)(
-        IN gcsPLATFORM * Platform,
-        IN gctUINT32 ProcessID,
-        IN gctPHYS_ADDR Handle,
-        IN gctUINT32 Physical,
-        IN gctPOINTER Logical,
-        IN gctSIZE_T Bytes,
-        IN gceCACHEOPERATION Operation
         );
 
     /*******************************************************************************

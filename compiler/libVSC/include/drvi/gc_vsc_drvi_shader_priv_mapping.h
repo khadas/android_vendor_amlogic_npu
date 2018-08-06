@@ -24,53 +24,57 @@ typedef struct _SHADER_RESOURCE_SLOT_MAPPING      SHADER_RESOURCE_SLOT_MAPPING;
 typedef struct _SHADER_SAMPLER_SLOT_MAPPING       SHADER_SAMPLER_SLOT_MAPPING;
 typedef struct _SHADER_IO_REG_MAPPING             SHADER_IO_REG_MAPPING;
 
-/* Shader constant static priv-mapping flag */
-typedef enum SHS_PRIV_CONSTANT_FLAG
+/* Shader constant static priv-mapping kind */
+typedef enum SHS_PRIV_CONSTANT_KIND
 {
-    SHS_PRIV_CONSTANT_FLAG_COMPUTE_GROUP_NUM,
-    SHS_PRIV_CONSTANT_FLAG_IMAGE_SIZE,
-    SHS_PRIV_CONSTANT_FLAG_TEXTURE_SIZE,
-    SHS_PRIV_CONSTANT_FLAG_LOD_MIN_MAX,
-    SHS_PRIV_CONSTANT_FLAG_LEVELS_SAMPLES,
-    SHS_PRIV_CONSTANT_FLAG_BASE_INSTANCE,
-    SHS_PRIV_CONSTANT_FLAG_SAMPLE_LOCATION,
-    SHS_PRIV_CONSTANT_FLAG_ENABLE_MULTISAMPLE_BUFFERS,
-    SHS_PRIV_CONSTANT_FLAG_LOCAL_ADDRESS_SPACE,
-    SHS_PRIV_CONSTANT_FLAG_PRIVATE_ADDRESS_SPACE,
-    SHS_PRIV_CONSTANT_FLAG_CONSTANT_ADDRESS_SPACE,
-    SHS_PRIV_CONSTANT_FLAG_GLOBAL_SIZE,
-    SHS_PRIV_CONSTANT_FLAG_LOCAL_SIZE,
-    SHS_PRIV_CONSTANT_FLAG_GLOBAL_OFFSET,
-    SHS_PRIV_CONSTANT_FLAG_WORK_DIM,
-    SHS_PRIV_CONSTANT_FLAG_PRINTF_ADDRESS,
-    SHS_PRIV_CONSTANT_FLAG_WORKITEM_PRINTF_BUFFER_SIZE,
-    SHS_PRIV_CONSTANT_FLAG_WORK_THREAD_COUNT,
-    SHS_PRIV_CONSTANT_FLAG_WORK_GROUP_COUNT,
-    SHS_PRIV_CONSTANT_FLAG_LOCAL_MEM_SIZE,
-}SHS_PRIV_CONSTANT_FLAG;
+    SHS_PRIV_CONSTANT_KIND_COMPUTE_GROUP_NUM            = 0,
+    SHS_PRIV_CONSTANT_KIND_IMAGE_SIZE                   = 1,
+    SHS_PRIV_CONSTANT_KIND_TEXTURE_SIZE                 = 2,
+    SHS_PRIV_CONSTANT_KIND_LOD_MIN_MAX                  = 3,
+    SHS_PRIV_CONSTANT_KIND_LEVELS_SAMPLES               = 4,
+    SHS_PRIV_CONSTANT_KIND_BASE_INSTANCE                = 5,
+    SHS_PRIV_CONSTANT_KIND_SAMPLE_LOCATION              = 6,
+    SHS_PRIV_CONSTANT_KIND_ENABLE_MULTISAMPLE_BUFFERS   = 7,
+    SHS_PRIV_CONSTANT_KIND_LOCAL_ADDRESS_SPACE          = 8,
+    SHS_PRIV_CONSTANT_KIND_PRIVATE_ADDRESS_SPACE        = 9,
+    SHS_PRIV_CONSTANT_KIND_CONSTANT_ADDRESS_SPACE       = 10,
+    SHS_PRIV_CONSTANT_KIND_GLOBAL_SIZE                  = 11,
+    SHS_PRIV_CONSTANT_KIND_LOCAL_SIZE                   = 12,
+    SHS_PRIV_CONSTANT_KIND_GLOBAL_OFFSET                = 13,
+    SHS_PRIV_CONSTANT_KIND_WORK_DIM                     = 14,
+    SHS_PRIV_CONSTANT_KIND_PRINTF_ADDRESS               = 15,
+    SHS_PRIV_CONSTANT_KIND_WORKITEM_PRINTF_BUFFER_SIZE  = 16,
+    SHS_PRIV_CONSTANT_KIND_WORK_THREAD_COUNT            = 17,
+    SHS_PRIV_CONSTANT_KIND_WORK_GROUP_COUNT             = 18,
+    SHS_PRIV_CONSTANT_KIND_LOCAL_MEM_SIZE               = 19,
+    SHS_PRIV_CONSTANT_KIND_WORK_GROUP_ID_OFFSET         = 20,
+    SHS_PRIV_CONSTANT_KIND_TEMP_REG_SPILL_MEM_ADDRESS   = 21,
+    SHS_PRIV_CONSTANT_KIND_COUNT, /* last member, add new kind beofre this */
+}SHS_PRIV_CONSTANT_KIND;
 
-/* Shader mem static priv-mapping flag */
-typedef enum SHS_PRIV_MEM_FLAG
+/* Shader mem static priv-mapping kind */
+typedef enum SHS_PRIV_MEM_KIND
 {
-    SHS_PRIV_MEM_FLAG_GPR_SPILLED_MEMORY, /* For gpr register spillage */
-    SHS_PRIV_MEM_FLAG_CONSTANT_SPILLED_MEMORY, /* For constant register spillage */
-    SHS_PRIV_MEM_FLAG_STREAMOUT_BY_STORE, /* Stream buffer for SO */
-    SHS_PRIV_MEM_FLAG_CL_PRIVATE_MEMORY, /* For CL private mem */
-    SHS_PRIV_MEM_FLAG_SHARED_MEMORY, /* For CL local memory or DirectCompute shared mem */
-    SHS_PRIV_CONSTANT_FLAG_EXTRA_UAV_LAYER,
-}SHS_PRIV_MEM_FLAG;
+    SHS_PRIV_MEM_KIND_GPR_SPILLED_MEMORY        = 0, /* For gpr register spillage */
+    SHS_PRIV_MEM_KIND_CONSTANT_SPILLED_MEMORY   = 1, /* For constant register spillage */
+    SHS_PRIV_MEM_KIND_STREAMOUT_BY_STORE        = 2, /* Stream buffer for SO */
+    SHS_PRIV_MEM_KIND_CL_PRIVATE_MEMORY         = 3, /* For CL private mem */
+    SHS_PRIV_MEM_KIND_SHARED_MEMORY             = 4, /* For CL local memory or DirectCompute shared mem */
+    SHS_PRIV_MEM_KIND_EXTRA_UAV_LAYER           = 5,
+    SHS_PRIV_MEM_KIND_COUNT                     = 6,
+}SHS_PRIV_MEM_KIND;
 
 /* !!!!!NOTE: For dynamic (lib-link) patch, the priv-mapping flag will directly use VSC_LIB_LINK_TYPE!!!!! */
 
 /* Definition for common entry of shader priv mapping . */
 typedef struct SHADER_PRIV_MAPPING_COMMON_ENTRY
 {
-    /* Each priv-mapping flag */
-    gctUINT                                     privmFlag;
+    /* Each priv-mapping kind */
+    gctUINT                                     privmKind;
 
-    /* For some flags, there might be multiple mapping, so flag-index to distinguish them.
+    /* For some kinds, there might be multiple mapping, so flag-index to distinguish them.
        It is numbered from zero. */
-    gctUINT                                     privmFlagIndex;
+    gctUINT                                     privmKindIndex;
 
     /* For some flags, they will have their private data to tell driver how to do. */
     void*                                       pPrivateData;

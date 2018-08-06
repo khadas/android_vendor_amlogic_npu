@@ -105,7 +105,7 @@ gcoOS_Dump(
 {
     gctUINT offset = 0;
     gctARGUMENTS args;
-    char buffer[256];
+    char buffer[512];
 #if gcdDUMP_IN_KERNEL
     gcsHAL_INTERFACE ioctl;
 #endif
@@ -629,7 +629,7 @@ Found:
     /* Map it into the user space if we only have the physical address. */
     if (logical == gcvNULL)
     {
-        gcmONERROR(gcoHAL_MapMemory(gcvNULL, gcmINT2PTR(physical), size, &logical));
+        gcmONERROR(gcoHAL_MapMemory(gcvNULL, physical, size, &logical));
         mapped = gcvTRUE;
     }
 
@@ -670,7 +670,7 @@ Found:
     /* Unmap the memory. */
     if (mapped)
     {
-        gcmVERIFY_OK(gcoHAL_UnmapMemory(gcvNULL, gcmINT2PTR(physical), size, logical));
+        gcmVERIFY_OK(gcoHAL_UnmapMemory(gcvNULL, physical, size, logical));
     }
 
     return gcvSTATUS_OK;

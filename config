@@ -71,4 +71,4 @@ BANK_BIT_START                    ?= 0
 BANK_BIT_END                      ?= 0
 BANK_CHANNEL_BIT                  ?= 0
 SECURITY                          ?= 0
-SOC_PLATFORM                      ?= default
+SOC_PLATFORM                      ?= amlogic

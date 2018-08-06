@@ -106,14 +106,7 @@ typedef va_list gctARGUMENTS;
 #endif
 
 #define gcmkOUTPUT_STRING(String) \
-    if (gckDEBUGFS_IsEnabled()) \
-    { \
-        while (-ERESTARTSYS == gckDEBUGFS_Print(String)); \
-    } \
-    else \
-    { \
-        printk("%s", String); \
-    }
+    printk("%s", String); \
 
 #define gcmkDUMP_STRING(Os, String) \
     do \

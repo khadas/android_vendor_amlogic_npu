@@ -370,6 +370,7 @@ EXPORTS
     vscCreateShader
     vscDestroyShader
     vscReferenceShader
+    vscGetDebugInfo
     vscCopyShader
     vscSaveShaderToBinary
     vscQueryShaderBinarySize

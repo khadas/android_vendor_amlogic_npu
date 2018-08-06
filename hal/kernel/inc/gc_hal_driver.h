@@ -114,7 +114,6 @@ typedef enum _gceHAL_COMMAND_CODES
 
     gcvHAL_EVENT_COMMIT,
     gcvHAL_COMMIT,
-    gcvHAL_STALL,
     gcvHAL_COMMIT_DONE,
 
     gcvHAL_USER_SIGNAL,
@@ -138,13 +137,9 @@ typedef enum _gceHAL_COMMAND_CODES
     gcvHAL_CONFIG_POWER_MANAGEMENT,
 
     gcvHAL_GET_BASE_ADDRESS,
-    gcvHAL_QUERY_KERNEL_SETTINGS,
 
     gcvHAL_SET_IDLE, /* reserved */
     gcvHAL_RESET, /* Reset, reserved. */
-
-    /* Map physical address into handle. */
-    gcvHAL_MAP_PHYSICAL,
 
     /* Debug/dump feature. */
     gcvHAL_SET_DEBUG_LEVEL_ZONE,
@@ -233,20 +228,17 @@ gcsHAL_SET_TIMEOUT;
 typedef struct _gcsHAL_QUERY_VIDEO_MEMORY
 {
     /* Physical memory address of internal memory. Just a name. */
-    OUT gctUINT32               internalPhysical;
-
+    OUT gctUINT32               internalPhysName;
     /* Size in bytes of internal memory. */
     OUT gctUINT64               internalSize;
 
     /* Physical memory address of external memory. Just a name. */
-    OUT gctUINT32               externalPhysical;
-
+    OUT gctUINT32               externalPhysName;
     /* Size in bytes of external memory.*/
     OUT gctUINT64               externalSize;
 
     /* Physical memory address of contiguous memory. Just a name. */
-    OUT gctUINT32               contiguousPhysical;
-
+    OUT gctUINT32               contiguousPhysName;
     /* Size in bytes of contiguous memory.*/
     OUT gctUINT64               contiguousSize;
 }
@@ -303,7 +295,8 @@ typedef struct _gcsHAL_QUERY_CHIP_IDENTITY
     /* Customer ID. */
     gctUINT32                   customerID;
 
-    /* SRAM sizesL */
+    /* SRAM physical addresses and sizes. */
+    gctUINT64                   sRAMBases[gcvSRAM_COUNT];
     gctUINT32                   sRAMSizes[gcvSRAM_COUNT];
 }
 gcsHAL_QUERY_CHIP_IDENTITY;
@@ -312,20 +305,20 @@ gcsHAL_QUERY_CHIP_IDENTITY;
 typedef struct _gcsHAL_QUERY_CHIP_OPTIONS * gcsHAL_QUERY_CHIP_OPTIONS_PTR;
 typedef struct _gcsHAL_QUERY_CHIP_OPTIONS
 {
-    gctBOOL     gpuProfiler;
-    gctBOOL     allowFastClear;
-    gctBOOL     powerManagement;
+    gctBOOL                     gpuProfiler;
+    gctBOOL                     allowFastClear;
+    gctBOOL                     powerManagement;
     /* Whether use new MMU. It is meaningless
     ** for old MMU since old MMU is always enabled.
     */
-    gctBOOL     enableMMU;
-    gceCOMPRESSION_OPTION     allowCompression;
-    gctBOOL     smallBatch;
-    gctUINT     uscL1CacheRatio;
-    gctUINT     uscAttribCacheRatio;
-    gctUINT     userClusterMask;
-    gctUINT     sRAMBases[gcvSRAM_COUNT];
-    gceSECURE_MODE  secureMode;
+    gctBOOL                     enableMMU;
+    gceCOMPRESSION_OPTION       allowCompression;
+    gctBOOL                     smallBatch;
+    gctUINT32                   uscL1CacheRatio;
+    gctUINT32                   uscAttribCacheRatio;
+    gctUINT32                   userClusterMask;
+    gctUINT32                   sRAMBaseAddress[gcvSRAM_COUNT];
+    gceSECURE_MODE              secureMode;
 
 }
 gcsHAL_QUERY_CHIP_OPTIONS;
@@ -339,6 +332,7 @@ typedef struct _gcsHAL_QUERY_CHIP_FREQUENCY
 }
 gcsHAL_QUERY_CHIP_FREQUENCY;
 
+/* Obsolete for userpace. */
 /* gcvHAL_ALLOCATE_NON_PAGED_MEMORY */
 typedef struct _gcsHAL_ALLOCATE_NON_PAGED_MEMORY
 {
@@ -356,6 +350,7 @@ typedef struct _gcsHAL_ALLOCATE_NON_PAGED_MEMORY
 }
 gcsHAL_ALLOCATE_NON_PAGED_MEMORY;
 
+/* Obsolete for userpace. */
 /* gcvHAL_FREE_NON_PAGED_MEMORY */
 typedef struct _gcsHAL_FREE_NON_PAGED_MEMORY
 {
@@ -375,10 +370,10 @@ gcsHAL_FREE_NON_PAGED_MEMORY;
 typedef struct _gcsHAL_ALLOCATE_LINEAR_VIDEO_MEMORY
 {
     /* Number of bytes to allocate. */
-    IN OUT gctUINT              bytes;
+    IN OUT gctUINT64            bytes;
 
     /* Buffer alignment. */
-    IN gctUINT                  alignment;
+    IN gctUINT32                alignment;
 
     /* Type of allocation, see gceVIDMEM_TYPE. */
     IN gctUINT32                type;
@@ -387,7 +382,7 @@ typedef struct _gcsHAL_ALLOCATE_LINEAR_VIDEO_MEMORY
     IN gctUINT32                flag;
 
     /* Memory pool to allocate from. */
-    IN OUT gcePOOL              pool;
+    IN OUT gctUINT32            pool;
 
     /* Allocated video memory. */
     OUT gctUINT32               node;
@@ -405,7 +400,7 @@ typedef struct _gcsUSER_MEMORY_DESC
 
     /* gcvALLOC_FLAG_USERMEMORY */
     gctUINT64                  logical;
-    gctUINT32                  physical;
+    gctUINT64                  physical;
     gctUINT32                  size;
 
     /* gcvALLOC_FLAG_EXTERNAL_MEMORY */
@@ -480,10 +475,10 @@ typedef struct _gcsHAL_UNLOCK_VIDEO_MEMORY
     IN gctUINT32                type;
 
     /* Pool of the unlock node */
-    OUT gcePOOL                 pool;
+    OUT gctUINT32               pool;
 
     /* Bytes of the unlock node */
-    OUT gctUINT                 bytes;
+    OUT gctUINT64               bytes;
 
     /* Flag to unlock surface asynchroneously. */
     IN OUT gctBOOL              asynchroneous;
@@ -535,7 +530,7 @@ gcsHAL_IMPORT_VIDEO_MEMORY;
 typedef struct _gcsHAL_MAP_MEMORY
 {
     /* Physical memory address to map. Just a name on Linux/Qnx. */
-    IN gctUINT32                physical;
+    IN gctUINT32                physName;
 
     /* Number of bytes in physical memory to map. */
     IN gctUINT64                bytes;
@@ -549,7 +544,7 @@ gcsHAL_MAP_MEMORY;
 typedef struct _gcsHAL_UNMAP_MEMORY
 {
     /* Physical memory address to unmap. Just a name on Linux/Qnx. */
-    IN gctUINT32                physical;
+    IN gctUINT32                physName;
 
     /* Number of bytes in physical memory to unmap. */
     IN gctUINT64                bytes;
@@ -690,7 +685,7 @@ typedef struct _gcsHAL_USER_SIGNAL
     gceUSER_SIGNAL_COMMAND_CODES command;
 
     /* Signal ID. */
-    IN OUT gctINT               id;
+    IN OUT gctINT32             id;
 
     /* Reset mode. */
     IN gctBOOL                  manualReset;
@@ -885,33 +880,6 @@ typedef struct _gcsHAL_GET_BASE_ADDRESS
 }
 gcsHAL_GET_BASE_ADDRESS;
 
-/* Kernel settings. */
-typedef struct _gcsKERNEL_SETTINGS
-{
-    /* Used RealTime signal between kernel and user. */
-    gctINT signal;
-}
-gcsKERNEL_SETTINGS;
-
-/* gcvHAL_QUERY_KERNEL_SETTINGS */
-typedef struct _gcsHAL_QUERY_KERNEL_SETTINGS
-{
-    /* Settings.*/
-    OUT gcsKERNEL_SETTINGS      settings;
-}
-gcsHAL_QUERY_KERNEL_SETTINGS;
-
-/* gcvHAL_MAP_PHYSICAL */
-typedef struct _gcsHAL_MAP_PHYSICAL
-{
-    /* gcvTRUE to map, gcvFALSE to unmap. */
-    IN gctBOOL                  map;
-
-    /* Physical address. */
-    IN OUT gctUINT64            physical;
-}
-gcsHAL_MAP_PHYSICAL;
-
 typedef struct _gcsHAL_SET_DEBUG_LEVEL_ZONE
 {
     IN gctUINT32                level;
@@ -978,15 +946,15 @@ gcsHAL_GET_FRAME_INFO;
 
 typedef struct _gcsHAL_SET_FSCALE_VALUE
 {
-    IN gctUINT                  value;
+    IN gctUINT32                value;
 }
 gcsHAL_SET_FSCALE_VALUE;
 
 typedef struct _gcsHAL_GET_FSCALE_VALUE
 {
-    OUT gctUINT                 value;
-    OUT gctUINT                 minValue;
-    OUT gctUINT                 maxValue;
+    OUT gctUINT32               value;
+    OUT gctUINT32               minValue;
+    OUT gctUINT32               maxValue;
 }
 gcsHAL_GET_FSCALE_VALUE;
 
@@ -1005,7 +973,7 @@ typedef struct _gcsHAL_CREATE_NATIVE_FENCE
     IN gctUINT64                signal;
 
     /* Native fence file descriptor. */
-    OUT gctINT                  fenceFD;
+    OUT gctINT32                fenceFD;
 
 }
 gcsHAL_CREATE_NATIVE_FENCE;
@@ -1014,7 +982,7 @@ gcsHAL_CREATE_NATIVE_FENCE;
 typedef struct _gcsHAL_WAIT_NATIVE_FENCE
 {
     /* Native fence file descriptor. */
-    IN gctINT                   fenceFD;
+    IN gctINT32                 fenceFD;
 
     /* Wait timeout. */
     IN gctUINT32                timeout;
@@ -1062,7 +1030,7 @@ gcsHAL_GET_GRAPHIC_BUFFER_FD;
 typedef struct _gcsHAL_GET_VIDEO_MEMORY_FD
 {
     IN gctUINT32                handle;
-    OUT gctINT                  fd;
+    OUT gctINT32                fd;
 }
 gcsHAL_GET_VIDEO_MEMORY_FD;
 
@@ -1211,9 +1179,6 @@ typedef struct _gcsHAL_INTERFACE
         gcsHAL_CONFIG_POWER_MANAGEMENT      ConfigPowerManagement;
 
         gcsHAL_GET_BASE_ADDRESS             GetBaseAddress;
-        gcsHAL_QUERY_KERNEL_SETTINGS        QueryKernelSettings;
-
-        gcsHAL_MAP_PHYSICAL                 MapPhysical;
 
         gcsHAL_SET_DEBUG_LEVEL_ZONE         DebugLevelZone;
         gcsHAL_DEBUG_DUMP                   DebugDump;

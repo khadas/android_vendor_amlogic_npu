@@ -721,12 +721,10 @@ gckOS_Construct(
     gckOS_ImportAllocators(os);
 
 #if defined(CONFIG_IOMMU_SUPPORT)
-    if (((gckGALDEVICE)(os->device))->args.mmu == gcvFALSE)
+    if (0)
     {
         /* Only use IOMMU when internal MMU is not enabled. */
-        status = gckIOMMU_Construct(os, &os->iommu);
-
-        if (gcmIS_ERROR(status))
+        if (gcmIS_ERROR(gckIOMMU_Construct(os, &os->iommu)))
         {
             gcmkTRACE_ZONE(
                 gcvLEVEL_INFO, gcvZONE_OS,
@@ -1126,7 +1124,7 @@ gckOS_MapMemory(
     gctINT pid = _GetProcessID();
 
     gcmkHEADER_ARG("Os=%p Physical=%p Bytes=0x%zx", Os, Physical, Bytes);
-	/*printk("Os=%p Physical=%p Bytes=0x%zx", Os, Physical, Bytes);*/
+
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Physical != 0);
@@ -1299,55 +1297,6 @@ OnError:
 
 /*******************************************************************************
 **
-**  gckOS_UnmapUserLogical
-**
-**  Unmap user logical memory out of physical memory.
-**
-**  INPUT:
-**
-**      gckOS Os
-**          Pointer to an gckOS object.
-**
-**      gctPHYS_ADDR Physical
-**          Start of physical address memory.
-**
-**      gctSIZE_T Bytes
-**          Number of bytes to unmap.
-**
-**      gctPOINTER Memory
-**          Pointer to a previously mapped memory region.
-**
-**  OUTPUT:
-**
-**      Nothing.
-*/
-gceSTATUS
-gckOS_UnmapUserLogical(
-    IN gckOS Os,
-    IN gctPHYS_ADDR Physical,
-    IN gctSIZE_T Bytes,
-    IN gctPOINTER Logical
-    )
-{
-    gcmkHEADER_ARG("Os=%p Physical=%p Bytes=0x%zx Logical=%p",
-                   Os, Physical, Bytes, Logical);
-
-    /* Verify the arguments. */
-    gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
-    gcmkVERIFY_ARGUMENT(Physical != 0);
-    gcmkVERIFY_ARGUMENT(Bytes > 0);
-    gcmkVERIFY_ARGUMENT(Logical != gcvNULL);
-
-    gckOS_UnmapMemory(Os, Physical, Bytes, Logical);
-
-    /* Success. */
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
-
-}
-
-/*******************************************************************************
-**
 **  gckOS_AllocateNonPagedMemory
 **
 **  Allocate a number of pages from non-paged memory.
@@ -1407,7 +1356,6 @@ gckOS_AllocateNonPagedMemory(
     gcmkVERIFY_ARGUMENT(Physical != gcvNULL);
     gcmkVERIFY_ARGUMENT(Logical != gcvNULL);
 
-	printk("gckOS_AllocateNonPagedMemory,*Bytes=0x%zx\n",gcmOPT_VALUE(Bytes));
     /* Align number of bytes to page size. */
     bytes = gcmALIGN(*Bytes, PAGE_SIZE);
 
@@ -1430,8 +1378,7 @@ gckOS_AllocateNonPagedMemory(
                        "%s(%d) flag = %x allocator->capability = %x",
                         __FUNCTION__, __LINE__, Flag, allocator->capability);
 
-//#ifndef NO_DMA_COHERENT  //zxw
-#if 1
+#ifndef NO_DMA_COHERENT
         /* Point to dma coherent allocator. */
         if (!strcmp(allocator->name, "dma") ||
             ((Flag & allocator->capability) == Flag && numPages == 1))
@@ -1444,7 +1391,6 @@ gckOS_AllocateNonPagedMemory(
              * allocators when page count is 1. This is to save memory usage of
              * dma coherent pool.
              */
-			printk("dma alloc is enter\n");
             status = allocator->ops->Alloc(allocator, mdl, numPages, Flag);
 
             if (gcmIS_SUCCESS(status))
@@ -1734,6 +1680,8 @@ gckOS_ReadRegisterEx(
 {
     if (in_irq())
     {
+        uint32_t data;
+
         spin_lock(&Os->registerAccessLock);
 
         if (unlikely(Os->clockStates[Core] == gcvFALSE))
@@ -1741,8 +1689,25 @@ gckOS_ReadRegisterEx(
             spin_unlock(&Os->registerAccessLock);
 
             /*
-             * Read register when clock off:
+             * Read register when external clock off:
              * 1. In shared IRQ, read register may be called and that's not our irq.
+             */
+            return gcvSTATUS_GENERIC_IO;
+        }
+
+        data = readl(Os->device->registerBases[Core]);
+
+        if (unlikely((data & 0x3) == 0x3))
+        {
+            spin_unlock(&Os->registerAccessLock);
+
+            /*
+             * Read register when internal clock off:
+             * a. In shared IRQ, read register may be called and that's not our irq.
+             * b. In some condition, when ISR handled normal FE/PE, PM thread could
+             *    trun off internal clock before ISR read register of async FE. And
+             *    then IRQ handler will call read register with internal clock off.
+             *    So here we just skip for such case.
              */
             return gcvSTATUS_GENERIC_IO;
         }
@@ -1761,7 +1726,7 @@ gckOS_ReadRegisterEx(
             spin_unlock_irqrestore(&Os->registerAccessLock, flags);
 
             /*
-             * Read register when clock off:
+             * Read register when external clock off:
              * 2. In non-irq context, register access should not be called,
              *    otherwise it's driver bug.
              */
@@ -1845,6 +1810,8 @@ gckOS_WriteRegisterEx(
     else
     {
         unsigned long flags;
+
+        gcmkDUMP(Os, "@[register.write %u 0x%05X 0x%08X]", Core, Address, Data);
 
         spin_lock_irqsave(&Os->registerAccessLock, flags);
 
@@ -2250,7 +2217,7 @@ gckOS_MapPhysical(
     gctPOINTER logical;
     PLINUX_MDL mdl;
     gctBOOL found = gcvFALSE;
-    gctUINT32 physical = Physical;
+    dma_addr_t physical = Physical;
     gceSTATUS status = gcvSTATUS_OK;
 
     gcmkHEADER_ARG("Os=%p Physical=0x%llx Bytes=0x%zx", Os, Physical, Bytes);
@@ -3100,58 +3067,16 @@ gckOS_MemoryBarrier(
 **      gckOS Os
 **          Pointer to an gckOS object.
 **
-**      gctSIZE_T Bytes
-**          Number of bytes to allocate.
-**
-**  OUTPUT:
-**
-**      gctPHYS_ADDR * Physical
-**          Pointer to a variable that receives the physical address of the
-**          memory allocation.
-*/
-gceSTATUS
-gckOS_AllocatePagedMemory(
-    IN gckOS Os,
-    IN gctSIZE_T Bytes,
-    OUT gctPHYS_ADDR * Physical
-    )
-{
-    gceSTATUS status = gcvSTATUS_OK;
-
-    gcmkHEADER_ARG("Os=%p Bytes=0x%zx", Os, Bytes);
-
-    /* Verify the arguments. */
-    gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
-    gcmkVERIFY_ARGUMENT(Bytes > 0);
-    gcmkVERIFY_ARGUMENT(Physical != gcvNULL);
-
-    /* Allocate the memory. */
-    gcmkONERROR(gckOS_AllocatePagedMemoryEx(Os, gcvALLOC_FLAG_NONE, Bytes, gcvNULL, Physical));
-
-OnError:
-    /* Return the status. */
-    gcmkFOOTER_ARG("*Physical=%p", *Physical);
-    return status;
-}
-
-/*******************************************************************************
-**
-**  gckOS_AllocatePagedMemoryEx
-**
-**  Allocate memory from the paged pool.
-**
-**  INPUT:
-**
-**      gckOS Os
-**          Pointer to an gckOS object.
-**
 **      gctUINT32 Flag
 **          Allocation attribute.
 **
-**      gctSIZE_T Bytes
+**      gctSIZE_T * Bytes
 **          Number of bytes to allocate.
 **
 **  OUTPUT:
+**
+**      gctSIZE_T * Bytes
+**          Return number of bytes actually allocated.
 **
 **      gctUINT32 * Gid
 **          Save the global ID for the piece of allocated memory.
@@ -3161,10 +3086,10 @@ OnError:
 **          memory allocation.
 */
 gceSTATUS
-gckOS_AllocatePagedMemoryEx(
+gckOS_AllocatePagedMemory(
     IN gckOS Os,
     IN gctUINT32 Flag,
-    IN gctSIZE_T Bytes,
+    IN OUT gctSIZE_T * Bytes,
     OUT gctUINT32 * Gid,
     OUT gctPHYS_ADDR * Physical
     )
@@ -3175,14 +3100,14 @@ gckOS_AllocatePagedMemoryEx(
     gceSTATUS status = gcvSTATUS_NOT_SUPPORTED;
     gckALLOCATOR allocator;
 
-    gcmkHEADER_ARG("Os=%p Flag=%x Bytes=0x%zx", Os, Flag, Bytes);
+    gcmkHEADER_ARG("Os=%p Flag=%x *Bytes=0x%zx", Os, Flag, *Bytes);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
-    gcmkVERIFY_ARGUMENT(Bytes > 0);
+    gcmkVERIFY_ARGUMENT(*Bytes > 0);
     gcmkVERIFY_ARGUMENT(Physical != gcvNULL);
 
-    bytes = gcmALIGN(Bytes, PAGE_SIZE);
+    bytes = gcmALIGN(*Bytes, PAGE_SIZE);
 
     numPages = GetPageCount(bytes, 0);
 
@@ -3221,11 +3146,6 @@ gckOS_AllocatePagedMemoryEx(
     mdl->numPages   = numPages;
     mdl->contiguous = Flag & gcvALLOC_FLAG_CONTIGUOUS;
 
-    if (Gid != gcvNULL)
-    {
-        *Gid = mdl->gid;
-    }
-
     /*
      * Add this to a global list.
      * Will be used by get physical address
@@ -3234,6 +3154,14 @@ gckOS_AllocatePagedMemoryEx(
     mutex_lock(&Os->mdlMutex);
     list_add_tail(&mdl->link, &Os->mdlHead);
     mutex_unlock(&Os->mdlMutex);
+
+    /* Return allocated bytes. */
+    *Bytes = bytes;
+
+    if (Gid != gcvNULL)
+    {
+        *Gid = mdl->gid;
+    }
 
     /* Return physical address. */
     *Physical = (gctPHYS_ADDR) mdl;
@@ -3323,10 +3251,6 @@ gckOS_FreePagedMemory(
 **      gctPOINTER * Logical
 **          Pointer to a variable that receives the address of the mapped
 **          memory.
-**
-**      gctSIZE_T * PageCount
-**          Pointer to a variable that receives the number of pages required for
-**          the page table according to the GPU page size.
 */
 gceSTATUS
 gckOS_LockPages(
@@ -3334,8 +3258,7 @@ gckOS_LockPages(
     IN gctPHYS_ADDR Physical,
     IN gctSIZE_T Bytes,
     IN gctBOOL Cacheable,
-    OUT gctPOINTER * Logical,
-    OUT gctSIZE_T * PageCount
+    OUT gctPOINTER * Logical
     )
 {
     gceSTATUS       status = gcvSTATUS_OK;
@@ -3349,7 +3272,6 @@ gckOS_LockPages(
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);
     gcmkVERIFY_ARGUMENT(Physical != gcvNULL);
     gcmkVERIFY_ARGUMENT(Logical != gcvNULL);
-    gcmkVERIFY_ARGUMENT(PageCount != gcvNULL);
 
     mdl = (PLINUX_MDL)Physical;
     allocator = mdl->allocator;
@@ -3382,13 +3304,10 @@ gckOS_LockPages(
     gcmkASSERT((PAGE_SIZE % 4096) == 0);
     gcmkASSERT((PAGE_SIZE / 4096) >= 1);
 
-    /* Out GPU page count. */
-    *PageCount = mdl->numPages * (PAGE_SIZE / 4096);
-
 OnError:
     mutex_unlock(&mdl->mapsMutex);
     /* Success. */
-    gcmkFOOTER_ARG("*Logical=%p *PageCount=0x%zx", *Logical, *PageCount);
+    gcmkFOOTER_ARG("*Logical=%p", *Logical);
     return gcvSTATUS_OK;
 }
 
@@ -6748,7 +6667,7 @@ gceSTATUS
 gckOS_QueryOption(
     IN gckOS Os,
     IN gctCONST_STRING Option,
-    OUT gctUINT32 * Value
+    OUT gctUINT64 * Value
     )
 {
     gckGALDEVICE device = Os->device;
@@ -6767,7 +6686,7 @@ gckOS_QueryOption(
 #if gcdSECURITY
         *Value = 0;
 #else
-        *Value = device->args.mmu;
+        *Value = 1;
 #endif
     }
     else if (!strcmp(Option, "contiguousSize"))
@@ -6818,7 +6737,7 @@ gckOS_QueryOption(
     }
     else if (!strcmp(Option, "sRAMBases"))
     {
-        memcpy(Value, device->args.sRAMBases, gcmSIZEOF(gctUINT) * gcvSRAM_COUNT);
+        memcpy(Value, device->args.sRAMBases, gcmSIZEOF(gctUINT64) * gcvSRAM_COUNT * gcvCORE_COUNT);
     }
     else
     {
@@ -6936,7 +6855,8 @@ gckOS_WrapMemory(
     IN gcsUSER_MEMORY_DESC_PTR Desc,
     OUT gctSIZE_T *Bytes,
     OUT gctPHYS_ADDR * Physical,
-    OUT gctBOOL *Contiguous
+    OUT gctBOOL *Contiguous,
+    OUT gctSIZE_T * PageCountCpu
     )
 {
     PLINUX_MDL mdl = gcvNULL;
@@ -7029,6 +6949,11 @@ gckOS_WrapMemory(
     *Physical = (gctPHYS_ADDR) mdl;
 
     *Contiguous = mdl->contiguous;
+
+    if (PageCountCpu)
+    {
+        *PageCountCpu = mdl->numPages;
+    }
 
     /*
      * Add this to a global list.

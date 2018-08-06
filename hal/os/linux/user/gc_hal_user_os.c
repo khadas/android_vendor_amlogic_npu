@@ -33,6 +33,7 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/file.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -64,7 +65,6 @@ char const * const GALDeviceName[] =
 
 #define MAX_RETRY_IOCTL_TIMES 10000
 
-/*#define D printf   */
 #ifndef gcdBUILT_FOR_VALGRIND
 #define gcdBUILT_FOR_VALGRIND 0
 #endif
@@ -495,11 +495,11 @@ static void __attribute__((destructor)) _ModuleDestructor(void);
 
 static gceSTATUS
 _QueryVideoMemory(
-    OUT gctPHYS_ADDR * InternalAddress,
+    OUT gctUINT32 * InternalPhysName,
     OUT gctSIZE_T * InternalSize,
-    OUT gctPHYS_ADDR * ExternalAddress,
+    OUT gctUINT32 * ExternalPhysName,
     OUT gctSIZE_T * ExternalSize,
-    OUT gctPHYS_ADDR * ContiguousAddress,
+    OUT gctUINT32 * ContiguousPhysName,
     OUT gctSIZE_T * ContiguousSize
     )
 {
@@ -521,43 +521,43 @@ _QueryVideoMemory(
                                    &iface, gcmSIZEOF(iface),
                                    &iface, gcmSIZEOF(iface)));
 
-    if (InternalAddress != gcvNULL)
+    if (InternalPhysName != gcvNULL)
     {
         /* Verify arguments. */
         gcmDEBUG_VERIFY_ARGUMENT(InternalSize != gcvNULL);
 
         /* Save internal memory size. */
-        *InternalAddress = gcmINT2PTR(iface.u.QueryVideoMemory.internalPhysical);
+        *InternalPhysName = iface.u.QueryVideoMemory.internalPhysName;
         *InternalSize    = (gctSIZE_T)iface.u.QueryVideoMemory.internalSize;
     }
 
-    if (ExternalAddress != gcvNULL)
+    if (ExternalPhysName != gcvNULL)
     {
         /* Verify arguments. */
         gcmDEBUG_VERIFY_ARGUMENT(ExternalSize != gcvNULL);
 
         /* Save external memory size. */
-        *ExternalAddress = gcmINT2PTR(iface.u.QueryVideoMemory.externalPhysical);
+        *ExternalPhysName = iface.u.QueryVideoMemory.externalPhysName;
         *ExternalSize    = (gctSIZE_T)iface.u.QueryVideoMemory.externalSize;
     }
 
-    if (ContiguousAddress != gcvNULL)
+    if (ContiguousPhysName != gcvNULL)
     {
         /* Verify arguments. */
         gcmDEBUG_VERIFY_ARGUMENT(ContiguousSize != gcvNULL);
 
         /* Save contiguous memory size. */
-        *ContiguousAddress = gcmINT2PTR(iface.u.QueryVideoMemory.contiguousPhysical);
+        *ContiguousPhysName = iface.u.QueryVideoMemory.contiguousPhysName;
         *ContiguousSize    = (gctSIZE_T)iface.u.QueryVideoMemory.contiguousSize;
     }
 
     /* Success. */
-    gcmFOOTER_ARG("*InternalAddress=0x%08x *InternalSize=%lu "
-                  "*ExternalAddress=0x%08x *ExternalSize=%lu "
-                  "*ContiguousAddress=0x%08x *ContiguousSize=%lu",
-                  gcmOPT_VALUE(InternalAddress), gcmOPT_VALUE(InternalSize),
-                  gcmOPT_VALUE(ExternalAddress), gcmOPT_VALUE(ExternalSize),
-                  gcmOPT_VALUE(ContiguousAddress),
+    gcmFOOTER_ARG("*InternalPhysName=0x%08x *InternalSize=%lu "
+                  "*ExternalPhysName=0x%08x *ExternalSize=%lu "
+                  "*ContiguousPhysName=0x%08x *ContiguousSize=%lu",
+                  gcmOPT_VALUE(InternalPhysName), gcmOPT_VALUE(InternalSize),
+                  gcmOPT_VALUE(ExternalPhysName), gcmOPT_VALUE(ExternalSize),
+                  gcmOPT_VALUE(ContiguousPhysName),
                   gcmOPT_VALUE(ContiguousSize));
     return gcvSTATUS_OK;
 
@@ -569,7 +569,7 @@ OnError:
 
 static gceSTATUS
 _MapMemory(
-    IN gctPHYS_ADDR Physical,
+    IN gctUINT32 PhysName,
     IN gctSIZE_T NumberOfBytes,
     OUT gctPOINTER * Logical
     )
@@ -577,14 +577,9 @@ _MapMemory(
     gceSTATUS status;
     gcsHAL_INTERFACE iface;
 
-    gcmHEADER_ARG("Physical=0x%x NumberOfBytes=%lu", Physical, NumberOfBytes);
+    gcmHEADER_ARG("PhysName=0x%x NumberOfBytes=%lu", PhysName, NumberOfBytes);
 
     /* Verify the arguments. */
-	if(NumberOfBytes > 0x6400000)
-	{
-		printf("zxw:error,there is some wrong for numberofbytes too large!!!!\n");
-		NumberOfBytes = 0x1600000;
-	}
     gcmDEBUG_VERIFY_ARGUMENT(NumberOfBytes > 0);
     gcmDEBUG_VERIFY_ARGUMENT(Logical != gcvNULL);
 
@@ -594,17 +589,16 @@ _MapMemory(
     iface.coreIndex    = 0;
 
     iface.command              = gcvHAL_MAP_MEMORY;
-    iface.u.MapMemory.physical = gcmPTR2INT32(Physical);
+    iface.u.MapMemory.physName = PhysName;
     iface.u.MapMemory.bytes    = NumberOfBytes;
 
-	/*printf("zxw:sizeof iface is %ld\n",sizeof(gcsHAL_INTERFACE));*/
     gcmONERROR(gcoOS_DeviceControl(
         gcvNULL,
         IOCTL_GCHAL_INTERFACE,
-        &iface, sizeof(gcsHAL_INTERFACE),
-        &iface, sizeof(gcsHAL_INTERFACE)
+        &iface, gcmSIZEOF(iface),
+        &iface, gcmSIZEOF(iface)
         ));
-	printf("zxw:gcoOS_DeviceControl suc,command is gcvHAL_MAP_MEMORY\n");
+
     /* Return logical address. */
     *Logical = gcmUINT64_TO_PTR(iface.u.MapMemory.logical);
 
@@ -620,7 +614,7 @@ OnError:
 
 static gceSTATUS
 _UnmapMemory(
-    IN gctPHYS_ADDR Physical,
+    IN gctUINT32 PhysName,
     IN gctSIZE_T NumberOfBytes,
     IN gctPOINTER Logical
     )
@@ -628,8 +622,8 @@ _UnmapMemory(
     gceSTATUS status;
     gcsHAL_INTERFACE iface;
 
-    gcmHEADER_ARG("Physical=0x%x NumberOfBytes=%lu Logical=0x%x",
-                  Physical, NumberOfBytes, Logical);
+    gcmHEADER_ARG("PhysName=0x%x NumberOfBytes=%lu Logical=0x%x",
+                  PhysName, NumberOfBytes, Logical);
 
     /* Verify the arguments. */
     gcmDEBUG_VERIFY_ARGUMENT(NumberOfBytes > 0);
@@ -642,7 +636,7 @@ _UnmapMemory(
     iface.coreIndex    = 0;
 
     iface.command                = gcvHAL_UNMAP_MEMORY;
-    iface.u.UnmapMemory.physical = gcmPTR2INT32(Physical);
+    iface.u.UnmapMemory.physName = PhysName;
     iface.u.UnmapMemory.bytes    = NumberOfBytes;
     iface.u.UnmapMemory.logical  = gcmPTR_TO_UINT64(Logical);
 
@@ -817,7 +811,7 @@ _PLSDestructor(
     if (gcPLS.contiguousLogical != gcvNULL)
     {
         gcmVERIFY_OK(_UnmapMemory(
-            gcPLS.contiguousPhysical,
+            gcPLS.contiguousPhysName,
             gcPLS.contiguousSize,
             gcPLS.contiguousLogical
             ));
@@ -828,7 +822,7 @@ _PLSDestructor(
     if (gcPLS.externalLogical != gcvNULL)
     {
         gcmVERIFY_OK(_UnmapMemory(
-            gcPLS.externalPhysical,
+            gcPLS.externalPhysName,
             gcPLS.externalSize,
             gcPLS.externalLogical
             ));
@@ -839,7 +833,7 @@ _PLSDestructor(
     if (gcPLS.internalLogical != gcvNULL)
     {
         gcmVERIFY_OK(_UnmapMemory(
-            gcPLS.internalPhysical,
+            gcPLS.internalPhysName,
             gcPLS.internalSize,
             gcPLS.internalLogical
             ));
@@ -1033,10 +1027,10 @@ _ModuleConstructor(
     /* Each process gets its own objects. */
     gcmASSERT(gcPLS.os  == gcvNULL);
     gcmASSERT(gcPLS.hal == gcvNULL);
-/*	
-gcmASSERT(gcPLS.internalLogical   == gcvNULL);   //zxw
-gcmASSERT(gcPLS.externalLogical   == gcvNULL);
-gcmASSERT(gcPLS.contiguousLogical == gcvNULL);*/
+
+    gcmASSERT(gcPLS.internalLogical   == gcvNULL);
+    gcmASSERT(gcPLS.externalLogical   == gcvNULL);
+    gcmASSERT(gcPLS.contiguousLogical == gcvNULL);
 
     pthread_once(&onceControl, _OnceInit);
 
@@ -1159,7 +1153,7 @@ _OpenDevice(
                 );
 
             Os->device = open(GALDeviceName[i], O_RDWR);
-			/*D("zxw:after open,name is %s\n",GALDeviceName[i]);*/
+
             if (Os->device >= 0)
             {
                 gcmTRACE_ZONE(
@@ -1167,7 +1161,7 @@ _OpenDevice(
                     "%s(%d): Opened device %s.",
                     __FUNCTION__, __LINE__, GALDeviceName[i]
                     );
-				/*D("zxw:open success,will break\n");*/
+
                 break;
             }
         }
@@ -1179,7 +1173,6 @@ _OpenDevice(
         }
     }
     }
-	/*D("open device ok\n");*/
     if (Os->device < 0)
     {
         pthread_mutex_unlock(&plsMutex);
@@ -1201,20 +1194,19 @@ _OpenDevice(
 
     /* Query the video memory sizes. */
     gcmONERROR(_QueryVideoMemory(
-        &gcPLS.internalPhysical,
+        &gcPLS.internalPhysName,
         &gcPLS.internalSize,
-        &gcPLS.externalPhysical,
+        &gcPLS.externalPhysName,
         &gcPLS.externalSize,
-        &gcPLS.contiguousPhysical,
+        &gcPLS.contiguousPhysName,
         &gcPLS.contiguousSize
         ));
-	/*D("zxw:after _QueryVideoMemory,internal-%ld,external-%ld,contiguous-%ld,conpy-0x%p\n",
-	gcPLS.internalSize,gcPLS.externalSize,gcPLS.contiguousSize,gcPLS.contiguousPhysical);*/
+
     /* Map internal video memory. */
     if (gcPLS.internalSize != 0)
     {
         gcmONERROR(_MapMemory(
-             gcPLS.internalPhysical,
+             gcPLS.internalPhysName,
              gcPLS.internalSize,
             &gcPLS.internalLogical
             ));
@@ -1224,23 +1216,21 @@ _OpenDevice(
     if (gcPLS.externalSize != 0)
     {
         gcmONERROR(_MapMemory(
-             gcPLS.externalPhysical,
+             gcPLS.externalPhysName,
              gcPLS.externalSize,
             &gcPLS.externalLogical
             ));
     }
 
-
     /* Map contiguous video memory. */
     if (gcPLS.contiguousSize != 0)
     {
         gcmONERROR(_MapMemory(
-             gcPLS.contiguousPhysical,
+             gcPLS.contiguousPhysName,
              gcPLS.contiguousSize,
             &gcPLS.contiguousLogical
             ));
     }
-
 
     /* make sure this instruction is at last */
     gcPLS.bDeviceOpen = gcvTRUE;
@@ -1489,7 +1479,6 @@ gcoOS_GetTLS(
     }
 
     *TLS = tls;
-
     return gcvSTATUS_OK;
 
 OnError:
@@ -1977,44 +1966,44 @@ gcoOS_GetPhysicalSystemMemorySize(
 **
 **  OUTPUT:
 **
-**      gctPHYS_ADDR * InternalAddress
-**          Pointer to a variable that will hold the physical address of the
-**          internal memory.  If 'InternalAddress' is gcvNULL, no information
+**      gctUINT32 * InternalPhysName
+**          Pointer to a variable that will hold the physical memory name of the
+**          internal memory.  If 'InternalPhysName' is gcvNULL, no information
 **          about the internal memory will be returned.
 **
 **      gctSIZE_T * InternalSize
 **          Pointer to a variable that will hold the size of the internal
-**          memory.  'InternalSize' cannot be gcvNULL if 'InternalAddress' is
+**          memory.  'InternalSize' cannot be gcvNULL if 'InternalPhysName' is
 **          not gcvNULL.
 **
-**      gctPHYS_ADDR * ExternalAddress
-**          Pointer to a variable that will hold the physical address of the
-**          external memory.  If 'ExternalAddress' is gcvNULL, no information
+**      gctUINT32 * ExternalPhysName
+**          Pointer to a variable that will hold the physical memory name of the
+**          external memory.  If 'ExternalPhysName' is gcvNULL, no information
 **          about the external memory will be returned.
 **
 **      gctSIZE_T * ExternalSize
 **          Pointer to a variable that will hold the size of the external
-**          memory.  'ExternalSize' cannot be gcvNULL if 'ExternalAddress' is
+**          memory.  'ExternalSize' cannot be gcvNULL if 'ExternalPhysName' is
 **          not gcvNULL.
 **
-**      gctPHYS_ADDR * ContiguousAddress
-**          Pointer to a variable that will hold the physical address of the
-**          contiguous memory.  If 'ContiguousAddress' is gcvNULL, no
+**      gctUINT32 * ContiguousPhysName
+**          Pointer to a variable that will hold the physical memory name of the
+**          contiguous memory.  If 'ContiguousPhysName' is gcvNULL, no
 **          information about the contiguous memory will be returned.
 **
 **      gctSIZE_T * ContiguousSize
 **          Pointer to a variable that will hold the size of the contiguous
-**          memory.  'ContiguousSize' cannot be gcvNULL if 'ContiguousAddress'
+**          memory.  'ContiguousSize' cannot be gcvNULL if 'ContiguousPhysName'
 **          is not gcvNULL.
 */
 gceSTATUS
 gcoOS_QueryVideoMemory(
     IN gcoOS Os,
-    OUT gctPHYS_ADDR * InternalAddress,
+    OUT gctUINT32 * InternalPhysName,
     OUT gctSIZE_T * InternalSize,
-    OUT gctPHYS_ADDR * ExternalAddress,
+    OUT gctUINT32 * ExternalPhysName,
     OUT gctSIZE_T * ExternalSize,
-    OUT gctPHYS_ADDR * ContiguousAddress,
+    OUT gctUINT32 * ContiguousPhysName,
     OUT gctSIZE_T * ContiguousSize
     )
 {
@@ -2033,43 +2022,43 @@ gcoOS_QueryVideoMemory(
                                    &iface, gcmSIZEOF(iface),
                                    &iface, gcmSIZEOF(iface)));
 
-    if (InternalAddress != gcvNULL)
+    if (InternalPhysName != gcvNULL)
     {
         /* Verify arguments. */
         gcmDEBUG_VERIFY_ARGUMENT(InternalSize != gcvNULL);
 
         /* Save internal memory size. */
-        *InternalAddress = gcmINT2PTR(iface.u.QueryVideoMemory.internalPhysical);
+        *InternalPhysName = iface.u.QueryVideoMemory.internalPhysName;
         *InternalSize    = (gctSIZE_T)iface.u.QueryVideoMemory.internalSize;
     }
 
-    if (ExternalAddress != gcvNULL)
+    if (ExternalPhysName != gcvNULL)
     {
         /* Verify arguments. */
         gcmDEBUG_VERIFY_ARGUMENT(ExternalSize != gcvNULL);
 
         /* Save external memory size. */
-        *ExternalAddress = gcmINT2PTR(iface.u.QueryVideoMemory.externalPhysical);
+        *ExternalPhysName = iface.u.QueryVideoMemory.externalPhysName;
         *ExternalSize    = (gctSIZE_T)iface.u.QueryVideoMemory.externalSize;
     }
 
-    if (ContiguousAddress != gcvNULL)
+    if (ContiguousPhysName != gcvNULL)
     {
         /* Verify arguments. */
         gcmDEBUG_VERIFY_ARGUMENT(ContiguousSize != gcvNULL);
 
         /* Save contiguous memory size. */
-        *ContiguousAddress = gcmINT2PTR(iface.u.QueryVideoMemory.contiguousPhysical);
+        *ContiguousPhysName = iface.u.QueryVideoMemory.contiguousPhysName;
         *ContiguousSize    = (gctSIZE_T)iface.u.QueryVideoMemory.contiguousSize;
     }
 
     /* Success. */
-    gcmFOOTER_ARG("*InternalAddress=0x%08x *InternalSize=%lu "
-                  "*ExternalAddress=0x%08x *ExternalSize=%lu "
-                  "*ContiguousAddress=0x%08x *ContiguousSize=%lu",
-                  gcmOPT_VALUE(InternalAddress), gcmOPT_VALUE(InternalSize),
-                  gcmOPT_VALUE(ExternalAddress), gcmOPT_VALUE(ExternalSize),
-                  gcmOPT_VALUE(ContiguousAddress),
+    gcmFOOTER_ARG("*InternalPhysName=0x%08x *InternalSize=%lu "
+                  "*ExternalPhysName=0x%08x *ExternalSize=%lu "
+                  "*ContiguousPhysName=0x%08x *ContiguousSize=%lu",
+                  gcmOPT_VALUE(InternalPhysName), gcmOPT_VALUE(InternalSize),
+                  gcmOPT_VALUE(ExternalPhysName), gcmOPT_VALUE(ExternalSize),
+                  gcmOPT_VALUE(ContiguousPhysName),
                   gcmOPT_VALUE(ContiguousSize));
     return gcvSTATUS_OK;
 
@@ -2562,11 +2551,7 @@ gcoOS_DeviceControl(
                   "InputBufferSize=%lu OutputBuffer=0x%x OutputBufferSize=%lu",
                   IoControlCode, InputBuffer, InputBufferSize,
                   OutputBuffer, OutputBufferSize);
-	if(InputBufferSize > 0x2000 || OutputBufferSize > 0x2000)
-	{
-		printf("zxw:InputBufferSize || OutputBufferSize too large\n");
-		InputBufferSize = OutputBufferSize = sizeof(gcsHAL_INTERFACE);
-	}
+
     if (gcPLS.os == gcvNULL)
     {
         gcmONERROR(gcvSTATUS_DEVICE);
@@ -2595,11 +2580,6 @@ gcoOS_DeviceControl(
     switch (inputBuffer->command)
     {
     case gcvHAL_MAP_MEMORY:
-		if(inputBuffer->u.MapMemory.bytes > 0x6400000)
-		{
-			printf("zxw:there is some wrong for mmap\n");
-			inputBuffer->u.MapMemory.bytes = 0x1600000;
-		}
         logical = mmap(
             gcvNULL, inputBuffer->u.MapMemory.bytes,
             PROT_READ | PROT_WRITE, MAP_SHARED,
@@ -2668,123 +2648,6 @@ gcoOS_DeviceControl(
 
 OnError:
     /* Return the status. */
-    gcmFOOTER();
-    return status;
-}
-
-/*******************************************************************************
- **
- ** gcoOS_AllocateNonPagedMemory
- **
- ** Allocate non-paged memory from the kernel.
- **
- ** INPUT:
- **
- **     gcoOS Os
- **         Pointer to an gcoOS object.
- **
- **      gctBOOL InUserSpace
- **          gcvTRUE to mape the memory into the user space.
- **
- **      gctSIZE_T * Bytes
- **          Pointer to the number of bytes to allocate.
- **
- ** OUTPUT:
- **
- **     gctSIZE_T * Bytes
- **         Pointer to a variable that will receive the aligned number of bytes
- **          allocated.
- **
- **     gctPHYS_ADDR * Physical
- **         Pointer to a variable that will receive the physical addresses of
- **          the allocated pages.
- **
- **     gctPOINTER * Logical
- **         Pointer to a variable that will receive the logical address of the
- **         allocation.
- */
-gceSTATUS
-gcoOS_AllocateNonPagedMemory(
-    IN gcoOS Os,
-    IN gctBOOL InUserSpace,
-    IN gctUINT32 Flags,
-    IN OUT gctSIZE_T * Bytes,
-    OUT gctPHYS_ADDR * Physical,
-    OUT gctPOINTER * Logical
-    )
-{
-    gcsHAL_INTERFACE iface;
-    gceSTATUS status;
-
-    gcmHEADER_ARG("InUserSpace=%d *Bytes=%lu",
-                  InUserSpace, gcmOPT_VALUE(Bytes));
-
-    /* Verify the arguments. */
-    gcmDEBUG_VERIFY_ARGUMENT(Bytes != gcvNULL);
-    gcmDEBUG_VERIFY_ARGUMENT(Physical != gcvNULL);
-    gcmDEBUG_VERIFY_ARGUMENT(Logical != gcvNULL);
-
-    /* Initialize the gcsHAL_INTERFACE structure. */
-    iface.ignoreTLS = gcvFALSE;
-    iface.command = gcvHAL_ALLOCATE_NON_PAGED_MEMORY;
-    iface.u.AllocateNonPagedMemory.flags = Flags;
-    iface.u.AllocateNonPagedMemory.bytes = *Bytes;
-
-    /* Call kernel driver. */
-    gcmONERROR(gcoOS_DeviceControl(
-        gcvNULL,
-        IOCTL_GCHAL_INTERFACE,
-        &iface, gcmSIZEOF(iface),
-        &iface, gcmSIZEOF(iface)
-        ));
-
-    /* Return allocated memory. */
-    *Bytes    = (gctSIZE_T)iface.u.AllocateNonPagedMemory.bytes;
-    *Physical = gcmINT2PTR(iface.u.AllocateNonPagedMemory.physName);
-    *Logical  = gcmUINT64_TO_PTR(iface.u.AllocateNonPagedMemory.logical);
-
-    /* Success. */
-    gcmFOOTER_ARG("*Bytes=%lu *Physical=0x%x *Logical=0x%x",
-                  *Bytes, *Physical, *Logical);
-    return gcvSTATUS_OK;
-
-OnError:
-    /* Return the status. */
-    gcmFOOTER();
-    return status;
-}
-
-gceSTATUS
-gcoOS_FreeNonPagedMemory(
-    IN gcoOS Os,
-    IN gctPHYS_ADDR Physical,
-    IN gctPOINTER Logical,
-    IN gctSIZE_T Bytes
-    )
-{
-    gcsHAL_INTERFACE iface;
-    gceSTATUS status;
-
-    gcmHEADER_ARG("Bytes=%lu Physical=0x%x Logical=0x%x",
-                  Bytes, Physical, Logical);
-
-    /* Initialize the gcsHAL_INTERFACE structure. */
-    iface.ignoreTLS = gcvFALSE;
-    iface.command = gcvHAL_FREE_NON_PAGED_MEMORY;
-    iface.u.FreeNonPagedMemory.bytes    = Bytes;
-    iface.u.FreeNonPagedMemory.physName = gcmPTR2INT32(Physical);
-    iface.u.FreeNonPagedMemory.logical  = gcmPTR_TO_UINT64(Logical);
-
-    /* Call kernel driver. */
-    gcmONERROR(gcoOS_DeviceControl(
-        gcvNULL,
-        IOCTL_GCHAL_INTERFACE,
-        &iface, sizeof(iface),
-        &iface, sizeof(iface)
-        ));
-
-OnError:
-    /* Return status. */
     gcmFOOTER();
     return status;
 }
@@ -2883,7 +2746,7 @@ gcoOS_AllocateVideoMemory(
         ));
 
     /* Return allocated number of bytes. */
-    *Bytes = iface.u.AllocateLinearVideoMemory.bytes;
+    *Bytes = (gctSIZE_T)iface.u.AllocateLinearVideoMemory.bytes;
 
     /* Return the handle of allocated Node. */
     *Handle = gcmUINT64_TO_PTR(iface.u.AllocateLinearVideoMemory.node);
@@ -3484,6 +3347,121 @@ gcoOS_CloseFD(
 
     gcmFOOTER_NO();
     return gcvSTATUS_OK;
+}
+
+/*******************************************************************************
+**
+**  gcoOS_LockFile
+**
+**  Apply an advisory lock on an open file
+**
+**  INPUT:
+**
+**      gcoOS Os
+**          Pointer to an gcoOS object.
+**
+**      gctFILE File
+**          Pointer to an open file object.
+**
+**      gctBOOL Shared
+**          Place a shared lock if true. More than one process may hold a
+**          shared lock for a given file at a given time.
+**          Place an exclusive lock. Only one process may hold an exclusive
+**          lock for a given file at a given time.
+**
+**      gctBOOL Block
+**          Block if an incompatible lock is held by another process.
+**          Otherwise return immediately with gcvSTATUS_LOCKED error.
+**
+**  OUTPUT:
+**
+**      Nothing.
+*/
+gceSTATUS
+gcoOS_LockFile(
+    IN gcoOS Os,
+    IN gctFILE File,
+    IN gctBOOL Shared,
+    IN gctBOOL Block
+    )
+{
+    int flags;
+    int err;
+    gceSTATUS status = gcvSTATUS_OK;
+
+    gcmHEADER_ARG("File=%p Shared=%d Block=%d", File, Shared, Block);
+
+    flags  = Shared ? LOCK_SH : LOCK_EX;
+    flags |= Block ? 0 : LOCK_NB;
+
+    err = flock(fileno((FILE *)File), flags);
+
+    if (err)
+    {
+        if (errno == EWOULDBLOCK)
+        {
+            gcmONERROR(gcvSTATUS_LOCKED);
+        }
+        else if (errno == EINTR)
+        {
+            gcmONERROR(gcvSTATUS_INTERRUPTED);
+        }
+        else
+        {
+            gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        }
+    }
+
+    gcmFOOTER_NO();
+    return gcvSTATUS_OK;
+
+OnError:
+    gcmFOOTER_ARG("status=%d", status);
+    return status;
+}
+
+/*******************************************************************************
+**
+**  gcoOS_UnlockFile
+**
+**  Remove an advisory lock on an open file.
+**
+**  INPUT:
+**
+**      gcoOS Os
+**          Pointer to an gcoOS object.
+**
+**      gctFILE File
+**          Pointer to an open file object.
+**
+**  OUTPUT:
+**
+**      Nothing.
+*/
+gceSTATUS
+gcoOS_UnlockFile(
+    IN gcoOS Os,
+    IN gctFILE File
+    )
+{
+    int err;
+    gceSTATUS status;
+
+    gcmHEADER_ARG("File=%p", File);
+
+    err = flock(fileno((FILE *)File), LOCK_UN);
+
+    if (err)
+    {
+        gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
+    }
+
+    gcmFOOTER_NO();
+    return gcvSTATUS_OK;
+
+OnError:
+    gcmFOOTER_ARG("status=%d", status);
+    return status;
 }
 
 /* Create an endpoint for communication. */
@@ -6460,9 +6438,6 @@ gcoOS_WaitSignal(
     IN gctUINT32 Wait
     )
 {
-#if gcdNULL_DRIVER
-    return gcvSTATUS_OK;
-#else
     gceSTATUS status;
     gcsHAL_INTERFACE iface;
 
@@ -6483,7 +6458,6 @@ gcoOS_WaitSignal(
 
     gcmFOOTER_ARG("Signal=0x%x status=%d", Signal, status);
     return status;
-#endif
 }
 
 /*******************************************************************************

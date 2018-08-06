@@ -99,10 +99,10 @@ gpu3d_allocate_secure_mem(
 
     memset(shm, 0, sizeof(TEEC_SharedMemory));
 
-    status = gckOS_AllocatePagedMemoryEx(
+    status = gckOS_AllocatePagedMemory(
                 Os,
                 gcvALLOC_FLAG_SECURITY,
-                bytes,
+                &bytes,
                 gcvNULL,
                 (gctPHYS_ADDR *)&handle);
 

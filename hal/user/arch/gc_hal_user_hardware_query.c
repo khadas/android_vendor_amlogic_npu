@@ -7074,7 +7074,7 @@ gcoHARDWARE_DrawOnOneCore(
 
     for (i = 0; i < gcvPROGRAM_STAGE_LAST; i++)
     {
-        if (hints && (hints->memoryAccessFlags[i] & gceMA_FLAG_WRITE))
+        if (hints && (hints->memoryAccessFlags[gcvSHADER_MACHINE_LEVEL][i] & gceMA_FLAG_WRITE))
         {
             status = gcvSTATUS_TRUE;
             break;
@@ -7240,7 +7240,8 @@ gcoHARDWARE_QuerySRAM(
     if ((Type >= gcvSRAM_INTERNAL) && (Type < gcvSRAM_COUNT))
     {
         if (Base)
-            *Base = Hardware->options.sRAMBases[Type];
+            *Base = Hardware->options.sRAMBaseAddress[Type];
+
         if (Size)
             *Size = Hardware->config->sRAMSizes[Type];
     }

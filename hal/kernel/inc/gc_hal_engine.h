@@ -1640,7 +1640,7 @@ typedef struct _gcsTHREAD_WALKER_INFO
 
     gctUINT32   threadAllocation;
     gctBOOL     barrierUsed;
-
+    gctBOOL     atomicUsed;
     gctBOOL     indirect;
     gctUINT32   groupNumberUniformIdx;
     gctUINT32   baseAddress;

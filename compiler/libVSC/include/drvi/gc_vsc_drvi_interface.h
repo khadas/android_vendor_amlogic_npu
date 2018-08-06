@@ -46,10 +46,11 @@
 /* 0.0.1.13 save the function sym for a local symbol, Mar. 14, 2018 */
 /* 0.0.1.14 add one more flag for VIR_Function, Mar. 21, 2018 */
 /* 0.0.1.15 add the parameter "lod" for image_fetch_samplerBuffer, Mar. 30, 2018 */
-/* 0.0.1.15 add a flag in VIR_Uniform, Apr. 2, 2018 */
-#define gcdVIR_SHADER_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 16)
+/* 0.0.1.16 add a flag in VIR_Uniform, Apr. 2, 2018 */
+/* 0.0.1.17 save more memoryAccessFlag, Apr. 19, 2018 */
+#define gcdVIR_SHADER_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 17)
 
-#define gcdVIR_PROGRAM_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 16)
+#define gcdVIR_PROGRAM_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 17)
 #endif
 
 #if !defined(gcdTARGETHOST_BIGENDIAN)
@@ -633,6 +634,7 @@ typedef struct _VSC_HW_CONFIG
         gctUINT          supportFullIntBranch   : 1;
         /* All shader stages can use the same constant register at the same time. */
         gctUINT          supportUnifiedConstant : 1;
+
         /* All shader stages can use the same sampler register at the same time. */
         gctUINT          supportUnifiedSampler  : 1;
         gctUINT          support32BitIntDiv     : 1;
@@ -650,9 +652,9 @@ typedef struct _VSC_HW_CONFIG
         gctUINT          supportImgLDSTClamp    : 1;
         gctUINT          useSrc0SwizzleAsSrcBin : 1;
         gctUINT          supportSeparatedTex    : 1;
-        gctUINT          reserved1              : 1;
+        gctUINT          supportMultiGPU        : 1;
 
-        /* word 3*/
+        /* word 3 */
         /* Followings will be removed after shader programming is removed out of VSC */
         gctUINT          hasSHEnhance3          : 1;
         gctUINT          rtneRoundingEnabled    : 1;
@@ -662,12 +664,13 @@ typedef struct _VSC_HW_CONFIG
         gctUINT          hasSamplerBaseOffset   : 1;
         gctUINT          supportStreamOut       : 1;
         gctUINT          supportZeroAttrsInFE   : 1;
+
         gctUINT          outputCountFix         : 1;
         gctUINT          varyingPackingLimited  : 1;
         gctUINT          robustAtomic           : 1;
         gctUINT          newGPIPE               : 1;
 
-        gctUINT          reserved               : 20;
+        gctUINT          reserved1              : 20;
     } hwFeatureFlags;
 
     gctUINT              chipModel;
@@ -796,6 +799,8 @@ typedef gcsGLSLCaps VSC_GL_API_CONFIG, *PVSC_GL_API_CONFIG;
 #define VSC_COMPILER_FLAG_LINK_PROGRAM_PIPELINE_OBJ    0x00008000
 #define VSC_COMPILER_FLAG_RECOMPILER                   0x00010000
 #define VSC_COMPILER_FLAG_USE_VSC_IMAGE_DESC           0x00020000
+#define VSC_COMPILER_FLAG_ENABLE_MULTI_GPU             0x00040000
+#define VSC_COMPILER_FLAG_DISABLE_IR_DUMP              0x00080000  /* used by driver to disable patch lib IR dump */
 
 #define VSC_COMPILER_FLAG_COMPILE_FULL_LEVELS          0x0000000F
 
@@ -1093,6 +1098,8 @@ gceSTATUS vscLoadShaderFromBinary(void*          pBinary,
 gceSTATUS vscFreeVirIntrinsicLib(void);
 
 gceSTATUS vscQueryShaderBinarySize(SHADER_HANDLE hShader, gctUINT* pSizeInByte);
+
+gctPOINTER vscGetDebugInfo(IN SHADER_HANDLE    Shader);
 
 /* Shader copy */
 gceSTATUS vscCopyShader(SHADER_HANDLE * hToShader, SHADER_HANDLE hFromShader);

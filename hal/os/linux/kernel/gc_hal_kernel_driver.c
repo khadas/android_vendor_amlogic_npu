@@ -62,9 +62,7 @@
 #include "gc_hal_driver.h"
 
 #include <linux/platform_device.h>
-//add by zxw for test
-#include <linux/of.h>
-#include <linux/of_reserved_mem.h>
+
 /* Zone used for header/footer. */
 #define _GC_OBJ_ZONE    gcvZONE_DRIVER
 
@@ -88,11 +86,11 @@ static uint major = 199;
 module_param(major, uint, 0644);
 MODULE_PARM_DESC(major, "major device number for GC device");
 
-static int irqLine = 1;   //zxw
+static int irqLine = -1;
 module_param(irqLine, int, 0644);
 MODULE_PARM_DESC(irqLine, "IRQ number of GC core");
 
-static ulong registerMemBase = 0xff100000;
+static ulong registerMemBase = 0x80000000;
 module_param(registerMemBase, ulong, 0644);
 MODULE_PARM_DESC(registerMemBase, "Base of bus address of GC core AHB register");
 
@@ -175,10 +173,6 @@ static ulong physSize = 0;
 module_param(physSize, ulong, 0644);
 MODULE_PARM_DESC(physSize, "Obsolete");
 
-static uint logFileSize = 0;
-module_param(logFileSize,uint, 0644);
-MODULE_PARM_DESC(logFileSize, "Size of buffer to store GC driver output messsage, if it is not 0, message is read from /sys/kernel/debug/gc/galcore_trace, default value is 0");
-
 static uint recovery = 1;
 module_param(recovery, uint, 0644);
 MODULE_PARM_DESC(recovery, "Recover GPU from stuck (1: Enable, 0: Disable)");
@@ -188,13 +182,13 @@ static uint stuckDump = 0;
 module_param(stuckDump, uint, 0644);
 MODULE_PARM_DESC(stuckDump, "Level of stuck dump content (1: Minimal, 2: Middle, 3: Maximal)");
 
-static int showArgs = 0;
+static int showArgs = 1;
 module_param(showArgs, int, 0644);
 MODULE_PARM_DESC(showArgs, "Display parameters value when driver loaded");
 
 static int mmu = 1;
 module_param(mmu, int, 0644);
-MODULE_PARM_DESC(mmu, "Disable MMU if set it to 0, enabled by default");
+MODULE_PARM_DESC(mmu, "Disable MMU if set it to 0, enabled by default [Obsolete]");
 
 static int irqs[gcvCORE_COUNT] = {[0 ... gcvCORE_COUNT - 1] = -1};
 module_param_array(irqs, int, NULL, 0644);
@@ -224,58 +218,224 @@ static int smallBatch = 1;
 module_param(smallBatch, int, 0644);
 MODULE_PARM_DESC(smallBatch, "Enable/disable small batch");
 
-static uint sRAMBases[gcvSRAM_COUNT] = {0xffffffff,0xff000000,[2 ... gcvSRAM_COUNT - 1] = 0xFFFFFFFF};
-module_param_array(sRAMBases, uint, NULL, 0644);
+static ulong sRAMBases[gcvSRAM_COUNT * gcvCORE_COUNT] = {[0 ... gcvSRAM_COUNT * gcvCORE_COUNT - 1] = gcvINVALID_PHYSICAL_ADDRESS};
+module_param_array(sRAMBases, ulong, NULL, 0644);
 MODULE_PARM_DESC(sRAMBases, "Array of base of bus address of SRAM,INTERNAL, EXTERNAL0, EXTERNAL1..., 0xFFFFFFFF means no bus address");
 
+#if USE_LINUX_PCIE
+static int bar = 1;
+module_param(bar, int, 0644);
+MODULE_PARM_DESC(bar, "PCIE Bar index of GC core");
+
+static int bars[gcvCORE_COUNT] = {[0 ... gcvCORE_COUNT - 1] = -1};
+module_param_array(bars, int, NULL, 0644);
+MODULE_PARM_DESC(bars, "Array of bar index of PCIE platform for multi-GPU");
+#endif
+
+
 static int gpu3DMinClock = 1;
-
 static int contiguousRequested = 0;
-
-static gctBOOL registerMemMapped = gcvFALSE;
-static gctPOINTER registerMemAddress = gcvNULL;
 static ulong bankSize = 0;
-static int signal = 48;
-int galcore_irq = 0;   //zxw
 
-void
-_UpdateModuleParam(
-    gcsMODULE_PARAMETERS *Param
+
+static gcsMODULE_PARAMETERS moduleParam;
+
+static void
+_InitModuleParam(
+    gcsMODULE_PARAMETERS * ModuleParam
     )
 {
-    irqLine           = Param->irqLine ;
-    registerMemBase   = Param->registerMemBase;
-    registerMemSize   = Param->registerMemSize;
-    irqLine2D         = Param->irqLine2D      ;
-    registerMemBase2D = Param->registerMemBase2D;
-    registerMemSize2D = Param->registerMemSize2D;
-    contiguousSize    = Param->contiguousSize;
-    contiguousBase    = Param->contiguousBase;
-    externalSize      = Param->externalSize;
-    externalBase      = Param->externalBase;
-    bankSize          = Param->bankSize;
-    fastClear         = Param->fastClear;
-    compression       = (gctINT)Param->compression;
-    powerManagement   = Param->powerManagement;
-    gpuProfiler       = Param->gpuProfiler;
-    signal            = Param->signal;
-    baseAddress       = Param->baseAddress;
-    physSize          = Param->physSize;
-    logFileSize       = Param->logFileSize;
-    recovery          = Param->recovery;
-    stuckDump         = Param->stuckDump;
-    showArgs          = Param->showArgs;
-    contiguousRequested = Param->contiguousRequested;
-    gpu3DMinClock     = Param->gpu3DMinClock;
-    registerMemMapped    = Param->registerMemMapped;
-    registerMemAddress   = Param->registerMemAddress;
-    userClusterMask      = Param->userClusterMask;
+    gctUINT i, j;
+    gcsMODULE_PARAMETERS *p = ModuleParam;
 
-    memcpy(irqs, Param->irqs, gcmSIZEOF(gctINT) * gcvCORE_COUNT);
-    memcpy(registerBases, Param->registerBases, gcmSIZEOF(gctUINT) * gcvCORE_COUNT);
-    memcpy(registerSizes, Param->registerSizes, gcmSIZEOF(gctUINT) * gcvCORE_COUNT);
-    memcpy(chipIDs, Param->chipIDs, gcmSIZEOF(gctUINT) * gcvCORE_COUNT);
-    memcpy(sRAMBases, Param->sRAMBases, gcmSIZEOF(gctUINT) * gcvSRAM_COUNT);
+    for (i = 0; i < gcvCORE_COUNT; i++)
+    {
+        p->irqs[i] = irqs[i];
+
+        if (irqs[i] != -1)
+        {
+            p->registerBases[i] = registerBases[i];
+            p->registerSizes[i] = registerSizes[i];
+        }
+#if USE_LINUX_PCIE
+        p->bars[i] = bars[i];
+#endif
+    }
+
+    /* Check legacy style. */
+#if USE_LINUX_PCIE
+    if (bar != -1)
+    {
+        p->bars[gcvCORE_MAJOR]         = bar;
+    }
+#endif
+
+    if (irqLine != -1)
+    {
+        p->irqs[gcvCORE_MAJOR]          = irqLine;
+        p->registerBases[gcvCORE_MAJOR] = registerMemBase;
+        p->registerSizes[gcvCORE_MAJOR] = registerMemSize;
+    }
+
+    if (irqLine2D != -1)
+    {
+        p->irqs[gcvCORE_2D]          = irqLine2D;
+        p->registerBases[gcvCORE_2D] = registerMemBase2D;
+        p->registerSizes[gcvCORE_2D] = registerMemSize2D;
+    }
+
+    if (irqLineVG != -1)
+    {
+        p->irqs[gcvCORE_VG]          = irqLineVG;
+        p->registerBases[gcvCORE_VG] = registerMemBaseVG;
+        p->registerSizes[gcvCORE_VG] = registerMemSizeVG;
+    }
+
+#if gcdDEC_ENABLE_AHB
+    if (registerMemBaseDEC300 && registerMemSizeDEC300)
+    {
+        p->registerBases[gcvCORE_DEC] = registerMemBaseDEC300;
+        p->registerSizes[gcvCORE_DEC] = registerMemSizeDEC300;
+    }
+#endif
+
+    for (i = 0; i < gcvCORE_COUNT; i++)
+    {
+        /* Not a module param. */
+        p->registerBasesMapped[i] = gcvNULL;
+    }
+
+    for (i = 0; i < gcvCORE_COUNT; i++)
+    {
+        p->chipIDs[i] = chipIDs[i];
+    }
+
+    p->contiguousBase      = contiguousBase;
+    p->contiguousSize      = contiguousSize;
+    p->contiguousRequested = contiguousRequested;   /* not a module param. */
+
+    p->externalBase = externalBase;
+    p->externalSize = externalSize;
+
+    for (i = 0; i < gcvCORE_COUNT; i++)
+    {
+        for (j = 0; j < gcvSRAM_COUNT; j++)
+        {
+            p->sRAMBases[i][j] = sRAMBases[i * gcvSRAM_COUNT + j];
+        }
+    }
+
+    p->baseAddress = baseAddress;
+    p->physSize    = physSize;
+    p->bankSize    = bankSize;  /* not a module param. */
+
+    p->recovery        = recovery;
+    p->powerManagement = powerManagement;
+
+    p->enableMmu = mmu;
+    p->fastClear = fastClear;
+
+    p->compression = (compression == -1) ? gcvCOMPRESSION_OPTION_DEFAULT
+                   : (gceCOMPRESSION_OPTION)compression;
+    p->gpu3DMinClock   = gpu3DMinClock; /* not a module param. */
+    p->userClusterMask = userClusterMask;
+    p->smallBatch      = smallBatch;
+
+    p->stuckDump   = stuckDump;
+    p->gpuProfiler = gpuProfiler;
+
+    p->deviceType  = type;
+    p->showArgs    = showArgs;
+
+#if !gcdENABLE_3D
+    p->irqs[gcvCORE_MAJOR]          = irqLine = -1;
+    p->registerBases[gcvCORE_MAJOR] = registerMemBase = 0;
+    p->registerSizes[gcvCORE_MAJOR] = registerMemSize = 0;
+#endif
+
+    p->irqs[gcvCORE_2D]          = irqLine2D = -1;
+    p->registerBases[gcvCORE_2D] = registerMemBase2D = 0;
+    p->registerSizes[gcvCORE_2D] = registerMemSize2D = 0;
+
+    p->irqs[gcvCORE_VG]          = irqLineVG = -1;
+    p->registerBases[gcvCORE_VG] = registerMemBaseVG = 0;
+    p->registerSizes[gcvCORE_VG] = registerMemSizeVG = 0;
+}
+
+static void
+_SyncModuleParam(
+    const gcsMODULE_PARAMETERS * ModuleParam
+    )
+{
+    gctUINT i, j;
+    gcsMODULE_PARAMETERS *p = &moduleParam;
+
+    for (i = 0; i < gcvCORE_COUNT; i++)
+    {
+        irqs[i]          = p->irqs[i];
+        registerBases[i] = (ulong)p->registerBases[i];
+        registerSizes[i] = (ulong)p->registerSizes[i];
+ #if USE_LINUX_PCIE
+        bars[i]          = p->bars[i];
+ #endif
+    }
+
+    /* Sync to legacy style. */
+
+#if USE_LINUX_PCIE
+    bar               = p->bars[gcvCORE_MAJOR];
+#endif
+    irqLine           = p->irqs[gcvCORE_MAJOR];
+    registerMemBase   = (ulong)p->registerBases[gcvCORE_MAJOR];
+    registerMemSize   = (ulong)p->registerSizes[gcvCORE_MAJOR];
+
+    irqLine2D         = p->irqs[gcvCORE_2D];
+    registerMemBase2D = (ulong)p->registerBases[gcvCORE_2D];
+    registerMemSize2D = (ulong)p->registerSizes[gcvCORE_2D];
+
+    irqLineVG         = p->irqs[gcvCORE_VG];
+    registerMemBaseVG = (ulong)p->registerBases[gcvCORE_VG];
+    registerMemSizeVG = (ulong)p->registerSizes[gcvCORE_VG];
+
+    for (i = 0; i < gcvCORE_COUNT; i++)
+    {
+        p->chipIDs[i] = chipIDs[i];
+    }
+
+    contiguousBase      = (ulong)p->contiguousBase;
+    contiguousSize      = (ulong)p->contiguousSize;
+    contiguousRequested = p->contiguousRequested;   /* not a module param. */
+
+    externalBase = p->externalBase;
+    externalSize = p->externalSize;
+
+    for (i = 0; i < gcvCORE_COUNT; i++)
+    {
+        for (j = 0; j < gcvSRAM_COUNT; j++)
+        {
+            sRAMBases[i * gcvSRAM_COUNT + j] = (ulong)p->sRAMBases[i][j];
+        }
+    }
+
+    baseAddress = (ulong)p->baseAddress;
+    physSize    = p->physSize;
+    bankSize    = p->bankSize;  /* not a module param. */
+
+    recovery        = p->recovery;
+    powerManagement = p->powerManagement;
+
+    mmu             = p->enableMmu;
+    fastClear       = p->fastClear;
+    compression     = p->compression;
+    gpu3DMinClock   = p->gpu3DMinClock; /* not a module param. */
+    userClusterMask = p->userClusterMask;
+    smallBatch      = p->smallBatch;
+
+    stuckDump   = p->stuckDump;
+    gpuProfiler = p->gpuProfiler;
+
+    type        = p->deviceType;
+    showArgs    = p->showArgs;
 }
 
 void
@@ -283,7 +443,7 @@ gckOS_DumpParam(
     void
     )
 {
-    gctINT i;
+    gctINT i, j;
 
     printk("Galcore options:\n");
     if (irqLine != -1)
@@ -306,7 +466,12 @@ gckOS_DumpParam(
         printk("  registerMemBaseVG = 0x%08lX\n", registerMemBaseVG);
         printk("  registerMemSizeVG = 0x%08lX\n", registerMemSizeVG);
     }
-
+#if USE_LINUX_PCIE
+    if (bar != -1)
+    {
+        printk("  bar               = %d\n",     bar);
+    }
+#endif
 #if gcdDEC_ENABLE_AHB
     printk("  registerMemBaseDEC300 = 0x%08lX\n", registerMemBaseDEC300);
     printk("  registerMemSizeDEC300 = 0x%08lX\n", registerMemSizeDEC300);
@@ -319,17 +484,14 @@ gckOS_DumpParam(
     printk("  bankSize          = 0x%08lX\n", bankSize);
     printk("  fastClear         = %d\n",      fastClear);
     printk("  compression       = %d\n",      compression);
-    printk("  signal            = %d\n",      signal);
     printk("  powerManagement   = %d\n",      powerManagement);
     printk("  baseAddress       = 0x%08lX\n", baseAddress);
     printk("  physSize          = 0x%08lX\n", physSize);
-    printk("  logFileSize       = %d KB \n",  logFileSize);
     printk("  recovery          = %d\n",      recovery);
     printk("  stuckDump         = %d\n",      stuckDump);
     printk("  gpuProfiler       = %d\n",      gpuProfiler);
     printk("  userClusterMask   = 0x%x\n",    userClusterMask);
     printk("  smallBatch        = %d\n",      smallBatch);
-    printk("  mmu               = %d\n",      mmu);
 
     printk("  irqs              = ");
     for (i = 0; i < gcvCORE_COUNT; i++)
@@ -338,6 +500,14 @@ gckOS_DumpParam(
     }
     printk("\n");
 
+#if USE_LINUX_PCIE
+    printk("  bars              = ");
+    for (i = 0; i < gcvCORE_COUNT; i++)
+    {
+        printk("%d, ", bars[i]);
+    }
+    printk("\n");
+#endif
     printk("  registerBases     = ");
     for (i = 0; i < gcvCORE_COUNT; i++)
     {
@@ -352,19 +522,23 @@ gckOS_DumpParam(
     }
     printk("\n");
 
-    printk("  chipIDs     = ");
+    printk("  chipIDs           = ");
     for (i = 0; i < gcvCORE_COUNT; i++)
     {
         printk("0x%08X, ", chipIDs[i]);
     }
     printk("\n");
 
-    printk("  sRAMBases     = ");
-    for (i = 0; i < gcvSRAM_COUNT; i++)
+    for (i = 0; i < gcvCORE_COUNT; i++)
     {
-        printk("0x%08X, ", sRAMBases[i]);
+        printk("  core %d sRAMBases = ", i);
+
+        for (j = 0; j < gcvSRAM_COUNT; j++)
+        {
+            printk("0x%08lX, ", sRAMBases[i * gcvSRAM_COUNT + j]);
+        }
+        printk("\n");
     }
-    printk("\n");
 
     printk("Build options:\n");
     printk("  gcdGPU_TIMEOUT    = %d\n", gcdGPU_TIMEOUT);
@@ -377,78 +551,60 @@ static int drv_open(
     struct file* filp
     )
 {
-    int ret = -ENOTTY;
     gceSTATUS status = gcvSTATUS_OK;
-    gctBOOL attached = gcvFALSE;
     gcsHAL_PRIVATE_DATA_PTR data = gcvNULL;
     gctINT i;
+    gctINT attached = 0;
 
     gcmkHEADER_ARG("inode=%p filp=%p", inode, filp);
-	//printk("zxw:drv_open is enter\n");
-    if (filp == gcvNULL)
-    {
-        gcmkTRACE_ZONE(
-            gcvLEVEL_ERROR, gcvZONE_DRIVER,
-            "%s(%d): filp is NULL\n",
-            __FUNCTION__, __LINE__
-            );
-
-        gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
-    }
 
     data = kmalloc(sizeof(gcsHAL_PRIVATE_DATA), GFP_KERNEL | __GFP_NOWARN);
-	//printk("zxw:drv_open kmalloc suc\n");
+
     if (data == gcvNULL)
     {
-        gcmkTRACE_ZONE(
-            gcvLEVEL_ERROR, gcvZONE_DRIVER,
-            "%s(%d): private_data is NULL\n",
-            __FUNCTION__, __LINE__
-            );
-
-        gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
+        gcmkFOOTER_ARG("status=%d", gcvSTATUS_OUT_OF_MEMORY);
+        return -ENOMEM;
     }
 
-    data->device             = galDevice;
-    data->pidOpen            = _GetProcessID();
-	//printk("zxw:drv_open 2\n");
+    data->device  = galDevice;
+    data->pidOpen = _GetProcessID();
+
     /* Attached the process. */
     for (i = 0; i < gcdMAX_GPU_COUNT; i++)
     {
         if (galDevice->kernels[i] != gcvNULL)
         {
-            gcmkONERROR(gckKERNEL_AttachProcess(galDevice->kernels[i], gcvTRUE));
+            status = gckKERNEL_AttachProcess(galDevice->kernels[i], gcvTRUE);
+
+            if (gcmIS_ERROR(status))
+            {
+                break;
+            }
+
+            attached = i;
         }
     }
-    attached = gcvTRUE;
 
-    filp->private_data = data;
-	//printk("zxw:drv_open over\n");
-    /* Success. */
-    ret = 0;
-
-OnError:
-    if (ret)
+    if (gcmIS_ERROR(status))
     {
-        if (data)
+        /* Error. */
+        for (i = 0; i < attached; i++)
         {
-            kfree(data);
-        }
-
-        if (attached)
-        {
-            for (i = 0; i < gcdMAX_GPU_COUNT; i++)
+            if (galDevice->kernels[i] != gcvNULL)
             {
-                if (galDevice->kernels[i] != gcvNULL)
-                {
-                    gcmkVERIFY_OK(gckKERNEL_AttachProcess(galDevice->kernels[i], gcvFALSE));
-                }
+                gcmkVERIFY_OK(gckKERNEL_AttachProcess(galDevice->kernels[i], gcvFALSE));
             }
         }
+
+        gcmkFOOTER_ARG("status=%d", status);
+        return -ENOTTY;
     }
 
-    gcmkFOOTER();
-    return ret;
+    filp->private_data = data;
+
+    /* Success. */
+    gcmkFOOTER_NO();
+    return 0;
 }
 
 static int drv_release(
@@ -463,17 +619,6 @@ static int drv_release(
     gctINT i;
 
     gcmkHEADER_ARG("inode=%p filp=%p", inode, filp);
-
-    if (filp == gcvNULL)
-    {
-        gcmkTRACE_ZONE(
-            gcvLEVEL_ERROR, gcvZONE_DRIVER,
-            "%s(%d): filp is NULL\n",
-            __FUNCTION__, __LINE__
-            );
-
-        gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
-    }
 
     data = filp->private_data;
 
@@ -506,7 +651,11 @@ static int drv_release(
     {
         if (galDevice->kernels[i] != gcvNULL)
         {
-            gcmkONERROR(gckKERNEL_AttachProcessEx(galDevice->kernels[i], gcvFALSE, data->pidOpen));
+            gcmkVERIFY_OK(gckKERNEL_AttachProcessEx(
+                galDevice->kernels[i],
+                gcvFALSE,
+                data->pidOpen
+                ));
         }
     }
 
@@ -536,17 +685,6 @@ static long drv_ioctl(
     gcsHAL_PRIVATE_DATA_PTR data;
 
     gcmkHEADER_ARG("filp=%p ioctlCode=%u arg=%lu",filp, ioctlCode, arg);
-	/*printk("zxw:drv_ioctl,ioctlCode=%u arg=%lu\n",ioctlCode, arg);*/
-    if (filp == gcvNULL)
-    {
-        gcmkTRACE_ZONE(
-            gcvLEVEL_ERROR, gcvZONE_DRIVER,
-            "%s(%d): filp is NULL\n",
-            __FUNCTION__, __LINE__
-            );
-
-        gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
-    }
 
     data = filp->private_data;
 
@@ -690,32 +828,7 @@ static int drv_init(void)
     gckGALDEVICE device = gcvNULL;
     struct class* device_class = gcvNULL;
 
-    gcsDEVICE_CONSTRUCT_ARGS args = {
-        .recovery           = recovery,
-        .stuckDump          = stuckDump,
-        .gpu3DMinClock      = gpu3DMinClock,
-        .contiguousRequested = contiguousRequested,
-        .platform           = platform,
-        .mmu                = mmu,
-        .registerMemMapped = registerMemMapped,
-        .registerMemAddress = registerMemAddress,
-#if gcdDEC_ENABLE_AHB
-        .registerMemBaseDEC300 = registerMemBaseDEC300,
-        .registerMemSizeDEC300 = registerMemSizeDEC300,
-#endif
-        .powerManagement = powerManagement,
-        .gpuProfiler = gpuProfiler,
-        .userClusterMask = userClusterMask,
-        .smallBatch = smallBatch,
-    };
-
     gcmkHEADER();
-
-    memcpy(args.irqs, irqs, gcmSIZEOF(gctINT) * gcvCORE_COUNT);
-    memcpy(args.registerBases, registerBases, gcmSIZEOF(gctUINT) * gcvCORE_COUNT);
-    memcpy(args.registerSizes, registerSizes, gcmSIZEOF(gctUINT) * gcvCORE_COUNT);
-    memcpy(args.chipIDs, chipIDs, gcmSIZEOF(gctUINT) * gcvCORE_COUNT);
-    memcpy(args.sRAMBases, sRAMBases, gcmSIZEOF(gctUINT) * gcvSRAM_COUNT);
 
     printk(KERN_INFO "Galcore version %d.%d.%d.%d\n",
         gcvVERSION_MAJOR, gcvVERSION_MINOR, gcvVERSION_PATCH, gcvVERSION_BUILD);
@@ -725,29 +838,9 @@ static int drv_init(void)
         gckOS_DumpParam();
     }
 
-    if (logFileSize != 0)
-    {
-        gckDEBUGFS_Initialize();
-    }
-
     /* Create the GAL device. */
-    status = gckGALDEVICE_Construct(
-        irqLine,
-        registerMemBase, registerMemSize,
-        irqLine2D,
-        registerMemBase2D, registerMemSize2D,
-        irqLineVG,
-        registerMemBaseVG, registerMemSizeVG,
-        contiguousBase, contiguousSize,
-        externalBase, externalSize,
-        bankSize, fastClear, compression, baseAddress, physSize, signal,
-        logFileSize,
-        powerManagement,
-        gpuProfiler,
-        &args,
-        &device
-    );
-	//printk(KERN_INFO "zxw:after gckGALDEVICE_Construct,status is %d\n",status);
+    status = gckGALDEVICE_Construct(platform, &moduleParam, &device);
+
     if (gcmIS_ERROR(status))
     {
         gcmkTRACE_ZONE(gcvLEVEL_ERROR, gcvZONE_DRIVER,
@@ -756,10 +849,10 @@ static int drv_init(void)
 
         goto OnError;
     }
-	//printk(KERN_INFO "zxw:before gckGALDEVICE_Start\n");
+
     /* Start the GAL device. */
     gcmkONERROR(gckGALDEVICE_Start(device));
-	//printk(KERN_INFO "zxw:after gckGALDEVICE_Start,type %d\n",type);
+
     if ((physSize != 0)
        && (device->kernels[gcvCORE_MAJOR] != gcvNULL)
        && (device->kernels[gcvCORE_MAJOR]->hardware->mmuVersion != 0))
@@ -789,7 +882,7 @@ static int drv_init(void)
     {
         /* Register the character device. */
         int result = register_chrdev(major, DEVICE_NAME, &driver_fops);
-		//printk(KERN_INFO "zxw: register_chrdev after,result %d\n",result);
+
         if (result < 0)
         {
             gcmkTRACE_ZONE(
@@ -811,7 +904,6 @@ static int drv_init(void)
 
         if (IS_ERR(device_class))
         {
-			printk(KERN_INFO "zxw: class_create fail\n");
             gcmkTRACE_ZONE(
                 gcvLEVEL_ERROR, gcvZONE_DRIVER,
                 "%s(%d): Failed to create the class.\n",
@@ -843,7 +935,6 @@ static int drv_init(void)
 OnError:
     if (ret)
     {
-		printk(KERN_INFO "zxw: drv fail,%d\n",ret);
         /* Roll back. */
         if (device_class)
         {
@@ -882,11 +973,6 @@ static void drv_exit(void)
     gcmkVERIFY_OK(gckGALDEVICE_Stop(galDevice));
     gcmkVERIFY_OK(gckGALDEVICE_Destroy(galDevice));
 
-    if(gckDEBUGFS_IsEnabled())
-    {
-        gckDEBUGFS_Terminate();
-    }
-
     gcmkFOOTER_NO();
 }
 
@@ -904,73 +990,23 @@ int __devinit gpu_probe(struct platform_device *pdev)
 #endif /* USE_LINUX_PCIE */
 {
     int ret = -ENODEV;
-    static u64 dma_mask = ~0ULL;
-
-    gcsMODULE_PARAMETERS moduleParam = {
-        .irqLine            = irqLine,
-        .registerMemBase    = registerMemBase,
-        .registerMemSize    = registerMemSize,
-        .irqLine2D          = irqLine2D,
-        .registerMemBase2D  = registerMemBase2D,
-        .registerMemSize2D  = registerMemSize2D,
-        .irqLineVG          = irqLineVG,
-        .registerMemBaseVG  = registerMemBaseVG,
-        .registerMemSizeVG  = registerMemSizeVG,
-        .contiguousSize     = contiguousSize,
-        .contiguousBase     = contiguousBase,
-        .externalSize       = externalSize,
-        .externalBase       = externalBase,
-        .bankSize           = bankSize,
-        .fastClear          = fastClear,
-        .powerManagement    = powerManagement,
-        .gpuProfiler        = gpuProfiler,
-        .signal             = signal,
-        .baseAddress        = baseAddress,
-        .physSize           = physSize,
-        .logFileSize        = logFileSize,
-        .recovery           = recovery,
-        .stuckDump          = stuckDump,
-        .showArgs           = showArgs,
-        .gpu3DMinClock      = gpu3DMinClock,
-        .registerMemMapped    = registerMemMapped,
-        .userClusterMask      = userClusterMask,
-    };
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 24)
+    static u64 dma_mask = DMA_BIT_MASK(40);
+#else
+    static u64 dma_mask = DMA_40BIT_MASK;
+#endif
 
     gcmkHEADER();
 
-    memcpy(moduleParam.irqs, irqs, gcmSIZEOF(gctINT) * gcvCORE_COUNT);
-    memcpy(moduleParam.registerBases, registerBases, gcmSIZEOF(gctUINT) * gcvCORE_COUNT);
-    memcpy(moduleParam.registerSizes, registerSizes, gcmSIZEOF(gctUINT) * gcvCORE_COUNT);
-    memcpy(moduleParam.chipIDs, chipIDs, gcmSIZEOF(gctUINT) * gcvCORE_COUNT);
-    memcpy(moduleParam.sRAMBases, sRAMBases, gcmSIZEOF(gctUINT) * gcvSRAM_COUNT);
-    moduleParam.compression = (compression == -1) ? gcvCOMPRESSION_OPTION_DEFAULT : (gceCOMPRESSION_OPTION)compression;
     platform->device = pdev;
     galcore_device = &pdev->dev;
-
-    galcore_device->dma_mask = &dma_mask;
-	
-		/*============get reserved mem from dts==============*/
-	//if(!of_reserved_mem_device_init(&pdev->dev))
-	//{
-	//	printk("galcore reserved memory probed done\n");
-	//}
-	
-	/*===============get irq from dts==============*/
-	galcore_irq = platform_get_irq_byname(pdev, "galcore");
-	printk("galcore irq number is %d\n",galcore_irq);
-	if (galcore_irq < 0) {
-		printk("get galcore irq resource error\n");
-		galcore_irq = platform_get_irq(pdev, 0);
-		printk("galcore irq number is %d\n",galcore_irq);
-	}
-	if (galcore_irq < 0) return ret;
 
 #if USE_LINUX_PCIE
     if (pci_enable_device(pdev)) {
         printk(KERN_ERR "galcore: pci_enable_device() failed.\n");
     }
 
-    if (pci_set_dma_mask(pdev, DMA_BIT_MASK(32))) {
+    if (pci_set_dma_mask(pdev, dma_mask)) {
         printk(KERN_ERR "galcore: Failed to set DMA mask.\n");
     }
 
@@ -984,11 +1020,13 @@ int __devinit gpu_probe(struct platform_device *pdev)
     if (pci_enable_msi(pdev)) {
         printk(KERN_ERR "galcore: Failed to enable MSI.\n");
     }
+#  endif
+#else
+    galcore_device->dma_mask = &dma_mask;
 #endif
-#endif
+
     if (platform->ops->getPower)
     {
-		printk("zxw:will set power\n");
         if (gcmIS_ERROR(platform->ops->getPower(platform)))
         {
             gcmkFOOTER_NO();
@@ -996,17 +1034,20 @@ int __devinit gpu_probe(struct platform_device *pdev)
         }
     }
 
+    /* Gather module parameters. */
+    _InitModuleParam(&moduleParam);
+
     if (platform->ops->adjustParam)
     {
         /* Override default module param. */
         platform->ops->adjustParam(platform, &moduleParam);
-
-        /* Update module param because drv_init() uses them directly. */
-        _UpdateModuleParam(&moduleParam);
     }
-	printk(KERN_INFO "zxw:before drv_init\n");
+
+    /* Update module param because drv_init() uses them directly. */
+    _SyncModuleParam(&moduleParam);
+
     ret = drv_init();
-	printk(KERN_INFO "zxw:after drv_init\n");
+
     if (!ret)
     {
 #if USE_LINUX_PCIE
@@ -1025,8 +1066,7 @@ int __devinit gpu_probe(struct platform_device *pdev)
         gcmkFOOTER_NO();
     }
 
-    gcmkFOOTER_ARG(KERN_INFO "Failed to register gpu driver: %d\n", ret);
-	printk(KERN_INFO "zxw:gpu probe is over,ret is %d\n",ret);
+    gcmkFOOTER_ARG(KERN_INFO "Success ret=%d", ret);
     return ret;
 }
 
@@ -1188,14 +1228,7 @@ static const struct dev_pm_ops gpu_pm_ops = {
 };
 #endif
 
-static const struct of_device_id galcore_dev_match[] = {
-	{
-		.compatible = "amlogic, galcore"
-	},
-	{ },
-};
-
-#if  0 //USE_LINUX_PCIE
+#if USE_LINUX_PCIE
 static const struct pci_device_id vivpci_ids[] = {
   {
     .class = 0x000000,
@@ -1232,11 +1265,10 @@ static struct platform_driver gpu_driver = {
 
     .driver     = {
         .owner  = THIS_MODULE,
-        .name   = DEVICE_NAME,     //"galcore"
+        .name   = DEVICE_NAME,
 #if defined(CONFIG_PM) && LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30)
         .pm     = &gpu_pm_ops,
 #endif
-		.of_match_table = galcore_dev_match,
     }
 };
 #endif /* USE_LINUX_PCIE */
@@ -1260,8 +1292,6 @@ static int __init gpu_init(void)
     gpu_driver.remove = viv_drm_remove;
 #endif
 
-	printk("gpu_init: begin.\n");
-	
     ret = soc_platform_init(&gpu_driver, &platform);
 
     if (ret || !platform)
@@ -1270,8 +1300,7 @@ static int __init gpu_init(void)
         return -ENODEV;
     }
 
-	printk("galcore: gpu_init() before platform register!\n");
-#if 0  //USE_LINUX_PCIE
+#if USE_LINUX_PCIE
     ret = pci_register_driver(&gpu_driver);
 
 #else /* USE_LINUX_PCIE */
@@ -1280,12 +1309,12 @@ static int __init gpu_init(void)
 
     if (ret)
     {
-        printk("galcore: gpu_init() failed to register driver!\n");
+        printk(KERN_ERR "galcore: gpu_init() failed to register driver!\n");
         soc_platform_terminate(platform);
         platform = NULL;
         return -ENODEV;
     }
-	printk("galcore: gpu_init() over!\n");
+
     platform->driver = &gpu_driver;
     return 0;
 }
@@ -1302,32 +1331,5 @@ static void __exit gpu_exit(void)
     platform = NULL;
 }
 
-static int galcore_reserved_init(struct reserved_mem *rmem, struct device *dev)
-{
-	printk("galcore_reserved_init %p->%p\n",
-		(void *)rmem->base,
-		(void *)rmem->base + rmem->size);
-	return 0;
-}
-
-static const struct reserved_mem_ops galcore_mem_ops = {
-	.device_init = galcore_reserved_init,
-};
-
-static int __init galcore_res_setup(struct reserved_mem *rmem)
-{
-	rmem->ops = &galcore_mem_ops;
-	printk("galcore: reserved mem setup\n");
-	if(rmem != NULL)
-	{
-		printk("galcore_res_setup, %p->%p\n",(void *)rmem->base,(void *)rmem->base + rmem->size);
-	}
-	return 0;
-}
-
-RESERVEDMEM_OF_DECLARE(galcore_reserved, "amlogic, galcore-reserved",galcore_res_setup);
-	
 module_init(gpu_init);
 module_exit(gpu_exit);
-MODULE_DESCRIPTION("amlogic kernel driver");
-MODULE_LICENSE("GPL");

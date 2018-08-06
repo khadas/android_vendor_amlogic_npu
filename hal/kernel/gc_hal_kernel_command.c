@@ -90,7 +90,7 @@ _NewQueue(
     gceSTATUS status;
     gctINT currentIndex, newIndex;
 
-    gcmkHEADER_ARG("Command=0x%x", Command);
+    gcmkHEADER_ARG("Command=%p", Command);
 
     /* Switch to the next command buffer. */
     currentIndex = Command->index;
@@ -184,7 +184,7 @@ _IncrementCommitAtom(
     gctINT32 atomValue;
     gctBOOL powerAcquired = gcvFALSE;
 
-    gcmkHEADER_ARG("Command=0x%x", Command);
+    gcmkHEADER_ARG("Command=%p", Command);
 
     /* Extract the gckHARDWARE and gckEVENT objects. */
     hardware = Command->kernel->hardware;
@@ -360,7 +360,6 @@ OnError:
 }
 #endif
 
-#if !gcdNULL_DRIVER
 static gceSTATUS
 _CheckFlushMMU(
     IN gckCOMMAND Command,
@@ -1365,7 +1364,6 @@ OnError:
     gcmkFOOTER();
     return status;
 }
-#endif
 
 /******************************************************************************\
 ****************************** gckCOMMAND API Code ******************************
@@ -1402,7 +1400,7 @@ gckCOMMAND_Construct(
     gctPOINTER pointer = gcvNULL;
     gctSIZE_T pageSize;
 
-    gcmkHEADER_ARG("Kernel=0x%x", Kernel);
+    gcmkHEADER_ARG("Kernel=%p", Kernel);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Kernel, gcvOBJ_KERNEL);
@@ -1608,7 +1606,7 @@ gckCOMMAND_Destroy(
 {
     gctINT i;
 
-    gcmkHEADER_ARG("Command=0x%x", Command);
+    gcmkHEADER_ARG("Command=%p", Command);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
@@ -1747,7 +1745,7 @@ gckCOMMAND_EnterCommit(
     gctBOOL atomIncremented = gcvFALSE;
     gctBOOL semaAcquired = gcvFALSE;
 
-    gcmkHEADER_ARG("Command=0x%x", Command);
+    gcmkHEADER_ARG("Command=%p", Command);
 
     /* Extract the gckHARDWARE and gckEVENT objects. */
     hardware = Command->kernel->hardware;
@@ -1829,7 +1827,7 @@ gckCOMMAND_ExitCommit(
 {
     gceSTATUS status;
 
-    gcmkHEADER_ARG("Command=0x%x", Command);
+    gcmkHEADER_ARG("Command=%p", Command);
 
     /* Release the power mutex. */
     gcmkONERROR(gckOS_ReleaseMutex(Command->os, Command->mutexQueue));
@@ -1866,7 +1864,7 @@ _StartWaitLinkFE(
     gctPOINTER logical;
     gctUINT32 address;
 
-    gcmkHEADER_ARG("Command=0x%x", Command);
+    gcmkHEADER_ARG("Command=%p", Command);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
@@ -2027,18 +2025,31 @@ gckCOMMAND_Start(
     IN gckCOMMAND Command
     )
 {
+    gceSTATUS status;
+
+    gcmkHEADER_ARG("Command=%p", Command);
+
     if (Command->feType == gcvHW_FE_WAIT_LINK)
     {
-        return _StartWaitLinkFE(Command);
+        gcmkONERROR(_StartWaitLinkFE(Command));
     }
     else if (Command->feType == gcvHW_FE_MULTI_CHANNEL)
     {
-        return _StartMCFE(Command);
+        gcmkONERROR(_StartMCFE(Command));
     }
     else
     {
-        return _StartAsyncFE(Command);
+        gcmkONERROR(_StartAsyncFE(Command));
     }
+
+    /* Success. */
+    gcmkFOOTER_NO();
+    return gcvSTATUS_OK;
+OnError:
+    /* Return the status. */
+    gcmkFOOTER();
+    return status;
+
 }
 
 static gceSTATUS
@@ -2050,7 +2061,7 @@ _StopWaitLinkFE(
     gceSTATUS status;
     gctUINT32 idle;
 
-    gcmkHEADER_ARG("Command=0x%x", Command);
+    gcmkHEADER_ARG("Command=%p", Command);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
@@ -2120,7 +2131,7 @@ _StopAsyncFE(
     gceSTATUS status;
     gctUINT32 idle;
 
-    gcmkHEADER_ARG("Command=0x%x", Command);
+    gcmkHEADER_ARG("Command=%p", Command);
 
     hardware = Command->kernel->hardware;
 
@@ -2153,7 +2164,7 @@ _StopMCFE(
     gceSTATUS status;
     gckHARDWARE hardware;
 
-    gcmkHEADER_ARG("Command=0x%x", Command);
+    gcmkHEADER_ARG("Command=%p", Command);
 
     hardware = Command->kernel->hardware;
 
@@ -2231,7 +2242,6 @@ _CommitWaitLinkOnce(
     gckHARDWARE hardware;
     gcsPATCH_LIST_VARIABLE patchListVar = {0, 0};
 
-#if !gcdNULL_DRIVER
     gcsCONTEXT_PTR contextBuffer;
     gctUINT8_PTR commandBufferLogical = gcvNULL;
     gctUINT32 commandBufferAddress = 0;
@@ -2268,10 +2278,8 @@ _CommitWaitLinkOnce(
     gctUINT32 exitLinkLow = 0, exitLinkHigh = 0;
     gctUINT32 entryLinkLow = 0, entryLinkHigh = 0;
     gctUINT32 commandLinkLow = 0, commandLinkHigh = 0;
-#endif
 
-    gcmkHEADER_ARG(
-        "Command=0x%x CommandBuffer=0x%x ProcessID=%d",
+    gcmkHEADER_ARG("Command=%p CommandBuffer=%p ProcessID=%d",
         Command, CommandBuffer, ProcessID
         );
 
@@ -2303,18 +2311,6 @@ _CommitWaitLinkOnce(
     /* Extract the gckHARDWARE and gckEVENT objects. */
     hardware = Command->kernel->hardware;
 
-
-#if gcdNULL_DRIVER
-    /* Context switch required? */
-    if ((Context != gcvNULL) && (Command->currContext != Context))
-    {
-        /* Yes, merge in the deltas. */
-        gckCONTEXT_Update(Context, ProcessID, StateDelta);
-
-        /* Update the current context. */
-        Command->currContext = Context;
-    }
-#else
 
     gcmkONERROR(
         _HandlePatchList(Command, CommandBuffer, &patchListVar));
@@ -2734,6 +2730,21 @@ _CommitWaitLinkOnce(
         commandBufferSize    - offset - 8
         );
 #else
+#if gcdNULL_DRIVER
+    /*
+     * Skip link to entryAddress.
+     * Instead, we directly link to final wait link position.
+     */
+    gcmkONERROR(gckWLFE_Link(
+        hardware,
+        Command->waitPos.logical,
+        waitLinkAddress,
+        waitLinkBytes,
+        &Command->waitPos.size,
+        &entryLinkLow,
+        &entryLinkHigh
+        ));
+#  else
     /* Generate a LINK from the previous WAIT/LINK command sequence to the
        entry determined above (either the context or the command buffer).
        This LINK replaces the WAIT instruction from the previous WAIT/LINK
@@ -2748,6 +2759,7 @@ _CommitWaitLinkOnce(
         &entryLinkLow,
         &entryLinkHigh
         ));
+#  endif
 #endif
 
 #if gcdLINK_QUEUE_SIZE
@@ -2844,6 +2856,15 @@ _CommitWaitLinkOnce(
         waitLinkBytes
         );
 
+#if gcdNULL_DRIVER
+    gcmkDUMP(
+        Command->os,
+        "#[null driver: below command skipped link to 0x%08X 0x%08X]",
+        entryAddress,
+        entryBytes
+        );
+#endif
+
     gcmkDUMP(Command->os, "#[link: break prev wait-link]");
     gcmkDUMP_BUFFER(
         Command->os,
@@ -2871,8 +2892,6 @@ _CommitWaitLinkOnce(
     gcmkONERROR(gckHARDWARE_UpdateQueueTail(
         hardware, Command->logical, Command->offset
         ));
-
-#endif /* gcdNULL_DRIVER */
 
     /* Release the context switching mutex. */
     gcmkONERROR(gckOS_ReleaseMutex(Command->os, Command->mutexContext));
@@ -3039,15 +3058,6 @@ _CommitAsyncOnce(
                       + flushBytes
                       + fenceBytes;
 
-    gcmkDUMP(Command->os, "#[async-command: user]");
-    gcmkDUMP_BUFFER(
-        Command->os,
-        gcvDUMP_BUFFER_ASYNC_COMMAND,
-        commandBufferLogical,
-        commandBufferAddress,
-        commandBufferSize
-        );
-
     gckOS_AcquireMutex(Command->os, Command->mutexContext, gcvINFINITE);
     acquired = gcvTRUE;
 
@@ -3068,8 +3078,22 @@ _CommitAsyncOnce(
         }
     }
 
+#if gcdNULL_DRIVER
+    /* Skip submit to hardware for NULL driver. */
+    gcmkDUMP(Command->os, "#[null driver: below command is skipped]");
+#else
     /* Execute command buffer. */
     gckASYNC_FE_Execute(hardware, commandBufferAddress, commandBufferSize);
+#endif
+
+    gcmkDUMP(Command->os, "#[async-command: user]");
+    gcmkDUMP_BUFFER(
+        Command->os,
+        gcvDUMP_BUFFER_ASYNC_COMMAND,
+        commandBufferLogical,
+        commandBufferAddress,
+        commandBufferSize
+        );
 
     gcmkDUMP(
         Command->os,
@@ -3179,14 +3203,6 @@ _CommitMultiChannelOnce(
     /* Large command buffer size does not make sense. */
     gcmkASSERT(commandBufferSize < 0x800000);
 
-    gcmkDUMP(Command->os, "#[mcfe-command: user]");
-    gcmkDUMP_BUFFER(
-        Command->os,
-        gcvDUMP_BUFFER_COMMAND,
-        commandBufferLogical,
-        commandBufferAddress,
-        commandBufferSize
-        );
 
     if (CommandBuffer->channelId != 0)
     {
@@ -3201,6 +3217,10 @@ _CommitMultiChannelOnce(
     gckOS_AcquireMutex(Command->os, Command->mutexQueue, gcvINFINITE);
     acquired = gcvTRUE;
 
+#if gcdNULL_DRIVER
+    /* Skip submit to hardware for NULL driver. */
+    gcmkDUMP(Command->os, "#[null driver: below command is skipped]");
+#else
     /* Execute command buffer. */
     gcmkONERROR(gckMCFE_Execute(
         hardware,
@@ -3209,6 +3229,16 @@ _CommitMultiChannelOnce(
         commandBufferAddress,
         commandBufferSize
         ));
+#endif
+
+    gcmkDUMP(Command->os, "#[mcfe-command: user]");
+    gcmkDUMP_BUFFER(
+        Command->os,
+        gcvDUMP_BUFFER_COMMAND,
+        commandBufferLogical,
+        commandBufferAddress,
+        commandBufferSize
+        );
 
     bit = 1ull << CommandBuffer->channelId;
 
@@ -3463,7 +3493,7 @@ gckCOMMAND_Reserve(
     gctUINT32 requiredBytes;
     gctUINT32 requestedAligned;
 
-    gcmkHEADER_ARG("Command=0x%x RequestedBytes=%lu", Command, RequestedBytes);
+    gcmkHEADER_ARG("Command=%p RequestedBytes=%lu", Command, RequestedBytes);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
@@ -3572,7 +3602,7 @@ gckCOMMAND_Execute(
     gctUINT32 execAddress;
     gctUINT32 execBytes;
 
-    gcmkHEADER_ARG("Command=0x%x RequestedBytes=%lu", Command, RequestedBytes);
+    gcmkHEADER_ARG("Command=%p RequestedBytes=%lu", Command, RequestedBytes);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
@@ -3633,6 +3663,21 @@ gckCOMMAND_Execute(
             ));
     }
 
+#if gcdNULL_DRIVER
+    /*
+     * Skip link to execAddress.
+     * Instead, we directly link to final wait link position.
+     */
+    gcmkONERROR(gckWLFE_Link(
+        Command->kernel->hardware,
+        Command->waitPos.logical,
+        waitLinkAddress,
+        waitLinkBytes,
+        &Command->waitPos.size,
+        &linkLow,
+        &linkHigh
+        ));
+#else
     /* Convert the last WAIT into a LINK. */
     gcmkONERROR(gckWLFE_Link(
         Command->kernel->hardware,
@@ -3643,6 +3688,7 @@ gckCOMMAND_Execute(
         &linkLow,
         &linkHigh
         ));
+#endif
 
     gcmkONERROR(gckVIDMEM_NODE_FlushCache(
         Command->kernel,
@@ -3676,6 +3722,13 @@ gckCOMMAND_Execute(
         execAddress,
         execBytes
         );
+
+#if gcdNULL_DRIVER
+    gcmkDUMP(Command->os,
+             "#[null driver: below command skipped link to 0x%08X 0x%08X]",
+             execAddress,
+             execBytes);
+#endif
 
     gcmkDUMP(Command->os, "#[link: break prev wait-link]");
     gcmkDUMP_BUFFER(
@@ -3776,6 +3829,14 @@ gckCOMMAND_ExecuteAsync(
         }
     }
 
+#if gcdNULL_DRIVER
+    /* Skip submit to hardware for NULL driver. */
+    gcmkDUMP(Command->os, "#[null driver: below command is skipped]");
+#else
+    /* Send descriptor. */
+    gckASYNC_FE_Execute(hardware, execAddress, execBytes);
+#endif
+
     gcmkDUMP(Command->os, "#[async-command: kernel execute]");
     gcmkDUMP_BUFFER(
         Command->os,
@@ -3784,9 +3845,6 @@ gckCOMMAND_ExecuteAsync(
         execAddress,
         execBytes
         );
-
-    /* Send descriptor. */
-    gckASYNC_FE_Execute(hardware, execAddress, execBytes);
 
     /* Update the command queue. */
     Command->offset   += RequestedBytes;
@@ -3862,6 +3920,19 @@ gckCOMMAND_ExecuteMultiChannel(
             ));
     }
 
+#if gcdNULL_DRIVER
+    /* Skip submit to hardware for NULL driver. */
+    gcmkDUMP(Command->os, "#[null driver: below command is skipped]");
+#else
+    /* Send descriptor. */
+    gcmkONERROR(
+        gckMCFE_Execute(Command->kernel->hardware,
+                        Priority,
+                        ChannelId,
+                        execAddress,
+                        execBytes));
+#endif
+
     gcmkDUMP(Command->os, "#[mcfe-command: kernel execute]");
     gcmkDUMP_BUFFER(
         Command->os,
@@ -3870,14 +3941,6 @@ gckCOMMAND_ExecuteMultiChannel(
         execAddress,
         execBytes
         );
-
-    /* Send descriptor. */
-    gcmkONERROR(
-        gckMCFE_Execute(Command->kernel->hardware,
-                        Priority,
-                        ChannelId,
-                        execAddress,
-                        execBytes));
 
     /* Update the command queue. */
     Command->offset   += RequestedBytes;
@@ -3919,10 +3982,6 @@ gckCOMMAND_Stall(
     IN gctBOOL FromPower
     )
 {
-#if gcdNULL_DRIVER
-    /* Do nothing with infinite hardware. */
-    return gcvSTATUS_OK;
-#else
     gckOS os;
     gckHARDWARE hardware;
     gckEVENT eventObject;
@@ -3930,7 +3989,7 @@ gckCOMMAND_Stall(
     gctSIGNAL signal = gcvNULL;
     gctUINT timer = 0;
 
-    gcmkHEADER_ARG("Command=0x%x", Command);
+    gcmkHEADER_ARG("Command=%p", Command);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
@@ -4025,7 +4084,6 @@ OnError:
     /* Return the status. */
     gcmkFOOTER();
     return status;
-#endif
 }
 
 #if (gcdENABLE_3D)
@@ -4041,7 +4099,7 @@ _AttachWaitLinkFECommand(
     gceSTATUS status;
     gctBOOL acquired = gcvFALSE;
 
-    gcmkHEADER_ARG("Command=0x%x", Command);
+    gcmkHEADER_ARG("Command=%p", Command);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
@@ -4148,7 +4206,7 @@ _DetachWaitLinkFECommand(
     gceSTATUS status;
     gctBOOL acquired = gcvFALSE;
 
-    gcmkHEADER_ARG("Command=0x%x Context=0x%x", Command, Context);
+    gcmkHEADER_ARG("Command=%p Context=%p", Command, Context);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);

@@ -183,17 +183,17 @@ typedef struct _gcsPLS
 
     /* Internal memory pool. */
     gctSIZE_T                   internalSize;
-    gctPHYS_ADDR                internalPhysical;
+    gctUINT32                   internalPhysName;
     gctPOINTER                  internalLogical;
 
     /* External memory pool. */
     gctSIZE_T                   externalSize;
-    gctPHYS_ADDR                externalPhysical;
+    gctUINT32                   externalPhysName;
     gctPOINTER                  externalLogical;
 
     /* Contiguous memory pool. */
     gctSIZE_T                   contiguousSize;
-    gctPHYS_ADDR                contiguousPhysical;
+    gctUINT32                   contiguousPhysName;
     gctPOINTER                  contiguousLogical;
 
     /* EGL-specific process-wide objects. */
@@ -231,11 +231,7 @@ typedef struct _gcsPLS
     gcePATCH_ID                 patchID;
 
     /* Global fenceID to record each fence object */
-#if gcdENABLE_3D
-#if gcdSYNC
     gcsATOM_PTR                 globalFenceID;
-#endif
-#endif
 }
 gcsPLS;
 

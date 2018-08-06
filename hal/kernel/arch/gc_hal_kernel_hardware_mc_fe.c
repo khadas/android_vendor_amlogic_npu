@@ -455,17 +455,29 @@ gckMCFE_Nop(
 
         /* Append NOP. */
         logical[0] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1) == 32) ? ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_NOP & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1) == 32) ? ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)));
-
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
+ MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_NOP & ((gctUINT32) ((((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)));
         logical[1] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1) == 32) ? ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_NOP & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1) == 32) ? ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)));
-
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
+ MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_NOP & ((gctUINT32) ((((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)));
 
         gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "0x%x: NOP", Logical);
     }
@@ -527,25 +539,43 @@ gckMCFE_Event(
 
         /* Append EVENT(Event). */
         logical[0] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1) == 32) ? ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_SUB_COMMAND & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1) == 32) ? ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)))
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
+ MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_SUB_COMMAND & ((gctUINT32) ((((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)))
                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ? MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? MCFE_COMMAND_SUB_OPCODE) - (0 ? MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ?
+ MCFE_COMMAND_SUB_OPCODE) - (0 ?
+ MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_SUB_OPCODE) - (0 ?
+ MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ?
  MCFE_COMMAND_SUB_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_SUB_OPCODE_INTERRUPT_EVENT & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ? MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? MCFE_COMMAND_SUB_OPCODE) - (0 ? MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ?
- MCFE_COMMAND_SUB_OPCODE)))
+ MCFE_COMMAND_SUB_OPCODE) - (0 ?
+ MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_SUB_OPCODE) - (0 ?
+ MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_SUB_OPCODE)))
                    | Event;
 
         logical[1] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1) == 32) ? ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_NOP & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1) == 32) ? ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)));
-
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
+ MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_NOP & ((gctUINT32) ((((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)));
 
 #if gcmIS_DEBUG(gcdDEBUG_TRACE)
         {
@@ -614,25 +644,43 @@ gckMCFE_SendSemaphore(
 
         /* Append SEND_SEMAPHORE(SemaId). */
         logical[0] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1) == 32) ? ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_SUB_COMMAND & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1) == 32) ? ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)))
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
+ MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_SUB_COMMAND & ((gctUINT32) ((((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)))
                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ? MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? MCFE_COMMAND_SUB_OPCODE) - (0 ? MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ?
+ MCFE_COMMAND_SUB_OPCODE) - (0 ?
+ MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_SUB_OPCODE) - (0 ?
+ MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ?
  MCFE_COMMAND_SUB_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_SUB_OPCODE_SEND_SEMAPHORE & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ? MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? MCFE_COMMAND_SUB_OPCODE) - (0 ? MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ?
- MCFE_COMMAND_SUB_OPCODE)))
+ MCFE_COMMAND_SUB_OPCODE) - (0 ?
+ MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_SUB_OPCODE) - (0 ?
+ MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_SUB_OPCODE)))
                    | SemaId;
 
         logical[1] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1) == 32) ? ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_NOP & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1) == 32) ? ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)));
-
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
+ MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_NOP & ((gctUINT32) ((((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)));
     }
 
     if (Bytes != gcvNULL)
@@ -683,25 +731,43 @@ gckMCFE_WaitSemaphore(
 
         /* Append WAIT_SEMAPHORE(SemaId). */
         logical[0] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1) == 32) ? ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_SUB_COMMAND & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1) == 32) ? ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)))
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
+ MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_SUB_COMMAND & ((gctUINT32) ((((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)))
                    | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ? MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? MCFE_COMMAND_SUB_OPCODE) - (0 ? MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ?
+ MCFE_COMMAND_SUB_OPCODE) - (0 ?
+ MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_SUB_OPCODE) - (0 ?
+ MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ?
  MCFE_COMMAND_SUB_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_SUB_OPCODE_WAIT_SEMAPHORE & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ? MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? MCFE_COMMAND_SUB_OPCODE) - (0 ? MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ?
- MCFE_COMMAND_SUB_OPCODE)))
+ MCFE_COMMAND_SUB_OPCODE) - (0 ?
+ MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_SUB_OPCODE) - (0 ?
+ MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_SUB_OPCODE)))
                    | SemaId;
 
         logical[1] = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1) == 32) ? ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_NOP & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1) == 32) ? ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ? MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)));
-
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
+ MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_NOP & ((gctUINT32) ((((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)));
     }
 
     if (Bytes != gcvNULL)

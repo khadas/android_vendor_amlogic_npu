@@ -174,7 +174,8 @@ gcsCENTROIDS;
 typedef struct _gcsUNIFORM_STATE
 {
     gctUINT32 address;
-    gctUINT32 data[4];
+    gctUINT32 data[gcdMAX_3DGPU_COUNT][4];
+    gctUINT32 combinedDirty;
     struct _gcsUNIFORM_STATE_INFO
     {
         gctUINT32                         dirty   : 4;  /* 4 component */

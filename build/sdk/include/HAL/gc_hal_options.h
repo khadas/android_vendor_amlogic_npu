@@ -182,6 +182,19 @@ This define enables the use of VM for gckCommand and fence buffers.
 #endif
 
 /*
+    gcdDUMP_PER_OPERATION
+
+        Operation based dump.
+
+        Dump the block as below.
+        1. Multiple operations belong to the same SW tiling block.
+        2. Single operation which is NOT in any SW tiling block.
+*/
+#ifndef gcdDUMP_PER_OPERATION
+#   define gcdDUMP_PER_OPERATION                0
+#endif
+
+/*
     gcdDEBUG_OPTION
         When set to 1, the debug options are enabled. We must set other MACRO to enable
         sub case.
@@ -1217,6 +1230,13 @@ This define enables the use of VM for gckCommand and fence buffers.
 #endif
 
 /*
+    When enabled, use 1K mode for MMU version 2.0. otherwise use 4K mode.
+*/
+#ifndef gcdENABLE_MMU_1KMODE
+#   define gcdENABLE_MMU_1KMODE                  1
+#endif
+
+/*
     gcdENABLE_TRUST_APPLICATION
 
     When enabled, trust application is used to handle 'security' registers.
@@ -1241,7 +1261,11 @@ This define enables the use of VM for gckCommand and fence buffers.
 #endif
 
 #ifndef gcdMMU_SECURE_AREA_SIZE
+#if defined(gcdENABLE_MMU_1KMODE)
+#   define gcdMMU_SECURE_AREA_SIZE              32
+#else
 #   define gcdMMU_SECURE_AREA_SIZE              128
+#endif
 #endif
 
 /*
@@ -1279,15 +1303,6 @@ VIV:gcdUSE_MMU_EXCEPTION
 */
 #ifndef gcd2D_COMPRESSION_DEC400_ALIGN_MODE
 #   define gcd2D_COMPRESSION_DEC400_ALIGN_MODE  1
-#endif
-
-
-
-/*
-    When enabled, use 1K mode for MMU version 2.0. otherwise use 4K mode.
-*/
-#ifndef gcdENABLE_MMU_1KMODE
-#   define gcdENABLE_MMU_1KMODE                      0
 #endif
 
 /*

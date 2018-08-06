@@ -960,6 +960,7 @@ gckVIDMEM_AllocateVirtual(
     node->Virtual.contiguous    = Flag & gcvALLOC_FLAG_CONTIGUOUS;
     node->Virtual.logical       = gcvNULL;
     node->Virtual.kvaddr        = gcvNULL;
+    node->Virtual.bytes         = Bytes;
     node->Virtual.secure        = (Flag & gcvALLOC_FLAG_SECURITY) != 0;
     node->Virtual.onFault       = (Flag & gcvALLOC_FLAG_ALLOC_ON_FAULT) != 0;
 
@@ -971,11 +972,15 @@ gckVIDMEM_AllocateVirtual(
 
     /* Allocate the virtual memory. */
     gcmkONERROR(
-        gckOS_AllocatePagedMemoryEx(os,
-                                    Flag,
-                                    node->Virtual.bytes = Bytes,
-                                    &node->Virtual.gid,
-                                    &node->Virtual.physical));
+        gckOS_AllocatePagedMemory(os,
+                                  Flag,
+                                  &node->Virtual.bytes,
+                                  &node->Virtual.gid,
+                                  &node->Virtual.physical));
+
+    /* Calculate required GPU page (4096) count. */
+    /* Assume start address is 4096 aligned. */
+    node->Virtual.pageCount = (node->Virtual.bytes + (4096 - 1)) >> 12;
 
     /* Return pointer to the gcuVIDMEM_NODE union. */
     *Node = node;
@@ -1508,8 +1513,6 @@ gckVIDMEM_LockVirtual(
         if (gcmIS_ERROR(status))
         {
             /* Do GPU address mapping. */
-            Node->Virtual.pageCount = ((Node->Virtual.bytes + 4096 - 1) >> 12);
-
 #if gcdSECURITY
             gctPHYS_ADDR physicalArrayPhysical;
             gctPOINTER physicalArrayLogical;
@@ -2556,8 +2559,6 @@ gckVIDMEM_NODE_LockCPU(
     }
     else
     {
-        gctSIZE_T pageCount = 0;
-
         if (FromUser)
         {
             gcmkONERROR(
@@ -2565,8 +2566,7 @@ gckVIDMEM_NODE_LockCPU(
                                 node->Virtual.physical,
                                 node->Virtual.bytes,
                                 Cacheable,
-                                &logical,
-                                &pageCount));
+                                &logical));
 
             node->Virtual.logical = logical;
         }
@@ -2585,8 +2585,6 @@ gckVIDMEM_NODE_LockCPU(
 
             logical = node->Virtual.kvaddr;
         }
-
-        (void)pageCount;
     }
 
     gcmkVERIFY_OK(gckOS_ReleaseMutex(os, NodeObject->mutex));
@@ -3537,6 +3535,12 @@ gckVIDMEM_NODE_WrapUserMemory(
 
         do
         {
+            gctSIZE_T pageCountCpu = 0;
+            gctSIZE_T pageSizeCpu = 0;
+            gctPHYS_ADDR_T physicalAddress = 0;
+
+            gcmkVERIFY_OK(gckOS_GetPageSize(os, &pageSizeCpu));
+
             /* Allocate an gcuVIDMEM_NODE union. */
             gcmkERR_BREAK(gckOS_Allocate(os, gcmSIZEOF(gcuVIDMEM_NODE), (gctPOINTER*)&node));
             gckOS_ZeroMemory(node, gcmSIZEOF(gcuVIDMEM_NODE));
@@ -3545,8 +3549,20 @@ gckVIDMEM_NODE_WrapUserMemory(
             node->Virtual.kernel = Kernel;
 
             /* Wrap Memory. */
-            gcmkERR_BREAK(gckOS_WrapMemory(os, Desc, &node->Virtual.bytes,
-                                           &node->Virtual.physical, &node->Virtual.contiguous));
+            gcmkERR_BREAK(
+                gckOS_WrapMemory(os,
+                                 Desc,
+                                 &node->Virtual.bytes,
+                                 &node->Virtual.physical,
+                                 &node->Virtual.contiguous,
+                                 &pageCountCpu));
+
+            /* Get base physical address. */
+            gcmkERR_BREAK(
+                gckOS_GetPhysicalFromHandle(os,
+                                            node->Virtual.physical,
+                                            0,
+                                            &physicalAddress));
 
             /* Allocate handle for this video memory. */
             gcmkERR_BREAK(gckVIDMEM_NODE_Construct(
@@ -3556,6 +3572,9 @@ gckVIDMEM_NODE_WrapUserMemory(
                 gcvPOOL_VIRTUAL,
                 &nodeObject
                 ));
+
+            node->Virtual.pageCount = (pageCountCpu * pageSizeCpu -
+                    (physicalAddress & (pageSizeCpu - 1) & ~(4096 - 1))) >> 12;
 
             *NodeObject = nodeObject;
             *Bytes = (gctUINT64)node->Virtual.bytes;

@@ -105,7 +105,7 @@ extern "C" {
 #define gcdDEBUG_STACK          (1 << 6)
 
 #define gcmIS_DEBUG(flag)       (gcdDEBUG & (flag | gcdDEBUG_ALL) )
-#define DEBUG 1
+
 #ifndef gcdDEBUG
 #if (defined(DBG) && DBG) || defined(DEBUG) || defined(_DEBUG)
 #       define gcdDEBUG         gcdDEBUG_ALL

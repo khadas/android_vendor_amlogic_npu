@@ -59,6 +59,7 @@ BEGIN_EXTERN_C()
 /* For OCL. */
 #define _sldLocalStorageAddressName         "#sh_local_address"
 #define _sldWorkGroupCountName              "#workGroupCount"
+#define _sldWorkGroupIdOffsetName           "#workGroupIdOffset"
 
 /* Shared use. */
 #define _sldLocalMemoryAddressName          "#sh_localMemoryAddress"
@@ -588,6 +589,14 @@ typedef enum _gceMEMORY_ACCESS_FLAG
 }
 gceMEMORY_ACCESS_FLAG;
 
+typedef enum _gceSHADER_LEVEL
+{
+    gcvSHADER_HIGH_LEVEL            = 0,
+    gcvSHADER_MACHINE_LEVEL         = 1,
+    gcvSHADER_LEVEL_COUNT           = 2,
+}
+gceSHADER_LEVEL;
+
 typedef struct _gcWORK_GROUP_SIZE
 {
     gctUINT       x;
@@ -611,7 +620,7 @@ struct _gcsHINT
     gctUINT32   balanceMin;         /* Balance minimum. */
     gctUINT32   balanceMax;         /* Balance maximum. */
 
-    gceMEMORY_ACCESS_FLAG memoryAccessFlags[gcvPROGRAM_STAGE_LAST]; /* Memory access flag. */
+    gceMEMORY_ACCESS_FLAG memoryAccessFlags[gcvSHADER_LEVEL_COUNT][gcvPROGRAM_STAGE_LAST]; /* Memory access flag. */
 
     gcsPROGRAM_UNIFIED_STATUS unifiedStatus;
 
@@ -921,7 +930,7 @@ typedef enum _gceSHADER_FLAGS
     gcvSHADER_USE_ALPHA_KILL            = 0x100,
 #endif
 
-    gcvSHADER_I_AM_FREE_FOR_USE         = 0x200,
+    gcvSHADER_ENABLE_MULTI_GPU          = 0x200,
 
     gcvSHADER_TEXLD_W                   = 0x400,
 
@@ -1722,9 +1731,10 @@ extern gctBOOL gcSHADER_DumpOptimizer(gcSHADER Shader);
 extern gctBOOL gcSHADER_DumpOptimizerVerbose(gcSHADER Shader);
 extern gctBOOL gcSHADER_DumpCodeGen(void * Shader);
 extern gctBOOL gcSHADER_DumpCodeGenVerbose(void * Shader);
-extern gctBOOL VirSHADER_DumpCodeGenVerbose(gctINT ShaderId);
+extern gctBOOL VirSHADER_DumpCodeGenVerbose(void * Shader);
 extern gctBOOL gcSHADER_DumpFinalIR(gcSHADER Shader);
 extern gctBOOL VirSHADER_DoDual16(gctINT ShaderId);
+extern gctBOOL gcDoTriageForShaderId(gctINT shaderId, gctINT startId, gctINT endId);
 
 /* Setters */
 /* feature bits */

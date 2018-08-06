@@ -201,6 +201,8 @@ static int import_page_map(struct um_desc *um,
         goto error;
     }
 
+    dma_sync_sg_for_cpu(galcore_device, um->sgt.sgl, um->sgt.nents, DMA_FROM_DEVICE);
+
     um->type = UM_PAGE_MAP;
     um->pages = pages;
 
@@ -344,7 +346,7 @@ _Import(
     gctSIZE_T extraPage;
     gctSIZE_T pageCount, i;
 
-    gcmkHEADER_ARG("Os=0x%p Memory=%p Physical=0x%x Size=%lu", Os, Memory, Physical, Size);
+    gcmkHEADER_ARG("Os=%p Memory=%p Physical=0x%x Size=%lu", Os, Memory, Physical, Size);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Os, gcvOBJ_OS);

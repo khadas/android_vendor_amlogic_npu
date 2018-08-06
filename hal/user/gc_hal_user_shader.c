@@ -177,7 +177,48 @@ gcoSHADER_BindUniform(
     gcmSAFECASTSIZET(arrayStride, ArrayStride);
 
     status = gcoHARDWARE_BindUniformEx(gcvNULL, Address, Physical, columns, rows, arrays, IsRowMajor,
-                                       matrixStride, arrayStride, Values, Convert, Type);
+                                       matrixStride, arrayStride, &Values, Convert, Type, gcvFALSE);
+
+    gcmFOOTER();
+    return status;
+}
+
+
+gceSTATUS
+gcoSHADER_BindUniformCombinedMode(
+    IN gcoHAL Hal,
+    IN gctUINT32 Address,
+    IN gctINT32 Physical,
+    IN gctSIZE_T Columns,
+    IN gctSIZE_T Rows,
+    IN gctSIZE_T Arrays,
+    IN gctBOOL   IsRowMajor,
+    IN gctSIZE_T MatrixStride,
+    IN gctSIZE_T ArrayStride,
+    IN gctCONST_POINTER Values[],
+    IN gctUINT32 ValuesCount,
+    IN gceUNIFORMCVT Convert,
+    IN gcSHADER_KIND Type
+    )
+{
+    gceSTATUS status;
+    gctUINT32 columns, rows, arrays, matrixStride, arrayStride;
+    gctUINT32 gpuCount = 1;
+    gcmHEADER_ARG("Hal=0x%x, Address=%u Physical=%d Columns=%zu Rows=%zu Arrays=%zu "
+                  "IsRowMajor=%d MatrixStride=%zu ArrayStride=%zu Values=%p Convert=%d Type=%d",
+                  Hal, Address, Physical, Columns, Rows, Arrays, IsRowMajor,
+                  MatrixStride, ArrayStride, Values, Convert, Type);
+
+    gcmSAFECASTSIZET(columns, Columns);
+    gcmSAFECASTSIZET(rows, Rows);
+    gcmSAFECASTSIZET(arrays, Arrays);
+    gcmSAFECASTSIZET(matrixStride, MatrixStride);
+    gcmSAFECASTSIZET(arrayStride, ArrayStride);
+
+    gcoHARDWARE_GetConfigGpuCount(gcvNULL, &gpuCount);
+    gcmASSERT(ValuesCount == gpuCount);   /*Combined mode need send all gpus unform data */
+    status = gcoHARDWARE_BindUniformEx(gcvNULL, Address, Physical, columns, rows, arrays, IsRowMajor,
+                                       matrixStride, arrayStride, Values, Convert, Type, gcvTRUE);
 
     gcmFOOTER();
     return status;

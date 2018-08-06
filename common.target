@@ -16,6 +16,10 @@
 
 TARGET_OUTPUT = $(OBJ_DIR)/$(TARGET_NAME)
 
+ifeq ($(TARGET_SONAME),)
+TARGET_SONAME := $(TARGET_NAME)
+endif
+
 ifeq ($(OBJ_DIR),)
 ifeq ($(DEBUG), 1)
 OBJ_DIR	?= bin_d
