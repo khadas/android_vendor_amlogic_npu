@@ -1267,6 +1267,30 @@ _ComputeSurfacePlacement(
             = Surface->uOffset
             + Surface->uStride * Surface->alignedH / 2;
         break;
+#if gcdVG_ONLY
+    case gcvSURF_YV16:
+        if (calcStride)
+        {
+            Surface->stride = Surface->alignedW;
+        }
+
+        /*  WxH Y plane followed by (W/2)x(H/2) V and U planes. */
+        Surface->uStride =
+        Surface->vStride
+            = (Surface->stride / 2);
+
+        Surface->vOffset
+            = Surface->stride * Surface->alignedH;
+
+        Surface->uOffset
+            = Surface->vOffset
+            + Surface->vStride * Surface->alignedH;
+
+        Surface->sliceSize
+            = Surface->uOffset
+            + Surface->uStride * Surface->alignedH;
+        break;
+#endif
 
     case gcvSURF_I420:
         if (calcStride)
@@ -1461,6 +1485,7 @@ _ComputeSurfacePlacement(
             + Surface->aStride * Surface->alignedH;
         break;
 
+    case gcvSURF_AUYVY:
     case gcvSURF_AYUY2:
         if (calcStride)
         {
@@ -3914,7 +3939,6 @@ gcoSURF_Lock(
                      = address + Surface->aOffset;
             break;
 #endif
-        case gcvSURF_YV12:
         case gcvSURF_I420:
             Surface->node.count = 3;
 
@@ -3929,6 +3953,25 @@ gcoSURF_Lock(
 
             address3 = Surface->node.physical3
                      = address + Surface->vOffset;
+            break;
+
+        case gcvSURF_YV12:
+#if gcdVG_ONLY
+        case gcvSURF_YV16:
+#endif
+            Surface->node.count = 3;
+
+            logical2 = Surface->node.logical
+                     + Surface->vOffset;
+
+            address2 = Surface->node.physical2
+                     = address + Surface->vOffset;
+
+            logical3 = Surface->node.logical
+                     + Surface->uOffset;
+
+            address3 = Surface->node.physical3
+                     = address + Surface->uOffset;
             break;
 
         case gcvSURF_NV12:
@@ -7728,13 +7771,11 @@ gcoSURF_NODE_Cache(
 
     gcmHEADER_ARG("Node=0x%x, Operation=%d, Bytes=%zu", Node, Operation, Bytes);
 
-#if !gcdPAGED_MEMORY_CACHEABLE
     if (Node->u.normal.cacheable == gcvFALSE)
     {
         gcmFOOTER();
         return gcvSTATUS_OK;
     }
-#endif
 
     if (Node->pool == gcvPOOL_USER)
     {

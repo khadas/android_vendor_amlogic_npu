@@ -702,6 +702,49 @@ typedef struct _vx_nn_normalization_params_t
     vx_float32 bias;  /*!< \brief Bias parameter, must not be zero */
 } vx_nn_normalization_params_t;
 
+/*! \brief Input parameter for tensor transpose layer2
+* \ingroup group_cnn
+*\version 0.5
+*/
+typedef struct _vx_nn_transpose_params_t
+{
+    vx_int32* dims;      /*!< \brief The array of perm dims </tt> */
+    vx_uint32 dims_num; /*!< \brief Number of dims */
+} vx_nn_transpose_params_t;
+
+/*! \brief Input parameter for tensor mean layer
+* \ingroup group_cnn
+*\version 0.5
+*/
+typedef struct _vx_nn_mean_params_t
+{
+    vx_tensor axis;            /*!< \brief 1D axis tensor of reduce dims </tt> */
+    vx_int32 keep_dims;        /*!< \brief Keep dims, if positive, retains reduced dims with length 1 */
+} vx_nn_mean_params_t;
+
+/*! \brief Input parameter for tensor squeeze layer
+* \ingroup group_cnn
+*\version 0.5
+*/
+typedef struct _vx_nn_squeeze_params_t
+{
+    vx_tensor squeeze_dims;            /*!< \brief [Optional]1D tensor of squeeze dims, if specified, only squeezes the dimisions lists. otherwise, squeeze all  </tt> */
+} vx_nn_squeeze_params_t;
+
+/*! \brief Input parameter for tensor stride slice layer
+* \ingroup group_cnn
+*\version 0.5
+*/
+typedef struct _vx_nn_stride_slice_params_t
+{
+    vx_tensor begin_dims;        /*!< \brief 1D tensor of int32, the starts of the dims of the input tensor to be sliced. the length must be of rank(input) </tt> */
+    vx_tensor end_dims;          /*!< \brief 1D tensor of int32, the ends of the dims of the input tensor to be sliced. the length must be of rank(input) </tt> */
+    vx_tensor stride_dims;       /*!< \brief 1D tensor of int32, the stride of the dims of the input tensor to be sliced. the length must be of rank(input) </tt>, note that a stride can be negative, which cause a reverse slice */
+    vx_int32 begin_mask;         /*!< \brief begin mask, if the ith bit of begin maks is set, begin[i] is ignored and the fullest possible range in that dim is used instead. */
+    vx_int32 end_mask;           /*!< \brief end mask, if the ith bit of end maks is set, end[i] is ignored and the fullest possible range in that dim is used instead. */
+    vx_int32 shrink_axis_mask;   /*!< \brief An int32 mask, if the ith bit of shrink axis mask is set, it implies that the ith specification shrinks dim must be preserved. */
+} vx_nn_stride_slice_params_t;
+
 /*! \brief [Graph] Creates a Convolutional Network Normalization Layer Node.
 * \details Normalizing over local input regions. Each input value is divided by \f$ (bias+\frac{\alpha}{n}\sum_i x^2_i)^\beta \f$ , where n is the number of elements to normalize across.
 :* and the sum is taken over the region centred at that value (zero padding is added where necessary).
@@ -966,6 +1009,12 @@ enum vx_reorg_type_e
 
     /*! \brief  Reorgnization from space to depth. */
     VX_REORG_SPACE_TO_DEPTH = 1,
+
+    /*! \brief  Reorgnization from batch to space. */
+    VX_REORG_BATCH_TO_SPACE_ND,
+
+    /*! \brief  Reorgnization from space to batch. */
+    VX_REORG_SPACE_TO_BATCH_ND,
 };
 
 /*! \brief Input parameter for reorg layer
@@ -977,6 +1026,15 @@ typedef struct _vx_nn_reorg_params_t
     vx_uint32 block_size;           /*!< \brief  Delta size of two pixels in each dimensions to do a reorg operation. */
     vx_enum type;                   /*!< \brief  The type of Reorgnization, <tt>\ref vx_reorg_type_e </tt> */
 } vx_nn_reorg_params_t, * vx_nn_reorg_params;
+/*! \brief extenstion parameters for reorg layer .
+ * \ingroup group_cnn
+ *\version 0.5
+ */
+typedef struct _vx_nn_reorg_params_ext_t
+{
+    vx_nn_reorg_params_t base;      /*!< \brief vx_nn_reorg_params <tt>\ref vx_nn_reorg_params_t</tt> */
+    vx_tensor pad;                  /*!< \brief  [Optional] Only for SPACE2BATCH, 2D tensor for paddings for each spatial dim of the input tensor(rank(input), 2), all values must be >=0. */
+} vx_nn_reorg_params_ext_t;
 
 /*! \brief [Graph] Creates a Reorgnization Layer Node, Enhancement of vxReorgLayer, Support both DEPTH to SPACE and SPACE to DEPTH.
  * \param [in] graph The reference to the parent graph.
@@ -1657,15 +1715,8 @@ VX_API_ENTRY vx_node VX_API_CALL vxTensorPadNode(vx_graph graph, vx_tensor in, v
 */
 VX_API_ENTRY vx_node VX_API_CALL vxTensorCopyNode(vx_graph graph, vx_tensor src, vx_tensor dst);
 
-/*! \brief [Graph] Performs transpose on the input tensor.
-* \details The node normalizte all the image of the inputs tensor
-* \param [in] graph The handle to the graph.
-* \param [in] inputs The input tensor data.
-* \param [out] outputs The output tensor data.
-* \ingroup group_tensor
-* \return <tt> vx_node</tt>.
-* \retval 0 Node could not be created.
-* \retval * Node handle.
+/*! \brief Input parameter for vxTensorReverse
+ * \ingroup group_cnn
 */
 typedef struct _vx_nn_tensor_reverse_params_t
 {
@@ -2227,6 +2278,15 @@ typedef struct _vx_nn_lstm_params_t
     vx_tensor proj_clip;                           /*!< \brief  A clipping threshold for the output from the projection layer, such that values are bound within [-proj_clip, proj_clip]. If set to 0.0 then clipping is disabled.*/
 } vx_nn_lstm_params_t;
 
+/*! \brief extenstion parameters for a lstm unit operation.
+ * \ingroup group_cnn
+ */
+typedef struct _vx_nn_lstm_params_ext_t
+{
+    vx_nn_lstm_params_t base;              /*!< \brief standard structure head</tt>.*/
+    vx_tensor forget_bias;                 /*!< \brief  A bias(float 32) for the forget gate. If set to 0.0f(by default) then bias is ignored.*/
+} vx_nn_lstm_params_ext_t;
+
 /*! \brief input parameters for a lstm layer operation.
  * \ingroup group_cnn
  */
@@ -2236,6 +2296,14 @@ typedef struct _vx_nn_lstm_layer_params_t
     vx_enum             lstm_layer_type;         /*!< \brief  lstm layer type.*/
 } vx_nn_lstm_layer_params_t;
 
+/*! \brief input parameters for a lstm layer operation.
+ * \ingroup group_cnn
+ */
+typedef struct _vx_nn_lstm_layer_params_ext_t
+{
+    vx_nn_lstm_params_ext_t lstm_param;          /*!< \brief  lstm input param <tt>\ref vx_nn_lstm_params_ext_t</tt>.*/
+    vx_enum             lstm_layer_type;         /*!< \brief  lstm layer type.*/
+} vx_nn_lstm_layer_params_ext_t;
 
 /*! \brief [Graph] Creates a Long short-term memory unit (LSTM) Unit Networks Layer Node.
  * \details
@@ -2263,17 +2331,17 @@ typedef struct _vx_nn_lstm_layer_params_t
  *     * If no projection bias: "projection_bias".
  *
  * \param [in] graph The handle to the graph.
- * \param [in] input A 2-D tensor of type T, of shape [batch_size, input_size], where
+ * \param [in] input A 2-D tensor of type T, of shape [input_size, batch_size], where
  *                    "batch_size" corresponds to the batching dimension, and "input_size"
  *                    is the size of the input.
- * \param [in] output_state_in A 2-D tensor of type T, of shape [batch_size, output_size].
- * \param [in] cell_state_in A 2-D tensor of type T, of shape [batch_size, num_units].
+ * \param [in] output_state_in A 2-D tensor of type T, of shape [output_size, batch_size].
+ * \param [in] cell_state_in A 2-D tensor of type T, of shape [num_units, batch_size].
  * \param [in] lstm_params LSTM paraments <tt>\ref vx_nn_lstm_params_t </tt>.
  * \param [in] size_of_lstm_params [static] The size of the lstm_params.
- * \param [out] scratch A 3-D tensor of type T, of shape [batch_size, num_cell, 4].
- * \param [out] output_state_out A 2-D tensor of type T, of shape [batch_size, output_size].
- * \param [out] cell_state_out A 2-D tensor of type T, of shape [batch_size, num_units].
- * \param [out] output A 2-D tensor of type T, of shape [batch_size, output_size].
+ * \param [out] scratch A 3-D tensor of type T, of shape [num_cell, 4, batch_size].
+ * \param [out] output_state_out A 2-D tensor of type T, of shape [output_size, batch_size].
+ * \param [out] cell_state_out A 2-D tensor of type T, of shape [num_units, batch_size].
+ * \param [out] output A 2-D tensor of type T, of shape [output_size, batch_size].
  *                      This is effectively the same as the current "output_state" value.
  * \return <tt> vx_node</tt>.
  * \returns A node reference <tt>\ref vx_node</tt>. Any possible errors preventing a
@@ -2297,18 +2365,18 @@ VX_API_ENTRY vx_node VX_API_CALL vxLstmUnitLayer(
  * \details
  *
  * \param [in] graph The handle to the graph.
- * \param [in] input A 2-D tensor of type T, of shape [batch_size, input_size], where
- *                    "batch_size" corresponds to the batching dimension, and "input_size"
- *                    is the size of the input.
- * \param [in] static_input A 2-D tensor of type T, of shape [batch_size, input_size], where
- *                    "batch_size" corresponds to the batching dimension, and "input_size"
- *                    is the size of the input.
- * \param [in] cont A 2-D tensor of type T, of shape [batch_size, input_size], where
- *                    "batch_size" corresponds to the batching dimension, and "input_size"
- *                    is the size of the input.
+ * \param [in] input A 3-D tensor of type T, of shape [input_size, batch_size, time_step], where
+ *                    "input_size" corresponds to the size of the input, and "batch_size"
+ *                    is the batching dimension, time_step means time length actually used by the input.
+ * \param [in] static_input optional, A 2-D tensor of type T, of shape [input_size, batch_size], where
+ *                    "input_size" corresponds to the size of the input, and "batch_size"
+ *                    is the batching dimension.
+ * \param [in] cont optional, A 2-D tensor of type T, of shape [input_size, batch_size], where
+ *                    "input_size" corresponds to the size of the input, and "batch_size"
+ *                    is the batching dimension.
  * \param [in] lstm_layer_params LSTM paraments <tt>\ref vx_nn_lstm_layer_params_t </tt>.
  * \param [in] size_of_lstm_layer_params [static] The size of the lstm_layer_params.
- * \param [out] output A 2-D tensor of type T, of shape [batch_size, output_size].
+ * \param [out] output A 2-D/3D tensor of type T, of shape [output_size, batch_size] or [output_size, batch_size, time].
  *                      This is effectively the same as the current "output_state" value.
  * \return <tt> vx_node</tt>.
  * \returns A node reference <tt>\ref vx_node</tt>. Any possible errors preventing a
@@ -2325,6 +2393,95 @@ VX_API_ENTRY vx_node VX_API_CALL vxLstmLayer(
     vx_size size_of_lstm_layer_params,
     vx_tensor output
     );
+
+/*! \brief [Graph] Creates transpose layer node.
+* \details
+*    Transposes the input tensor, permuting the dimensions according to perm tensor.
+*
+* \param [in] graph The handle to the graph.
+* \param [in] input A n-D tensor, specifying the tensor to be transposed.
+* \param [in] transpose_params paraments <tt>\ref vx_nn_transpose_params_t </tt>.
+* \param [in] size_of_transpose_param [static] The size of the vx_nn_transpose_params_t.
+* \param [out] output A n-D tensor of the same type as input.
+* \return <tt> vx_node</tt>.
+* \returns A node reference <tt>\ref vx_node</tt>. Any possible errors preventing a
+* successful creation should be checked using <tt>\ref vxGetStatus</tt>.
+* \ingroup group_cnn
+* \version 0.5
+*/
+VX_API_ENTRY vx_node VX_API_CALL vxTensorTransposeNode2(
+    vx_graph graph,
+    vx_tensor inputs,
+    const vx_nn_transpose_params_t *transpose_params,
+    vx_size size_of_transpose_param,
+    vx_tensor outputs);
+/*! \brief [Graph] Creates mean layer node.
+* \details
+*    Computes the mean of elements across dimensions of a tensor.
+*
+* \param [in] graph The handle to the graph.
+* \param [in] input A n-D tensor, specifying the input.
+* \param [in] mean_params paraments <tt>\ref vx_nn_mean_params_t </tt>.
+* \param [in] size_of_mean_param [static] The size of the vx_nn_mean_params_t.
+* \param [out] output A n-D tensor of the same type as input.
+* \return <tt> vx_node</tt>.
+* \returns A node reference <tt>\ref vx_node</tt>. Any possible errors preventing a
+* successful creation should be checked using <tt>\ref vxGetStatus</tt>.
+* \ingroup group_cnn
+* \version 0.5
+*/
+
+VX_API_ENTRY vx_node VX_API_CALL vxTensorMeanNode(
+    vx_graph graph,
+    vx_tensor inputs,
+    const vx_nn_mean_params_t *mean_params,
+    vx_size size_of_mean_param,
+    vx_tensor outputs);
+/*! \brief [Graph] Creates squeeze layer node.
+* \details
+*    Remove dimensions of size 1 from the input tensor.
+*
+* \param [in] graph The handle to the graph.
+* \param [in] input A n-D tensor, specifying the tensor to be squeezed.
+* \param [in] squeeze_params paraments <tt>\ref vx_nn_squeeze_params_t </tt>.
+* \param [in] size_of_squeeze_param [static] The size of the vx_nn_squeeze_params_t.
+* \param [out] output A n-D tensor of the same type as input. Contains the same data as input,
+*              but has one or more dimensions of size 1 removed.
+* \return <tt> vx_node</tt>.
+* \returns A node reference <tt>\ref vx_node</tt>. Any possible errors preventing a
+* successful creation should be checked using <tt>\ref vxGetStatus</tt>.
+* \ingroup group_cnn
+* \version 0.5
+*/
+
+VX_API_ENTRY vx_node VX_API_CALL vxTensorSqueezeNode(
+    vx_graph graph,
+    vx_tensor inputs,
+    const vx_nn_squeeze_params_t *squeeze_params,
+    vx_size size_of_squeeze_param,
+    vx_tensor outputs);
+/*! \brief [Graph] Creates stride slice layer node.
+* \details
+*    Extracts a stride slice of a tensor.
+*
+* \param [in] graph The handle to the graph.
+* \param [in] input A n-D tensor, specifying the tensor to be sliced.
+* \param [in] stride_slice_params paraments <tt>\ref vx_nn_stride_slice_params_t </tt>.
+* \param [in] size_of_stride_slice_param [static] The size of the vx_nn_stride_slice_params_t.
+* \param [out] output A n-D tensor of the same type as input.
+* \return <tt> vx_node</tt>.
+* \returns A node reference <tt>\ref vx_node</tt>. Any possible errors preventing a
+* successful creation should be checked using <tt>\ref vxGetStatus</tt>.
+* \ingroup group_cnn
+* \version 0.5
+*/
+
+VX_API_ENTRY vx_node VX_API_CALL vxTensorStrideSliceNode(
+    vx_graph graph,
+    vx_tensor inputs,
+    const vx_nn_stride_slice_params_t *stride_slice_params,
+    vx_size size_of_stride_slice_param,
+    vx_tensor outputs);
 
 #ifdef __cplusplus
 }

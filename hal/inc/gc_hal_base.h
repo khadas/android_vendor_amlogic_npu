@@ -75,12 +75,22 @@ typedef struct _gcsNN_FIXED_FEATURE
     gctUINT  nnAccumBufferDepth;
     gctUINT  nnFCNonPrunAccel;
     gctUINT  nnInImageOffsetBits;
-    gctUINT  tpCoreCount;
+    gctUINT  tpCoreCount; /* full-function core count */
     gctUINT  tpPwlLUTCount;
     gctUINT  tpPwlLUTSize;
     gctUINT  vip7Version;
     gctUINT  vipBrickMode;
     gctUINT  tpReorderInImageSize;
+    gctUINT  tpliteCoreCount; /* fc-only core count */
+    gctUINT  nnFP16XYDPX;
+    gctUINT  nnFP16XYDPY;
+    gctUINT  nnFP16ZDP;
+    gctUINT  zrlBits;
+    gctUINT  uscCacheControllers;
+    gctUINT  uscBanks;
+    gctUINT  nnLanesPerOutCycle;
+    gctUINT  maxOTNumber;
+    gctUINT  vipsramWidthInByte;
 } gcsNN_FIXED_FEATURE;
 
 /* Features can be customized from outside */
@@ -98,13 +108,17 @@ typedef struct _gcsNN_CUSTOMIZED_FEATURE
     gctFLOAT axiBusWriteBWLimit;
     gctFLOAT axiBusTotalBWLimit;
     gctUINT  vipSWTiling;
-    gctUINT  ddrLatency;
+    gctFLOAT ddrLatency;
+    gctUINT  freqInMHZ;
+    gctUINT  axiClockFreqInMHZ;
+    gctUINT  maxSocOTNumber;/*max SOC outstanding transfer number*/
+    gctUINT  nnWriteWithoutUSC;
+    gctUINT  depthWiseSupport;
 } gcsNN_CUSTOMIZED_FEATURE;
 
 /* Features are unified (hardcoded) for hardwares */
 typedef struct _gcsNN_UNIFIED_FEATURE
 {
-    gctUINT  nnL2CacheWidth;
     gctUINT  nnUSCCacheSize;
     gctUINT  nnCmdSizeInBytes;
     gctUINT  tpCmdSizeInBytes;
@@ -112,17 +126,23 @@ typedef struct _gcsNN_UNIFIED_FEATURE
     gctUINT  vipVectorPrune;
     gctUINT  vipCachedReadFromSram;
     gctUINT  vipImagePartialCache;
-    gctUINT  uscCacheControllers;
-    gctUINT  kernelStorageOptimization : 1;
+    gctUINT  lanesPerConv;
+    gctUINT  maxTileSize;
+    gctUINT  fullCacheKernelHeadFix : 1;
     gctUINT  conv1x1HalfPerformance : 1;
-    gctUINT  per3DTileBubble : 1;
+    gctUINT  per3DTileBubbleFix : 1;
     gctUINT  cacheLineModeDisabled : 1;
-    gctUINT  swConv1x1To1x2 : 1;
-    gctUINT  tpLocalizationReorderDisabled : 1;
+    gctUINT  tpReOrderFix : 1;
     gctUINT  zdp3NoCompressFix : 1;
     gctUINT  asyncCopyPerfFix : 1;
     gctUINT  accurateTileBW : 1;
     gctUINT  zxdp3KernelReadConflictFix : 1;
+    gctUINT  axiSramSlowedDownByAddr:1;
+    gctUINT  slowNNReqArbitrationFix:1;
+    gctUINT  singlePortAccBuffer : 1;
+    gctUINT  convOutFifoDepthFix : 1;
+    gctUINT  smallBatchEnable : 1;
+    gctUINT  axiSramOnlySWTiling : 1;
 } gcsNN_UNIFIED_FEATURE;
 
 /* Features are derived from above ones */
@@ -132,6 +152,10 @@ typedef struct _gcsNN_DERIVIED_FEATURE
     gctUINT  nnXYDPX;
     gctUINT  nnXYDPY;
     gctUINT  nnZDP;
+    gctFLOAT totalLatency;
+    gctFLOAT internalLatency;
+    gctFLOAT ddrReadBWInBytePerCycle;
+    gctFLOAT ddrWriteBWInBytePerCycle;
 } gcsNN_DERIVED_FEATURE;
 
 /******************************************************************************\

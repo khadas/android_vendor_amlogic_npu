@@ -403,12 +403,6 @@ else
   CFLAGS            += -DgcdFPGA_BUILD=0
 endif
 
-ifeq ($(FORCE_ALL_VIDEO_MEMORY_CACHED),1)
-  CFLAGS            += -DgcdPAGED_MEMORY_CACHEABLE=1
-else
-  CFLAGS            += -DgcdPAGED_MEMORY_CACHEABLE=0
-endif
-
 ifeq ($(USE_LOADTIME_OPT),1)
   CFLAGS            += -DGC_ENABLE_LOADTIME_OPT=1
 else

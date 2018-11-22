@@ -159,7 +159,7 @@ MODULE_PARM_DESC(compression, "Disable compression if set it to 0, enabled by de
 
 static int powerManagement = 1;
 module_param(powerManagement, int, 0644);
-MODULE_PARM_DESC(powerManagement, "Disable auto power saving if set it to 1, enabled by default");
+MODULE_PARM_DESC(powerManagement, "Disable auto power saving if set it to 0, enabled by default");
 
 static int gpuProfiler = 0;
 module_param(gpuProfiler, int, 0644);
@@ -1293,6 +1293,7 @@ static int __init gpu_init(void)
 #endif
 
     ret = gckPLATFORM_Init(&gpu_driver, &platform);
+
     if (ret || !platform)
     {
         printk(KERN_ERR "galcore: Soc platform init failed.\n");
@@ -1310,7 +1311,6 @@ static int __init gpu_init(void)
     {
         printk(KERN_ERR "galcore: gpu_init() failed to register driver!\n");
         gckPLATFORM_Terminate(platform);
-		//soc_platform_terminate(platform);
         platform = NULL;
         return -ENODEV;
     }
@@ -1326,7 +1326,7 @@ static void __exit gpu_exit(void)
 #else
     platform_driver_unregister(&gpu_driver);
 #endif /* USE_LINUX_PCIE */
-	//soc_platform_terminate(platform);
+
     gckPLATFORM_Terminate(platform);
     platform = NULL;
 }

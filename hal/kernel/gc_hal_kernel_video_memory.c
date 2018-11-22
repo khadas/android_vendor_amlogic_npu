@@ -2447,7 +2447,7 @@ OnError:
 }
 
 gceSTATUS
-gckVIDMEM_NODE_FlushCache(
+gckVIDMEM_NODE_CleanCache(
     IN gckKERNEL Kernel,
     IN gckVIDMEM_NODE NodeObject,
     IN gctSIZE_T Offset,
@@ -2455,7 +2455,81 @@ gckVIDMEM_NODE_FlushCache(
     IN gctSIZE_T Bytes
     )
 {
+    gcuVIDMEM_NODE_PTR node = NodeObject->node;
+    gctPHYS_ADDR physHandle = gcvNULL;
+    gceSTATUS status;
+
+    gcmkHEADER_ARG("Kernel=%p NodeObject=%d Offset=0x%llx Logical=%p Bytes=0x%llx",
+                   Kernel, NodeObject, Offset, Logical, Bytes);
+
+    if (node->VidMem.parent->object.type == gcvOBJ_VIDMEM)
+    {
+        gcmkONERROR(gckOS_MemoryBarrier(Kernel->os, Logical));
+
+        /* Reserved pool can't be cacheable */
+        gcmkFOOTER_NO();
+        return gcvSTATUS_OK;
+    }
+
+    physHandle = node->Virtual.physical;
+
+    gcmkONERROR(gckOS_CacheFlush(
+        Kernel->os,
+        0,
+        physHandle,
+        Offset,
+        Logical,
+        Bytes
+        ));
+
+    gcmkFOOTER_NO();
     return gcvSTATUS_OK;
+
+OnError:
+    gcmkFOOTER();
+    return status;
+}
+
+gceSTATUS
+gckVIDMEM_NODE_InvalidateCache(
+    IN gckKERNEL Kernel,
+    IN gckVIDMEM_NODE NodeObject,
+    IN gctSIZE_T Offset,
+    IN gctPOINTER Logical,
+    IN gctSIZE_T Bytes
+    )
+{
+    gcuVIDMEM_NODE_PTR node = NodeObject->node;
+    gctPHYS_ADDR physHandle = gcvNULL;
+    gceSTATUS status;
+
+    gcmkHEADER_ARG("Kernel=%p NodeObject=%d Offset=0x%llx Logical=%p Bytes=0x%llx",
+                   Kernel, NodeObject, Offset, Logical, Bytes);
+
+    if (node->VidMem.parent->object.type == gcvOBJ_VIDMEM)
+    {
+        /* Reserved pool can't be cacheable */
+        gcmkFOOTER_NO();
+        return gcvSTATUS_OK;
+    }
+
+    physHandle = node->Virtual.physical;
+
+    gcmkONERROR(gckOS_CacheInvalidate(
+        Kernel->os,
+        0,
+        physHandle,
+        Offset,
+        Logical,
+        Bytes
+        ));
+
+    gcmkFOOTER_NO();
+    return gcvSTATUS_OK;
+
+OnError:
+    gcmkFOOTER();
+    return status;
 }
 
 gceSTATUS

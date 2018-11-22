@@ -3207,13 +3207,18 @@ _AllocateContextBuffer(
     gckKERNEL kernel = Context->hardware->kernel;
     gcePOOL pool = gcvPOOL_DEFAULT;
     gctSIZE_T totalSize = Context->totalSize;
+    gctUINT32 allocFlag = 0;
+
+#if gcdENABLE_CACHEABLE_COMMAND_BUFFER
+    allocFlag = gcvALLOC_FLAG_CACHEABLE;
+#endif
 
     /* Allocate video memory node for command buffers. */
     gcmkONERROR(gckKERNEL_AllocateVideoMemory(
         kernel,
         64,
         gcvVIDMEM_TYPE_COMMAND,
-        0,
+        allocFlag,
         &totalSize,
         &pool,
         &Buffer->videoMem

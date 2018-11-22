@@ -1531,6 +1531,18 @@ _QueryFeatureDatabase(
         available = database->OCB_COUNTER;
         break;
 
+    case gcvFEATURE_NN_ENGINE:
+        available = database->NNCoreCount > 0;
+        break;
+
+    case gcvFEATURE_TP_ENGINE:
+        available = database->TP_ENGINE;
+        break;
+
+    case gcvFEATURE_HI_REORDER_FIX:
+        available = database->HI_REORDER_FIX;
+        break;
+
     default:
         gcmkFATAL("Invalid feature has been requested.");
         available = gcvFALSE;
@@ -1857,6 +1869,10 @@ _InitPageTableArray(
 #endif
 #endif
 
+#if gcdENABLE_CACHEABLE_COMMAND_BUFFER
+        flags |= gcvALLOC_FLAG_CACHEABLE;
+#endif
+
         Hardware->pagetableArray.size = 1024;
 
         /* Allocate mmu table array within 32bit space */
@@ -2088,7 +2104,6 @@ gckHARDWARE_Construct(
         {
             value &= 0xFFFFFFBF;
         }
-		value |= 0x40; /*disable AXI reorder*/
         gcmkONERROR(gckOS_WriteRegisterEx(Os, Core, 0x00090, value));
     }
 
@@ -3136,8 +3151,8 @@ gckHARDWARE_InitializeHardware(
             Hardware->os, Hardware->core, 0x00090, data));
     }
 
-    if ((Hardware->identity.chipRevision == 0x7004) &&
-        (Hardware->identity.customerID == 0x7d))
+    if (gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_NN_ENGINE) &&
+        !gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_HI_REORDER_FIX))
     {
         gcmkONERROR(gckOS_ReadRegisterEx(
             Hardware->os, Hardware->core, 0x00090, &data));
@@ -6035,7 +6050,6 @@ _ProgramMMUStates(
     gctUINT32_PTR buffer;
     gctBOOL ace;
     gctUINT32 reserveBytes = 0;
-    gcsMMU_TABLE_ARRAY_ENTRY * entry;
 
     gctBOOL config2D;
 
@@ -6044,8 +6058,6 @@ _ProgramMMUStates(
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
     gcmkVERIFY_ARGUMENT(Hardware->mmuVersion != 0);
-
-    entry = (gcsMMU_TABLE_ARRAY_ENTRY *) Hardware->pagetableArray.logical;
 
     ace = gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_ACE);
 
@@ -6190,6 +6202,9 @@ _ProgramMMUStates(
 
         if (Hardware->options.secureMode == gcvSECURE_IN_NORMAL)
         {
+            gcsMMU_TABLE_ARRAY_ENTRY * entry;
+            entry = (gcsMMU_TABLE_ARRAY_ENTRY *) Hardware->pagetableArray.logical;
+
             /* Setup page table array entry. */
             if (Hardware->bigEndian)
             {
@@ -6201,6 +6216,14 @@ _ProgramMMUStates(
                 entry->low = config;
                 entry->high = extMtlb;
             }
+
+            gcmkVERIFY_OK(gckVIDMEM_NODE_CleanCache(
+                Hardware->kernel,
+                Hardware->pagetableArray.videoMem,
+                0,
+                entry,
+                8
+                ));
 
             /* Setup command buffer to load index 0 of page table array. */
             *buffer++
@@ -6891,15 +6914,12 @@ _ProgramMMUStatesMCFE(
     gctUINT32_PTR buffer;
     gctBOOL ace;
     gctUINT32 reserveBytes = 0;
-    gcsMMU_TABLE_ARRAY_ENTRY * entry;
 
     gcmkHEADER_ARG("Hardware=0x%x", Hardware);
 
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
     gcmkVERIFY_ARGUMENT(Hardware->mmuVersion != 0);
-
-    entry = (gcsMMU_TABLE_ARRAY_ENTRY *) Hardware->pagetableArray.logical;
 
     ace = gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_ACE);
 
@@ -7025,6 +7045,9 @@ _ProgramMMUStatesMCFE(
 
         if (Hardware->options.secureMode == gcvSECURE_IN_NORMAL)
         {
+            gcsMMU_TABLE_ARRAY_ENTRY * entry;
+            entry = (gcsMMU_TABLE_ARRAY_ENTRY *) Hardware->pagetableArray.logical;
+
             /* Setup page table array entry. */
             if (Hardware->bigEndian)
             {
@@ -7036,6 +7059,14 @@ _ProgramMMUStatesMCFE(
                 entry->low = config;
                 entry->high = extMtlb;
             }
+
+            gcmkVERIFY_OK(gckVIDMEM_NODE_CleanCache(
+                Hardware->kernel,
+                Hardware->pagetableArray.videoMem,
+                0,
+                entry,
+                8
+                ));
 
             /* Setup command buffer to load index 0 of page table array. */
             *buffer++
@@ -14132,8 +14163,10 @@ _ResetGPU(
 {
     gctUINT32 control, idle;
     gceSTATUS status;
+    gctUINT32 count = 0;
+    gctUINT32 mmuEnabled;
 
-    for (;;)
+    while (count < 2)
     {
         /* Disable clock gating. */
         gcmkONERROR(gckOS_WriteRegisterEx(Os,
@@ -14349,8 +14382,40 @@ _ResetGPU(
  ~0U : (~(~0U << ((1 ? 17:17) - (0 ? 17:17) + 1))))))) << (0 ? 17:17))),
                  control);
 
-        /* GPU is idle. */
-        break;
+        /* Force Disable MMU to guarantee setup command be read from physical addr */
+        if (Hardware->options.secureMode == gcvSECURE_IN_NORMAL)
+        {
+            gctUINT32 regMmuCtrl = 0;
+            gcmkONERROR(gckOS_ReadRegisterEx(
+                Hardware->os,
+                Hardware->core,
+                0x00388,
+                &regMmuCtrl
+                ));
+
+            mmuEnabled = (((((gctUINT32) (regMmuCtrl)) >> (0 ? 0:0)) & ((gctUINT32) ((((1 ? 0:0) - (0 ? 0:0) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1)))))) );
+        }
+        else
+        {
+            gctUINT32 regMmuCtrl = 0;
+
+            gcmkONERROR(gckOS_ReadRegisterEx(
+                Hardware->os,
+                Hardware->core,
+                0x0018C,
+                &regMmuCtrl
+                ));
+
+            mmuEnabled = (((((gctUINT32) (regMmuCtrl)) >> (0 ? 0:0)) & ((gctUINT32) ((((1 ? 0:0) - (0 ? 0:0) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1)))))) );
+        }
+
+        if (mmuEnabled)
+        {
+            /* Not reset properly, reset again. */
+            continue;
+        }
+
+        count++;
     }
 
     /* Success. */
@@ -14908,7 +14973,8 @@ gckHARDWARE_DumpGPUState(
         { "USC", 0x474, 24, 0x44C, 64, 0x2, 0xC0, gcvFALSE, gcvTRUE  },
         { "L2", 0x478, 0, 0x564, 256, 0x1, 0x00, gcvTRUE, gcvFALSE },
         { "BLT", 0x478, 24, 0x1A4, 256, 0x1, 0x00, gcvFALSE, gcvTRUE  },
-        { "WD", 0xF0, 16, 0xF4, 256, 0x1, 0x00, gcvFALSE, gcvFALSE }
+        { "WD", 0xF0, 16, 0xF4, 256, 0x1, 0x00, gcvFALSE, gcvFALSE },
+        { "NN", 0x474, 24, 0x44C, 256, 0x2, 0x00, gcvFALSE, gcvTRUE  },
     };
 
     static gctUINT32 _otherRegs[] =
@@ -14934,6 +15000,7 @@ gckHARDWARE_DumpGPUState(
     gceSTATUS multiCluster = gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_MULTI_CLUSTER);
     gceSTATUS bltEngine = gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_BLT_ENGINE);
     gceSTATUS gsShader = gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_GEOMETRY_SHADER);
+    gceSTATUS nnEngine = gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_NN_ENGINE);
 
     gcmkHEADER_ARG("Hardware=0x%X", Hardware);
 
@@ -15064,6 +15131,10 @@ gckHARDWARE_DumpGPUState(
                     Hardware->identity.clusterAvailMask & Hardware->options.userClusterMask;
             }
         }
+    }
+    if (nnEngine)
+    {
+        _dbgRegs[16].avail = gcvTRUE;
     }
 
     for (i = 0; i < gcmCOUNTOF(_dbgRegs); i += 1)
@@ -15907,6 +15978,7 @@ _PrepareFunctions(
     gctUINT32 address;
     gcsHARDWARE_FUNCTION *function;
     gceDUMMY_DRAW_TYPE dummyDrawType = gcvDUMMY_DRAW_INVALID;
+    gctUINT32 allocFlag = 0;
 
     gcmkHEADER_ARG("%x", Hardware);
 
@@ -15938,6 +16010,10 @@ _PrepareFunctions(
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
         flags |= gcvALLOC_FLAG_4GB_ADDR;
 #endif
+#endif
+
+#if gcdENABLE_CACHEABLE_COMMAND_BUFFER
+        flags |= gcvALLOC_FLAG_CACHEABLE;
 #endif
 
         pool = gcvPOOL_DEFAULT;
@@ -16023,16 +16099,28 @@ _PrepareFunctions(
         }
 
         function->bytes = mmuBytes + tailBytes;
+
+        gcmkONERROR(gckVIDMEM_NODE_CleanCache(
+            Hardware->kernel,
+            Hardware->mmuFuncVideoMem,
+            0,
+            Hardware->mmuFuncLogical,
+            function->bytes
+            ));
     }
 
     pool = gcvPOOL_DEFAULT;
+
+#if gcdENABLE_CACHEABLE_COMMAND_BUFFER
+    allocFlag = gcvALLOC_FLAG_CACHEABLE;
+#endif
 
     /* Allocate video memory node for aux functions. */
     gcmkONERROR(gckKERNEL_AllocateVideoMemory(
         Hardware->kernel,
         64,
         gcvVIDMEM_TYPE_COMMAND,
-        0,
+        allocFlag,
         &Hardware->auxFuncBytes,
         &pool,
         &Hardware->auxFuncVideoMem
@@ -16128,7 +16216,15 @@ _PrepareFunctions(
 
         function->bytes = dummyDrawBytes + endBytes;
     }
-    gcmkASSERT(offset < Hardware->auxFuncBytes)
+    gcmkASSERT(offset < Hardware->auxFuncBytes);
+
+    gcmkONERROR(gckVIDMEM_NODE_CleanCache(
+        Hardware->kernel,
+        Hardware->auxFuncVideoMem,
+        0,
+        Hardware->auxFuncLogical,
+        Hardware->auxFuncBytes
+        ));
 
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
@@ -18455,26 +18551,8 @@ gckHARDWARE_EnterQueryClock(
     OUT gctUINT64 *ShStart
     )
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
     gctUINT64 mcStart, shStart;
-    gctBOOL acquired = gcvFALSE;
-
-    while (!acquired)
-    {
-        gcmkONERROR(
-            gckOS_AcquireMutex(Hardware->os, Hardware->powerMutex, gcvINFINITE));
-        acquired = gcvTRUE;
-
-        if (Hardware->chipPowerState != gcvPOWER_ON)
-        {
-            /* Release mutex and try power on. */
-            gckOS_ReleaseMutex(Hardware->os, Hardware->powerMutex);
-            acquired = gcvFALSE;
-
-            gcmkONERROR(
-                gckHARDWARE_SetPowerManagementState(Hardware, gcvPOWER_ON_AUTO));
-        }
-    }
 
     gcmkONERROR(gckOS_GetTime(&mcStart));
     gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->core, 0x00438, 0));
@@ -18493,11 +18571,6 @@ gckHARDWARE_EnterQueryClock(
     }
 
 OnError:
-    if (acquired)
-    {
-        gckOS_ReleaseMutex(Hardware->os, Hardware->powerMutex);
-    }
-
     return status;
 }
 
@@ -18510,7 +18583,7 @@ gckHARDWARE_ExitQueryClock(
     OUT gctUINT32 *ShClk
     )
 {
-    gceSTATUS status;
+    gceSTATUS status = gcvSTATUS_OK;
     gctUINT64 mcEnd, shEnd;
     gctUINT32 mcCycle, shCycle;
     gctUINT64 mcFreq, shFreq = 0;
@@ -18551,6 +18624,90 @@ gckHARDWARE_ExitQueryClock(
     *ShClk = (gctUINT32)shFreq;
 
 OnError:
+    return status;
+}
+
+/*******************************************************************************
+**
+**  gckHARDWARE_QueryFrequency
+**
+**  Query current hardware frequency.
+**
+**  INPUT:
+**
+**      gckHARDWARE Hardware
+**          Pointer to an gckHARDWARE object.
+**
+*/
+gceSTATUS
+gckHARDWARE_QueryFrequency(
+    IN gckHARDWARE Hardware
+    )
+{
+    gctUINT64 mcStart, shStart;
+    gctUINT32 mcClk, shClk;
+    gceSTATUS status;
+    gctUINT64 powerManagement = 0;
+
+    gcmkHEADER_ARG("Hardware=0x%p", Hardware);
+
+    gcmkVERIFY_ARGUMENT(Hardware != NULL);
+
+    mcStart = shStart = 0;
+    mcClk   = shClk   = 0;
+
+    gckOS_QueryOption(Hardware->os, "powerManagement", &powerManagement);
+
+    if (powerManagement)
+    {
+        gcmkONERROR(gckHARDWARE_SetPowerManagement(
+            Hardware, gcvFALSE
+            ));
+    }
+
+    gcmkONERROR(gckHARDWARE_SetPowerManagementState(
+        Hardware, gcvPOWER_ON_AUTO
+        ));
+
+    gckHARDWARE_EnterQueryClock(Hardware, &mcStart, &shStart);
+
+    gcmkONERROR(gckOS_Delay(Hardware->os, 50));
+
+    if (mcStart)
+    {
+        if (powerManagement)
+        {
+            gcmkONERROR(gckHARDWARE_SetPowerManagement(
+                Hardware, gcvFALSE
+                ));
+        }
+
+        gcmkONERROR(gckHARDWARE_SetPowerManagementState(
+            Hardware, gcvPOWER_ON_AUTO
+            ));
+
+        gckHARDWARE_ExitQueryClock(Hardware,
+                                   mcStart, shStart,
+                                   &mcClk, &shClk);
+
+        Hardware->mcClk = mcClk;
+        Hardware->shClk = shClk;
+    }
+
+    if (powerManagement)
+    {
+        gcmkONERROR(gckHARDWARE_SetPowerManagement(
+            Hardware, gcvTRUE
+            ));
+    }
+
+    gcmkFOOTER_NO();
+
+    return gcvSTATUS_OK;
+
+OnError:
+    gcmkFOOTER();
+
     return status;
 }
 

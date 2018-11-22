@@ -643,6 +643,11 @@ _AllocateStlb(
     gcsMMU_STLB_PTR stlb;
     gctPOINTER pointer;
     gcePOOL pool;
+    gctUINT32 allocFlag = gcvALLOC_FLAG_CONTIGUOUS;
+
+#if gcdENABLE_CACHEABLE_COMMAND_BUFFER
+    allocFlag |= gcvALLOC_FLAG_CACHEABLE;
+#endif
 
     /* Allocate slave TLB record. */
     gcmkONERROR(gckOS_Allocate(Kernel->os, gcmSIZEOF(gcsMMU_STLB), &pointer));
@@ -657,7 +662,7 @@ _AllocateStlb(
         Kernel,
         64,
         gcvVIDMEM_TYPE_COMMAND,
-        gcvALLOC_FLAG_CONTIGUOUS,
+        allocFlag,
         &stlb->size,
         &pool,
         &stlb->videoMem
@@ -931,12 +936,12 @@ _FillFlatMapping(
     {
         gctBOOL mutex = gcvFALSE;
         gctUINT32 physBaseExt = (gctUINT32) (PhysBase >> 32);
-        gctUINT32 start = physBase & ~gcdMMU_PAGE_64K_MASK;
-        gctUINT32 end = (gctUINT32) (physBase + flatSize - 1) & ~gcdMMU_PAGE_64K_MASK;
+        gctUINT32 start = physBase & ~gcdMMU_PAGE_1M_MASK;
+        gctUINT32 end = (gctUINT32) (physBase + flatSize - 1) & ~gcdMMU_PAGE_1M_MASK;
         gctUINT32 mStart = start >> gcdMMU_MTLB_SHIFT;
         gctUINT32 mEnd = end >> gcdMMU_MTLB_SHIFT;
-        gctUINT32 sStart = (start & gcdMMU_STLB_64K_MASK) >> gcdMMU_STLB_64K_SHIFT;
-        gctUINT32 sEnd = (end & gcdMMU_STLB_64K_MASK) >> gcdMMU_STLB_64K_SHIFT;
+        gctUINT32 sStart = (start & gcdMMU_STLB_1M_MASK) >> gcdMMU_STLB_1M_SHIFT;
+        gctUINT32 sEnd = (end & gcdMMU_STLB_1M_MASK) >> gcdMMU_STLB_1M_SHIFT;
         gctPHYS_ADDR_T physical;
         gcsMMU_STLB_CHUNK_PTR newStlbChunk = gcvNULL;
         gctUINT32 stlbIndex = 0;
@@ -968,26 +973,26 @@ _FillFlatMapping(
             gcmkONERROR(_GetMtlbFreeSpace(Mmu, mEntries, &mStart, &mEnd));
 
             sStart = 0;
-            sEntries = (flatSize + gcdMMU_PAGE_64K_SIZE - 1) / gcdMMU_PAGE_64K_SIZE;
-            sEnd = (sEntries - 1) % gcdMMU_STLB_64K_ENTRY_NUM;
+            sEntries = (flatSize + gcdMMU_PAGE_1M_SIZE - 1) / gcdMMU_PAGE_1M_SIZE;
+            sEnd = (sEntries - 1) % gcdMMU_STLB_1M_ENTRY_NUM;
             mapFlag = gcvFLATMAP_SHIFT;
         }
 
         if (specificFlatMapping)
         {
-            start    = reqVirtualBase & ~gcdMMU_PAGE_64K_MASK;
-            end      = (reqVirtualBase + flatSize - 1) & ~gcdMMU_PAGE_64K_MASK;
+            start    = reqVirtualBase & ~gcdMMU_PAGE_1M_MASK;
+            end      = (reqVirtualBase + flatSize - 1) & ~gcdMMU_PAGE_1M_MASK;
             mStart   = start >> gcdMMU_MTLB_SHIFT;
             mEnd     = end >> gcdMMU_MTLB_SHIFT;
-            sStart   = (start & gcdMMU_STLB_64K_MASK) >> gcdMMU_STLB_64K_SHIFT;
-            sEnd     = (end & gcdMMU_STLB_64K_MASK) >> gcdMMU_STLB_64K_SHIFT;
+            sStart   = (start & gcdMMU_STLB_1M_MASK) >> gcdMMU_STLB_1M_SHIFT;
+            sEnd     = (end & gcdMMU_STLB_1M_MASK) >> gcdMMU_STLB_1M_SHIFT;
             mapFlag  = gcvFLATMAP_SHIFT;
         }
 
         /* No matter direct mapping or shift mapping or specific mapping, store gpu virtual ranges */
         flatVirtualBase = (mStart << gcdMMU_MTLB_SHIFT)
-                        | (sStart << gcdMMU_STLB_64K_SHIFT)
-                        | (physBase & gcdMMU_PAGE_64K_MASK);
+                        | (sStart << gcdMMU_STLB_1M_SHIFT)
+                        | (physBase & gcdMMU_PAGE_1M_MASK);
 
         /* Return GPU virtual base address if necessary */
         if (GpuBaseAddress)
@@ -1043,6 +1048,7 @@ _FillFlatMapping(
         if (totalNewStlbs)
         {
             gcePOOL pool = gcdMMU_PGTABLE_POOL;
+            gctUINT32 allocFlag = gcvALLOC_FLAG_CONTIGUOUS;
 
             gcmkONERROR(
                 gckOS_Allocate(Mmu->os,
@@ -1053,15 +1059,19 @@ _FillFlatMapping(
             newStlbChunk->next = gcvNULL;
             newStlbChunk->videoMem = gcvNULL;
             newStlbChunk->logical = gcvNULL;
-            newStlbChunk->size = gcdMMU_STLB_64K_SIZE * newStlbChunk->mtlbEntryNum;
+            newStlbChunk->size = gcdMMU_STLB_1M_SIZE * newStlbChunk->mtlbEntryNum;
             newStlbChunk->pageCount = 0;
             newStlbChunk->mtlbIndex = firstMtlbEntry;
 
+#if gcdENABLE_CACHEABLE_COMMAND_BUFFER
+            allocFlag |= gcvALLOC_FLAG_CACHEABLE;
+#endif
+
             gcmkONERROR(gckKERNEL_AllocateVideoMemory(
                 kernel,
-                gcdMMU_STLB_64K_SIZE,
+                gcdMMU_STLB_1M_SIZE,
                 gcvVIDMEM_TYPE_COMMAND,
-                gcvALLOC_FLAG_CONTIGUOUS,
+                allocFlag,
                 &newStlbChunk->size,
                 &pool,
                 &newStlbChunk->videoMem));
@@ -1093,7 +1103,7 @@ _FillFlatMapping(
 
         while (mStart <= mEnd)
         {
-            gctUINT32 last = (mStart == mEnd) ? sEnd : (gcdMMU_STLB_64K_ENTRY_NUM - 1);
+            gctUINT32 last = (mStart == mEnd) ? sEnd : (gcdMMU_STLB_1M_ENTRY_NUM - 1);
             gctPHYS_ADDR_T stlbPhyBase;
             gctUINT32_PTR stlbLogical;
 
@@ -1103,12 +1113,12 @@ _FillFlatMapping(
             {
                 gctUINT32 mtlbEntry;
                 curStlbChunk = newStlbChunk;
-                stlbPhyBase = curStlbChunk->physBase + (stlbIndex * gcdMMU_STLB_64K_SIZE);
-                stlbLogical = (gctUINT32_PTR)((gctUINT8_PTR)curStlbChunk->logical + (stlbIndex * gcdMMU_STLB_64K_SIZE));
+                stlbPhyBase = curStlbChunk->physBase + (stlbIndex * gcdMMU_STLB_1M_SIZE);
+                stlbLogical = (gctUINT32_PTR)((gctUINT8_PTR)curStlbChunk->logical + (stlbIndex * gcdMMU_STLB_1M_SIZE));
 
                 physical  = stlbPhyBase
-                          /* 64KB page size */
-                          | (1 << 2)
+                          /* 1MB page size */
+                          | (1 << 3)
                           /* Ignore exception */
                           | (0 << 1)
                           /* Present */
@@ -1160,8 +1170,8 @@ _FillFlatMapping(
 
                 stlbOffset = mStart - curStlbChunk->mtlbIndex;
 
-                stlbPhyBase = curStlbChunk->physBase + (stlbOffset * gcdMMU_STLB_64K_SIZE);
-                stlbLogical = (gctUINT32_PTR)((gctUINT8_PTR)curStlbChunk->logical + (stlbOffset * gcdMMU_STLB_64K_SIZE));
+                stlbPhyBase = curStlbChunk->physBase + (stlbOffset * gcdMMU_STLB_1M_SIZE);
+                stlbLogical = (gctUINT32_PTR)((gctUINT8_PTR)curStlbChunk->logical + (stlbOffset * gcdMMU_STLB_1M_SIZE));
                 if (stlbPhyBase != (mtlbEntry & gcdMMU_MTLB_ENTRY_STLB_MASK))
                 {
                     gcmkASSERT(0);
@@ -1173,12 +1183,12 @@ _FillFlatMapping(
             i = sStart;
 
             gcmkDUMP(Mmu->os, "#[mmu-stlb: flat-mapping: 0x%08X - 0x%08X]",
-                     start, start + (last - sStart) * gcdMMU_PAGE_64K_SIZE - 1);
+                     start, start + (last - sStart) * gcdMMU_PAGE_1M_SIZE - 1);
 #endif
 
             while (sStart <= last)
             {
-                gcmkASSERT(!(start & gcdMMU_PAGE_64K_MASK));
+                gcmkASSERT(!(start & gcdMMU_PAGE_1M_MASK));
                 if (reserved)
                 {
                     /* program NOT_PRESENT | EXCEPTION  for reserved entries */
@@ -1195,7 +1205,7 @@ _FillFlatMapping(
                     _ReadPageEntry(stlbLogical + sStart));
 #endif
                 /* next page. */
-                start += gcdMMU_PAGE_64K_SIZE;
+                start += gcdMMU_PAGE_1M_SIZE;
                 if (start == 0)
                 {
                     physBaseExt++;
@@ -1215,6 +1225,14 @@ _FillFlatMapping(
                          stlbPhyBase + i * 4, data, (last - i) * 4, step, mask);
             }
 #endif
+
+            gcmkONERROR(gckVIDMEM_NODE_CleanCache(
+                kernel,
+                curStlbChunk->videoMem,
+                0,
+                curStlbChunk->logical,
+                curStlbChunk->size
+                ));
 
             sStart = 0;
             ++mStart;
@@ -1341,6 +1359,7 @@ _SetupDynamicSpace(
     gckKERNEL kernel = Mmu->hardware->kernel;
     gcsADDRESS_AREA_PTR area = &Mmu->dynamicArea;
     gcePOOL pool = gcdMMU_PGTABLE_POOL;
+    gctUINT32 allocFlag = gcvALLOC_FLAG_CONTIGUOUS;
 
     /* Find all the free address space. */
     gcmkONERROR(_CollectFreeSpace(Mmu, &nodeArray, &nodeArraySize));
@@ -1378,12 +1397,16 @@ _SetupDynamicSpace(
     /* Setup normal address area. */
     gcmkONERROR(_SetupAddressArea(Mmu->os, area, numEntries));
 
+#if gcdENABLE_CACHEABLE_COMMAND_BUFFER
+    allocFlag |= gcvALLOC_FLAG_CACHEABLE;
+#endif
+
     /* Construct Slave TLB. */
     gcmkONERROR(gckKERNEL_AllocateVideoMemory(
                 kernel,
                 64,
                 gcvVIDMEM_TYPE_COMMAND,
-                gcvALLOC_FLAG_CONTIGUOUS,
+                allocFlag,
                 &area->stlbSize,
                 &pool,
                 &area->stlbVideoMem));
@@ -1585,6 +1608,8 @@ _Construct(
     gctBOOL needMapInternalSRAM;
     gcePOOL pool;
     gctUINT64 data;
+    gctUINT32 allocFlag = gcvALLOC_FLAG_CONTIGUOUS;
+    gctUINT64 mmuEnabled;
 
     gcmkHEADER_ARG("Kernel=0x%x MmuSize=%lu", Kernel, MmuSize);
 
@@ -1629,6 +1654,7 @@ _Construct(
     /* Create the page table mutex. */
     gcmkONERROR(gckOS_CreateMutex(os, &mmu->pageTableMutex));
 
+    gcmkONERROR(gckOS_QueryOption(os, "mmu", &mmuEnabled));
 
     if (hardware->mmuVersion == 0)
     {
@@ -1645,12 +1671,16 @@ _Construct(
 
         pool = gcdMMU_PGTABLE_POOL;
 
+#if gcdENABLE_CACHEABLE_COMMAND_BUFFER
+        allocFlag |= gcvALLOC_FLAG_CACHEABLE;
+#endif
+
         /* Construct page table read by GPU. */
         gcmkONERROR(gckKERNEL_AllocateVideoMemory(
                     Kernel,
                     4096,
                     gcvVIDMEM_TYPE_COMMAND,
-                    gcvALLOC_FLAG_CONTIGUOUS,
+                    allocFlag,
                     &area->stlbSize,
                     &pool,
                     &area->stlbVideoMem));
@@ -1715,11 +1745,15 @@ _Construct(
 
         pool = gcdMMU_PGTABLE_POOL;
 
+#if gcdENABLE_CACHEABLE_COMMAND_BUFFER
+        allocFlag |= gcvALLOC_FLAG_CACHEABLE;
+#endif
+
         gcmkONERROR(gckKERNEL_AllocateVideoMemory(
                     Kernel,
                     4096,
                     gcvVIDMEM_TYPE_COMMAND,
-                    gcvALLOC_FLAG_CONTIGUOUS,
+                    allocFlag,
                     &mmu->mtlbSize,
                     &pool,
                     &mmu->mtlbVideoMem));
@@ -1785,6 +1819,14 @@ _Construct(
             gcmkSAFECASTPHYSADDRT(gpuAddress, gpuPhysical);
 
             gcmkONERROR(gckMMU_FlatMapping(mmu, gpuAddress, 1));
+
+            gcmkONERROR(gckVIDMEM_NODE_CleanCache(
+                Kernel,
+                stlb->videoMem,
+                0,
+                stlb->logical,
+                stlb->size
+                ));
         }
 #else
         /* Invalid all the entries. */
@@ -1844,16 +1886,16 @@ _Construct(
         {
             gctUINT32 mtlbEntry;
             /*
-             * Reserved 0~4MB space.
-             * 64KB page size, Ingore exception, Not Present.
+             * Reserved the first mtlb.
+             * 1MB page size, Ingore exception, Not Present.
              */
-            mtlbEntry = (1 << 2)
+            mtlbEntry = (1 << 3)
                       | (0 << 1)
                       | (0 << 0);
 
             _WritePageEntry(mmu->mtlbLogical + 0, mtlbEntry);
 
-            gcmkDUMP(mmu->os, "#[mmu-mtlb: reserved 4M space, slot: 0]");
+            gcmkDUMP(mmu->os, "#[mmu-mtlb: reserved 16M space, slot: 0]");
             gcmkDUMP(mmu->os,
                      "@[physical.fill 0x%010llX 0x%08X 0x%08X]",
                      (unsigned long long)mmu->mtlbPhysical,
@@ -1861,8 +1903,8 @@ _Construct(
 
             /* Store the gpu virtual ranges */
             mmu->gpuAddressRanges[mmu->gpuAddressRangeCount].start = 0;
-            mmu->gpuAddressRanges[mmu->gpuAddressRangeCount].end   = (4 << 20) - 1;
-            mmu->gpuAddressRanges[mmu->gpuAddressRangeCount].size  = (4 << 20);
+            mmu->gpuAddressRanges[mmu->gpuAddressRangeCount].end   = (16 << 20) - 1;
+            mmu->gpuAddressRanges[mmu->gpuAddressRangeCount].size  = (16 << 20);
             mmu->gpuAddressRanges[mmu->gpuAddressRangeCount].flag  = gcvFLATMAP_DIRECT;
             mmu->gpuAddressRangeCount++;
         }
@@ -1917,7 +1959,14 @@ _Construct(
             /* Setup flat mapping for reserved memory (VIDMEM). */
             gcmkONERROR(_FillFlatMapping(mmu, gpuContiguousBase, contiguousSize, gcvFALSE, gcvTRUE, &contiguousBaseAddress));
 
-            mmu->contiguousBaseAddress = contiguousBaseAddress;
+            if (mmuEnabled)
+            {
+                mmu->contiguousBaseAddress = contiguousBaseAddress;
+            }
+            else
+            {
+                gcmkSAFECASTPHYSADDRT(mmu->contiguousBaseAddress, gpuContiguousBase);
+            }
         }
 
         status = gckOS_QueryOption(mmu->os, "externalBase", &externalBase);
@@ -1942,7 +1991,16 @@ _Construct(
         }
 
         gcmkONERROR(_SetupDynamicSpace(mmu));
+
 #endif
+        /* Flush MTLB table. */
+        gcmkONERROR(gckVIDMEM_NODE_CleanCache(
+            Kernel,
+            mmu->mtlbVideoMem,
+            0,
+            mmu->mtlbLogical,
+            mmu->mtlbSize
+            ));
     }
 
     /* A 64 byte for safe address, we use 256 here. */
@@ -3139,7 +3197,7 @@ gckMMU_DumpPageTableEntry(
         gcsMMU_STLB_CHUNK_PTR stlbChunkObj = Mmu->staticSTLB;
         gctUINT32 entry = Mmu->mtlbLogical[mtlb];
 
-        stlb = (Address & gcdMMU_STLB_64K_MASK) >> gcdMMU_STLB_64K_SHIFT;
+        stlb = (Address & gcdMMU_STLB_1M_MASK) >> gcdMMU_STLB_1M_SHIFT;
 
         entry &= 0xFFFFFFF0;
 
@@ -3149,9 +3207,9 @@ gckMMU_DumpPageTableEntry(
             gctBOOL found = gcvFALSE;
             for (i = 0; i < stlbChunkObj->mtlbEntryNum; ++i)
             {
-                gctPHYS_ADDR_T stlbPhysBase = stlbChunkObj->physBase + (i * gcdMMU_STLB_64K_SIZE);
+                gctPHYS_ADDR_T stlbPhysBase = stlbChunkObj->physBase + (i * gcdMMU_STLB_1M_SIZE);
                 gctUINT32_PTR stlbLogical =
-                    (gctUINT32_PTR)((gctUINT8_PTR)stlbChunkObj->logical + (i * gcdMMU_STLB_64K_SIZE));
+                    (gctUINT32_PTR)((gctUINT8_PTR)stlbChunkObj->logical + (i * gcdMMU_STLB_1M_SIZE));
                 if (entry == stlbPhysBase)
                 {
                     gcmkPRINT("    Page table entry = 0x%08X", stlbLogical[stlb]);

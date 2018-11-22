@@ -364,7 +364,7 @@ _GFPAlloc(
                 mdlPriv->contiguousPages, 0, NumPages * PAGE_SIZE,
                 DMA_FROM_DEVICE);
 
-        if (!mdlPriv->dma_addr)
+        if (dma_mapping_error(galcore_device, mdlPriv->dma_addr))
         {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)
             if (mdlPriv->exact)
@@ -672,7 +672,12 @@ _GFPMmap(
 
     if (Cacheable == gcvFALSE)
     {
+        /* Make this mapping non-cached. */
+#if gcdENABLE_BUFFERABLE_VIDEO_MEMORY
         vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+#else
+        vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+#endif
     }
 
     if (platform && platform->ops->adjustProt)
@@ -877,10 +882,9 @@ _GFPMapKernel(
     gctINT numPages = Mdl->numPages;
     struct gfp_mdl_priv *mdlPriv = Mdl->priv;
     unsigned long pgoff = (Offset >> PAGE_SHIFT);
-#if !gcdNONPAGED_MEMORY_CACHEABLE
     struct page ** pages;
     gctBOOL free = gcvFALSE;
-#endif
+    pgprot_t pgprot;
 
     if (Offset + Bytes > (numPages << PAGE_SHIFT))
     {
@@ -889,22 +893,6 @@ _GFPMapKernel(
 
     numPages = ((Offset & ~PAGE_MASK) + Bytes + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
 
-#if gcdNONPAGED_MEMORY_CACHEABLE
-    if (Mdl->contiguous)
-    {
-        addr = page_address(nth_page(mdlPriv->contiguousPages, pgoff));
-    }
-    else
-    {
-        addr = vmap(&mdlPriv->nonContiguousPages[pgoff],
-                    numPages,
-                    0,
-                    PAGE_KERNEL);
-
-        /* Trigger a page fault. */
-        memset(addr, 0, numPages * PAGE_SIZE);
-    }
-#else
     if (Mdl->contiguous)
     {
         gctINT i;
@@ -928,13 +916,26 @@ _GFPMapKernel(
         pages = &mdlPriv->nonContiguousPages[pgoff];
     }
 
-    addr = vmap(pages, numPages, 0, pgprot_writecombine(PAGE_KERNEL));
+    /* ioremap() can't work on system memory since 2.6.38. */
+    if (Mdl->cacheable)
+    {
+        pgprot = PAGE_KERNEL;
+    }
+    else
+    {
+#if gcdENABLE_BUFFERABLE_VIDEO_MEMORY
+        pgprot = pgprot_writecombine(PAGE_KERNEL);
+#else
+        pgprot = pgprot_noncached(PAGE_KERNEL);
+#endif
+    }
+
+    addr = vmap(pages, numPages, 0, pgprot);
 
     if (free)
     {
         kfree(pages);
     }
-#endif
 
     if (addr)
     {
@@ -955,10 +956,7 @@ _GFPUnmapKernel(
     IN gctPOINTER Logical
     )
 {
-
-#if !gcdNONPAGED_MEMORY_CACHEABLE
     vunmap((void *)((uintptr_t)Logical & PAGE_MASK));
-#endif
 
     return gcvSTATUS_OK;
 }
@@ -994,7 +992,7 @@ _GFPCache(
 
         break;
     case gcvCACHE_FLUSH:
-        dir = DMA_BIDIRECTIONAL;
+        dir = DMA_TO_DEVICE;
 
         if (mdlPriv->contiguous)
         {
@@ -1004,6 +1002,19 @@ _GFPCache(
         else
         {
             dma_sync_sg_for_device(galcore_device,
+                    mdlPriv->sgt.sgl, mdlPriv->sgt.nents, dir);
+        }
+
+        dir = DMA_FROM_DEVICE;
+
+        if (mdlPriv->contiguous)
+        {
+            dma_sync_single_for_cpu(galcore_device,
+                    mdlPriv->dma_addr, Mdl->numPages << PAGE_SHIFT, dir);
+        }
+        else
+        {
+            dma_sync_sg_for_cpu(galcore_device,
                     mdlPriv->sgt.sgl, mdlPriv->sgt.nents, dir);
         }
 

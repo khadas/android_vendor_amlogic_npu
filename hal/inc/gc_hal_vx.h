@@ -115,6 +115,12 @@ gcoVX_BindUniform(
     );
 
 gceSTATUS
+    gcoVX_SetImageInfo(
+    IN  gcUNIFORM,
+    IN gcsVX_IMAGE_INFO_PTR Info
+    );
+
+gceSTATUS
 gcoVX_Commit(
     IN gctBOOL Flush,
     IN gctBOOL Stall,
@@ -196,7 +202,9 @@ gcoVX_TriggerAccelerator(
     IN gctUINT32              CmdAddress,
     IN gceVX_ACCELERATOR_TYPE Type,
     IN gctUINT32              EventId,
-    IN gctBOOL                waitEvent
+    IN gctBOOL                waitEvent,
+    IN gctUINT32              gpuId,
+    IN gctBOOL                sync
     );
 
 gceSTATUS
@@ -295,11 +303,11 @@ gcoVX_CaptureState(
     IN gctBOOL dropCommandEnabled
     );
 
-
 gceSTATUS
-gcoVX_SetOCBRemapAddress(
+gcoVX_SetRemapAddress(
     IN gctUINT32 remapStart,
-    IN gctUINT32 remapEnd
+    IN gctUINT32 remapEnd,
+    IN gceVX_REMAP_TYPE remapType
     );
 
 gceSTATUS

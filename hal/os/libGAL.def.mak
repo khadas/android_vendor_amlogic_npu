@@ -742,6 +742,7 @@ EXPORTS
     gcoVX_Construct
     gcoVX_Destroy
     gcoVX_BindImage
+    gcoVX_SetImageInfo
     gcoVX_BindKernel
     gcoVX_BindUniform
     gcoVX_InvokeKernel
@@ -767,7 +768,7 @@ EXPORTS
     gcoVX_SwitchContext
     gcoVX_RestoreContext
     gcoVX_WaitNNEvent
-    gcoVX_SetOCBRemapAddress
+    gcoVX_SetRemapAddress
     gcoVX_CaptureState
     gcoVX_CreateHW
     gcoVX_DestroyHW

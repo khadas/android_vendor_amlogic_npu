@@ -2923,13 +2923,14 @@ typedef struct _vx_drv_option
     gctUINT enableNNXYDP6;
     gctUINT enableSwtilingPhase1;
     gctUINT enableSwtilingPhase2;
+    gctUINT enableSwtilingPhase3;
     gctUINT enableHandleBranch; /*merge more branches to use AB Buffer for SWTiling for arch model*/
     gctUINT enableNNFirstPixelPooling;
     gctUINT enablePrintOperaTarget;
     gctUINT enableSaveBinary;
     gctUINT enableGraphCommandBuffer;
     gctUINT nnFormulaOpt;
-    gctUINT ddrLatency;
+    gctFLOAT ddrLatency;
     gctFLOAT ddrReadBWLimit;
     gctFLOAT ddrWriteBWLimit;
     gctFLOAT ddrTotalBWLimit;
@@ -2964,6 +2965,12 @@ typedef struct _vx_drv_option
     gctUINT enableGraphDump;
     gctUINT enableGraphOptimizationToTest;
     gctUINT enableGraphConvertBatchFC2NNConv;
+    gctUINT freqInMHZ;
+    gctUINT axiClockFreqInMHZ;
+    gctUINT maxSocOTNumber;
+    gctUINT enableHuffmanEnhancement;
+    gctUINT enableTPHuffman;
+    gctUINT enableMultiVIPCombined;
 }
 vx_drv_option;
 
@@ -3258,6 +3265,12 @@ typedef enum
 }
 gceVX_ACCELERATOR_TYPE;
 
+typedef enum
+{
+    gcvVX_OCB_REMAP           = 0,
+    gcvVX_SRAM_REMAP          = 1,
+}
+gceVX_REMAP_TYPE;
 
 gceSTATUS
 gcoHARDWAREVX_CommitCmd(
@@ -3271,6 +3284,14 @@ gcoHARDWAREVX_ReplayCmd(
     IN gcoHARDWARE          Hardware,
     OUT gctPOINTER          CmdLogical,
     OUT gctUINT32           CmdBytes
+    );
+
+gceSTATUS
+gcoHARDWAREVX_SetImageInfo(
+    IN gcoHARDWARE          Hardware,
+    IN gctUINT32            RegAddress,
+    IN gctUINT32            Physical,
+    IN gcsVX_IMAGE_INFO_PTR Info
     );
 
 gceSTATUS
@@ -3320,7 +3341,9 @@ gcoHARDWAREVX_TriggerAccelerator(
     IN gctUINT32                CmdAddress,
     IN gceVX_ACCELERATOR_TYPE   Type,
     IN gctUINT32                EventId,
-    IN gctBOOL                  waitEvent
+    IN gctBOOL                  waitEvent,
+    IN gctUINT32                gpuId,
+    IN gctBOOL                  sync
 );
 
 gceSTATUS
@@ -3352,10 +3375,11 @@ gcoHARDWAREVX_WaitNNEvent(
 );
 
 gceSTATUS
-gcoHARDWAREVX_SetOCBRemapAddress(
+gcoHARDWAREVX_SetRemapAddress(
     IN gcoHARDWARE Hardware,
     IN gctUINT32 remapStart,
-    IN gctUINT32 remapEnd
+    IN gctUINT32 remapEnd,
+    IN gceVX_REMAP_TYPE remapType
 );
 #if GC_VX_ASM
 gceSTATUS

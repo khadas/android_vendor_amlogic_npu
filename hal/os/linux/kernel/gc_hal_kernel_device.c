@@ -930,6 +930,8 @@ static int gc_clk_show(struct seq_file* m, void* data)
     gckGALDEVICE device = node->device;
     gctUINT i;
 
+    gckGALDEVICE_QueryFrequency(device);
+
     for (i = gcvCORE_MAJOR; i < gcvCORE_COUNT; i++)
     {
         if (device->kernels[i])
@@ -1962,6 +1964,13 @@ gckGALDEVICE_Destroy(
     return gcvSTATUS_OK;
 }
 
+/*******************************************************************************
+**
+**  gckGALDEVICE_QueryFrequency
+**
+**  Query frequency for all the hardwares.
+**
+*/
 gceSTATUS
 gckGALDEVICE_QueryFrequency(
     IN gckGALDEVICE Device
@@ -1988,6 +1997,17 @@ gckGALDEVICE_QueryFrequency(
 
             mcStart[i] = shStart[i] = 0;
 
+            if (Device->args.powerManagement)
+            {
+                gcmkONERROR(gckHARDWARE_SetPowerManagement(
+                    hardware, gcvFALSE
+                    ));
+            }
+
+            gcmkONERROR(gckHARDWARE_SetPowerManagementState(
+                hardware, gcvPOWER_ON_AUTO
+                ));
+
             gckHARDWARE_EnterQueryClock(hardware,
                                         &mcStart[i], &shStart[i]);
         }
@@ -2004,21 +2024,35 @@ gckGALDEVICE_QueryFrequency(
             continue;
         }
 
-        if (Device->kernels[i] && mcStart[i])
+        if (Device->kernels[i])
         {
             hardware = Device->kernels[i]->hardware;
 
-            gckHARDWARE_ExitQueryClock(hardware,
-                                       mcStart[i], shStart[i],
-                                       &mcClk[i], &shClk[i]);
+            if (mcStart[i])
+            {
+                gckHARDWARE_ExitQueryClock(hardware,
+                                           mcStart[i], shStart[i],
+                                           &mcClk[i], &shClk[i]);
+            }
 
             hardware->mcClk = mcClk[i];
             hardware->shClk = shClk[i];
+
+            if (Device->args.powerManagement)
+            {
+                gcmkONERROR(gckHARDWARE_SetPowerManagement(
+                    hardware, gcvTRUE
+                    ));
+            }
         }
     }
 
-OnError:
     gcmkFOOTER_NO();
+
+    return gcvSTATUS_OK;
+
+OnError:
+    gcmkFOOTER();
 
     return status;
 }
@@ -2064,8 +2098,6 @@ gckGALDEVICE_Start(
 
         gcmkONERROR(_StartThread(Device, i));
     }
-
-    gcmkONERROR(gckGALDEVICE_QueryFrequency(Device));
 
     for (i = 0; i < gcvCORE_COUNT; i++)
     {

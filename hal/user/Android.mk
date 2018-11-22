@@ -93,6 +93,12 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libdl
 
+ifeq ($(VIVANTE_ENABLE_VSIMULATOR),1)
+LOCAL_SHARED_LIBRARIES += \
+    libEmulator
+
+endif
+
 ifeq ($(shell expr $(PLATFORM_SDK_VERSION) ">=" 17),1)
 LOCAL_SHARED_LIBRARIES += \
     libsync
@@ -105,10 +111,22 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(AQROOT)/copy_installed_module.mk
 
+ifeq ($(VIVANTE_ENABLE_VSIMULATOR),0)
+
 
 # libhalarchuser
 include $(AQROOT)/hal/user/arch/Android.mk
 
 # libhalosuser
 include $(AQROOT)/hal/os/linux/user/Android.mk
+
+else
+
+# libhalarchuser
+include $(AQROOT)/hal/user/arch/Android.mk
+
+# libhalosuser
+include $(AQROOT)/vsimulator/os/linux/user/Android.mk
+
+endif
 

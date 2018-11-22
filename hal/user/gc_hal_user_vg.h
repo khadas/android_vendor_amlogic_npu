@@ -1101,6 +1101,34 @@ gcoVGHARDWARE_SetColorIndexTable(
     IN gctINT32      Count
     );
 
+gceSTATUS
+gcoVGHARDWARE_SetYUV2RGBStdCust(
+    IN gcoVGHARDWARE    Hardware,
+    IN gctBOOL          YUV2RGBStdCust
+    );
+
+gceSTATUS
+gcoVGHARDWARE_SetYUV2RGB(
+    IN gcoVGHARDWARE    Hardware,
+    IN gctFLOAT         *coef,
+    IN gctFLOAT         *offset,
+    IN gctBOOL          *cfg
+);
+
+gceSTATUS
+gcoVGHARDWARE_SetYUV2RGBParameters(
+    IN gcoVGHARDWARE Hardware,
+    IN gctUINT Sampler
+);
+
+gceSTATUS
+gcoVGHARDWARE_SetRGB2YUVParameters(
+    IN gcoVGHARDWARE    Hardware,
+    IN gctFLOAT         *coef,
+    IN gctFLOAT         *offset,
+    IN gctBOOL          *cfg
+);
+
 /* VG RS feature. */
 gceSTATUS
 gcoVGHARDWARE_ResolveRect(
@@ -1117,7 +1145,8 @@ gcoVGHARDWARE_ResolveRect(
     IN gctINT32         Src_standard,
     IN gctINT32         Dst_uv,
     IN gctINT32         Dst_standard,
-    IN gctINT32         Dst_alpha
+    IN gctINT32         Dst_alpha,
+    IN gctINT32         Dst_standard_cust
     );
 #endif
 

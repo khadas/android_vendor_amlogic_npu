@@ -20,7 +20,7 @@
 static gctUINT32 memory_size = 0;
 static gctUINT64 free_memory_size = 0;
 
-#define VIV_VX_FORCE_INDEPENDENT 1
+#define VIV_VX_FORCE_INDEPENDENT 0
 
 /******************************************************************************\
 |********************************* Structures *********************************|
@@ -72,10 +72,9 @@ gceSTATUS gcoVX_Construct(OUT gcoVX * VXObj )
     gcmONERROR(gcoVX_QueryDeviceCount(&vxObj->coreCount));
     gcmONERROR(gcoHAL_SetHardwareType(gcvNULL, gcvHARDWARE_3D));
 
-    for (i = 0; i < vxObj->coreCount; i++)
+    for(i = 0; i < vxObj->coreCount; i++)
     {
-        if (gcoVX_CreateHW(i, & vxObj->hardwares[i]) != gcvSTATUS_OK)
-         goto OnError;
+        gcmONERROR(gcoVX_CreateHW(i, &vxObj->hardwares[i]));
     }
 
     *VXObj = vxObj;
@@ -84,12 +83,12 @@ gceSTATUS gcoVX_Construct(OUT gcoVX * VXObj )
     return gcvSTATUS_OK;
 OnError:
 
-     if (vxObj)
+     if(vxObj)
      {
 
-         for (i = 0; i < vxObj->coreCount; i++)
+         for(i = 0; i < vxObj->coreCount; i++)
          {
-             if (vxObj->hardwares[i])
+             if(vxObj->hardwares[i])
              {
                  gcoHARDWARE_Destroy(vxObj->hardwares[i], gcvFALSE);
              }
@@ -299,6 +298,29 @@ gcoVX_BindImage(
     /* Success. */
     status = gcvSTATUS_OK;
 
+OnError:
+    /* Return status. */
+    gcmFOOTER();
+    return status;
+}
+
+gceSTATUS
+    gcoVX_SetImageInfo(
+    IN  gcUNIFORM Uniform,
+    IN gcsVX_IMAGE_INFO_PTR Info
+    )
+{
+    gceSTATUS status;
+
+    gcmHEADER_ARG("Uniform=%p, Info=%p", Uniform, Info);
+
+    gcmASSERT(gcoVX_VerifyHardware());
+
+    gcmONERROR(gcoHARDWAREVX_SetImageInfo(gcvNULL,Uniform->address,
+                                   GetUniformPhysical(Uniform), Info));
+
+    /* Success. */
+    status = gcvSTATUS_OK;
 OnError:
     /* Return status. */
     gcmFOOTER();
@@ -854,7 +876,9 @@ gcoVX_TriggerAccelerator(
     IN gctUINT32              CmdAddress,
     IN gceVX_ACCELERATOR_TYPE Type,
     IN gctUINT32              EventId,
-    IN gctBOOL                waitEvent
+    IN gctBOOL                waitEvent,
+    IN gctUINT32              gpuId,
+    IN gctBOOL                sync
     )
 {
     gceSTATUS status;
@@ -862,7 +886,7 @@ gcoVX_TriggerAccelerator(
     gcmHEADER_ARG("Cmd Address=%d", CmdAddress);
 
     gcmASSERT(gcoVX_VerifyHardware());
-    gcmONERROR(gcoHARDWAREVX_TriggerAccelerator(gcvNULL, CmdAddress, Type, EventId, waitEvent));
+    gcmONERROR(gcoHARDWAREVX_TriggerAccelerator(gcvNULL, CmdAddress, Type, EventId, waitEvent, gpuId, sync));
 
 OnError:
 
@@ -1308,16 +1332,17 @@ OnError:
 }
 
 gceSTATUS
-gcoVX_SetOCBRemapAddress(
+gcoVX_SetRemapAddress(
     IN gctUINT32 remapStart,
-    IN gctUINT32 remapEnd
+    IN gctUINT32 remapEnd,
+    IN gceVX_REMAP_TYPE remapType
     )
 {
 
     gceSTATUS status = gcvSTATUS_OK;
 
     gcmHEADER();
-    gcmONERROR(gcoHARDWAREVX_SetOCBRemapAddress(gcvNULL, remapStart, remapEnd));
+    gcmONERROR(gcoHARDWAREVX_SetRemapAddress(gcvNULL, remapStart, remapEnd, remapType));
 
 OnError:
     gcmFOOTER();

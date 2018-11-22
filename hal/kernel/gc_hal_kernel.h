@@ -662,7 +662,7 @@ struct _gckKERNEL
     gckDVFS                     dvfs;
 #endif
 
-#if gcdANDROID_NATIVE_FENCE_SYNC
+#if gcdLINUX_SYNC_FILE
     gctHANDLE                   timeline;
 #endif
 
@@ -1520,7 +1520,16 @@ gckVIDMEM_NODE_Unlock(
     );
 
 gceSTATUS
-gckVIDMEM_NODE_FlushCache(
+gckVIDMEM_NODE_CleanCache(
+    IN gckKERNEL Kernel,
+    IN gckVIDMEM_NODE NodeObject,
+    IN gctSIZE_T Offset,
+    IN gctPOINTER Logical,
+    IN gctSIZE_T Bytes
+    );
+
+gceSTATUS
+gckVIDMEM_NODE_InvalidateCache(
     IN gckKERNEL Kernel,
     IN gckVIDMEM_NODE NodeObject,
     IN gctSIZE_T Offset,

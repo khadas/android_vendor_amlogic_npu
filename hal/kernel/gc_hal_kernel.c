@@ -647,7 +647,7 @@ gckKERNEL_Construct(
     kernel->profileCleanRegister = gcvTRUE;
 #endif
 
-#if gcdANDROID_NATIVE_FENCE_SYNC
+#if gcdLINUX_SYNC_FILE
     gcmkONERROR(gckOS_CreateSyncTimeline(Os, Core, &kernel->timeline));
 #endif
 
@@ -876,7 +876,7 @@ gckKERNEL_Destroy(
     }
 #endif
 
-#if gcdANDROID_NATIVE_FENCE_SYNC
+#if gcdLINUX_SYNC_FILE
     if (Kernel->timeline)
     {
         gcmkVERIFY_OK(gckOS_DestroySyncTimeline(Kernel->os, Kernel->timeline));
@@ -1859,6 +1859,7 @@ OnError:
     return status;
 }
 
+
 static gceSTATUS
 gckKERNEL_CacheOperation(
     IN gckKERNEL Kernel,
@@ -1984,6 +1985,14 @@ _WaitFence(
             fence = asyncCommand->fence;
         }
 
+        gcmkONERROR(gckVIDMEM_NODE_InvalidateCache(
+            Kernel,
+            fence->videoMem,
+            0,
+            fence->logical,
+            8
+            ));
+
         if (sync->commitStamp <= *(gctUINT64_PTR)fence->logical)
         {
             continue;
@@ -2043,12 +2052,12 @@ _Commit(
     gcsHAL_SUBCOMMIT _subCommit;
     gctPOINTER userPtr = gcvNULL;
     gctBOOL needCopy = gcvFALSE;
+    gckKERNEL kernel;
 
     gcmkVERIFY_OK(gckOS_QueryNeedCopy(Device->os, ProcessId, &needCopy));
 
     do
     {
-        gckKERNEL kernel;
         gckCOMMAND command;
         gckEVENT eventObj;
         gctUINT64 next;
@@ -2122,6 +2131,85 @@ _Commit(
         if (status != gcvSTATUS_INTERRUPTED)
         {
             gcmkONERROR(status);
+        }
+
+        next = subCommit->next;
+
+        /* Unmap user pointer if mapped. */
+        if (!needCopy && userPtr)
+        {
+            gcmkVERIFY_OK(gckOS_UnmapUserPointer(
+                Device->os,
+                userPtr,
+                gcmSIZEOF(gcsHAL_SUBCOMMIT),
+                subCommit
+                ));
+        }
+
+        /* Advance to next sub-commit from user. */
+        userPtr = gcmUINT64_TO_PTR(next);
+    }
+    while (userPtr);
+
+    subCommit = &Commit->subCommit;
+    userPtr = gcvNULL;
+    kernel = Device->map[HwType].kernels[subCommit->coreId];
+
+    if (!kernel->hardware->options.gpuProfiler || !kernel->profileEnable)
+    {
+        return gcvSTATUS_OK;
+    }
+
+    do
+    {
+        gctUINT64 next;
+
+        /* Skip the first nested sub-commit struct. */
+        if (userPtr)
+        {
+            /* Copy/map sub-commit from user. */
+            if (needCopy)
+            {
+                subCommit = &_subCommit;
+
+                status = gckOS_CopyFromUserData(
+                    Device->os,
+                    subCommit,
+                    userPtr,
+                    gcmSIZEOF(gcsHAL_SUBCOMMIT)
+                    );
+            }
+            else
+            {
+                status = gckOS_MapUserPointer(
+                    Device->os,
+                    userPtr,
+                    gcmSIZEOF(gcsHAL_SUBCOMMIT),
+                    (gctPOINTER *)&subCommit
+                    );
+            }
+
+            if (gcmIS_ERROR(status))
+            {
+                userPtr = gcvNULL;
+
+                gcmkONERROR(status);
+            }
+        }
+
+        kernel = Device->map[HwType].kernels[subCommit->coreId];
+
+        if ((kernel->hardware->options.gpuProfiler == gcvTRUE) &&
+            (kernel->profileEnable == gcvTRUE))
+        {
+            gcmkONERROR(gckCOMMAND_Stall(kernel->command, gcvTRUE));
+
+            if (kernel->command->currContext)
+            {
+                gcmkONERROR(gckHARDWARE_UpdateContextProfile(
+                            kernel->hardware,
+                            kernel->command->currContext));
+            }
         }
 
         next = subCommit->next;
@@ -2383,6 +2471,9 @@ gckKERNEL_Dispatch(
 
     case gcvHAL_QUERY_CHIP_FREQUENCY:
         /* Query chip clock. */
+        gcmkONERROR(
+            gckHARDWARE_QueryFrequency(Kernel->hardware));
+
         Interface->u.QueryChipFrequency.mcClk = Kernel->hardware->mcClk;
         Interface->u.QueryChipFrequency.shClk = Kernel->hardware->shClk;
         break;
@@ -3016,7 +3107,7 @@ gckKERNEL_Dispatch(
         Interface->u.QueryResetTimeStamp.contextID = Kernel->hardware->contextID;
         break;
 
-#if gcdANDROID_NATIVE_FENCE_SYNC
+#if gcdLINUX_SYNC_FILE
     case gcvHAL_CREATE_NATIVE_FENCE:
         {
             gctINT fenceFD;
@@ -5133,6 +5224,12 @@ gckFENCE_Create(
     gcePOOL pool = gcvPOOL_DEFAULT;
     gckFENCE fence = gcvNULL;
     gctSIZE_T size = 8;
+    gctUINT32 allocFlag = gcvALLOC_FLAG_CONTIGUOUS;
+
+#if gcdENABLE_CACHEABLE_COMMAND_BUFFER
+    allocFlag |= gcvALLOC_FLAG_CACHEABLE;
+#endif
+
 
     gcmkONERROR(gckOS_Allocate(Os, gcmSIZEOF(gcsFENCE), (gctPOINTER *)&fence));
     gcmkONERROR(gckOS_ZeroMemory(fence, gcmSIZEOF(gcsFENCE)));
@@ -5145,7 +5242,7 @@ gckFENCE_Create(
         Kernel,
         64,
         gcvVIDMEM_TYPE_FENCE,
-        0,
+        allocFlag,
         &size,
         &pool,
         &fence->videoMem

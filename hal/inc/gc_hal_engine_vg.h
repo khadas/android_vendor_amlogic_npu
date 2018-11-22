@@ -1277,6 +1277,28 @@ gcoVG_SetColorIndexTable(
     IN gctINT32      Count
 );
 
+gceSTATUS
+gcoVG_SetYUV2RGBStdCust(
+    IN gcoVG            Vg,
+    IN gctBOOL          YUV2RGBStdCust
+    );
+
+gceSTATUS
+gcoVG_SetYUV2RGB(
+    IN gcoVG            Vg,
+    IN gctFLOAT         *coef,
+    IN gctFLOAT         *offset,
+    IN gctBOOL          *cfg
+);
+
+gceSTATUS
+gcoVG_SetRGB2YUVParameters(
+    IN gcoVG            Vg,
+    IN gctFLOAT         *coef,
+    IN gctFLOAT         *offset,
+    IN gctBOOL          *cfg
+);
+
 /* VG RS feature support: YUV format conversion. */
 gceSTATUS
 gcoVG_Resolve(
@@ -1293,7 +1315,8 @@ gcoVG_Resolve(
     IN gctINT       Src_standard,
     IN gctINT       Dst_uv,
     IN gctINT       Dst_standard,
-    IN gctINT       Dst_alpha
+    IN gctINT       Dst_alpha,
+    IN gctBOOL      Dst_standard_cust
 );
 #ifdef __cplusplus
 }

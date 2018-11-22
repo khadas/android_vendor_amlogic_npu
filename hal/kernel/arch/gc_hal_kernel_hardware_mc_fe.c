@@ -128,6 +128,11 @@ _AllocateDescRingBuf(
     gceSTATUS status;
     gcePOOL pool = gcvPOOL_DEFAULT;
     gckKERNEL kernel = Hardware->kernel;
+    gctUINT32 allocFlag = 0;
+
+#if gcdENABLE_CACHEABLE_COMMAND_BUFFER
+    allocFlag |= gcvALLOC_FLAG_CACHEABLE;
+#endif
 
     Channel->ringBufBytes = MCFE_RINGBUF_SIZE;
 
@@ -136,7 +141,7 @@ _AllocateDescRingBuf(
         kernel,
         64,
         gcvVIDMEM_TYPE_COMMAND,
-        0,
+        allocFlag,
         &Channel->ringBufBytes,
         &pool,
         &Channel->ringBufVideoMem
@@ -851,7 +856,11 @@ gckMCFE_Execute(
                     ringBuf->ringBufAddress + ringBuf->writePtr * 8,
                     8);
 
-    gckOS_MemoryBarrier(Hardware->os, desc);
+    gcmkVERIFY_OK(gckVIDMEM_NODE_CleanCache(Hardware->kernel,
+                                            ringBuf->ringBufVideoMem,
+                                            ringBuf->writePtr * 2 * 4,
+                                            desc,
+                                            8));
 
     ringBuf->writePtr = _NextPtr(ringBuf->writePtr);
 

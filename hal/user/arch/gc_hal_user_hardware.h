@@ -266,6 +266,8 @@ typedef struct _gcsHARDWARE_CONFIG
     gctINT32                    clusterMaxID;
     gctINT32                    clusterMinID;
     gctUINT32                   clusterAliveMask; /* physical cluster mask really enabled, may not all clusters */
+    gctUINT32                   uscCacheControllers;
+    gctUINT32                   uscBanks;
 #if gcdENABLE_3D
     gctUINT32                   vertexOutputBufferSize;
     /* gcChipSpecs2. */
@@ -1911,6 +1913,12 @@ gceSTATUS gcoHARDWARE_UploadCSCTable(
     IN gcoHARDWARE Hardware,
     IN gctBOOL YUV2RGB,
     IN gctINT32_PTR Table
+    );
+
+/* Query hardware frequency. */
+gceSTATUS
+gcoHARDWARE_QueryFrequency(
+    IN gcoHARDWARE Hardware
     );
 
 /* About Compression. */

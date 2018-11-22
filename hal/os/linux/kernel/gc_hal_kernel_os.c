@@ -74,7 +74,7 @@
 #include <linux/anon_inodes.h>
 #endif
 
-#if gcdANDROID_NATIVE_FENCE_SYNC
+#if gcdLINUX_SYNC_FILE
 #  include <linux/file.h>
 #  include "gc_hal_kernel_sync.h"
 #endif
@@ -1415,6 +1415,7 @@ gckOS_AllocateNonPagedMemory(
     /* Check status. */
     gcmkONERROR(status);
 
+    mdl->cacheable = Flag & gcvALLOC_FLAG_CACHEABLE;
     mdl->bytes    = bytes;
     mdl->numPages = numPages;
 
@@ -2237,6 +2238,7 @@ gckOS_MapPhysical(
         {
             if ((physical >= mdl->dmaHandle)
             &&  (physical <  mdl->dmaHandle + mdl->bytes)
+            &&  (mdl->addr != 0)
             )
             {
                 *Logical = mdl->addr + (physical - mdl->dmaHandle);
@@ -2259,6 +2261,7 @@ gckOS_MapPhysical(
             struct page * page;
             gctUINT numPages;
             gctINT i;
+            pgprot_t pgprot;
 
             numPages = GetPageCount(PAGE_ALIGN(offset + Bytes), 0);
 
@@ -2275,7 +2278,13 @@ gckOS_MapPhysical(
                 pages[i] = nth_page(page, i);
             }
 
-            logical = vmap(pages, numPages, 0, gcmkNONPAGED_MEMROY_PROT(PAGE_KERNEL));
+#if gcdENABLE_BUFFERABLE_VIDEO_MEMORY
+            pgprot = pgprot_writecombine(PAGE_KERNEL);
+#else
+            pgprot = pgprot_noncached(PAGE_KERNEL);
+#endif
+
+            logical = vmap(pages, numPages, 0, pgprot);
 
             kfree(pages);
 
@@ -3147,6 +3156,7 @@ gckOS_AllocatePagedMemory(
     mdl->bytes      = bytes;
     mdl->numPages   = numPages;
     mdl->contiguous = Flag & gcvALLOC_FLAG_CONTIGUOUS;
+    mdl->cacheable  = Flag & gcvALLOC_FLAG_CACHEABLE;
 
     /*
      * Add this to a global list.
@@ -3335,9 +3345,7 @@ gckOS_MapPagesEx(
     gckKERNEL kernel = Os->device->kernels[Core];
     gckMMU mmu;
 #endif
-#if gcdNONPAGED_MEMORY_CACHEABLE
     gctUINT32 bytes = PageCount * 4;
-#endif
     gckALLOCATOR allocator;
 
     gctUINT32 policyID = 0;
@@ -3456,39 +3464,35 @@ gckOS_MapPagesEx(
         offset += PAGE_SIZE;
     }
 
-#if gcdNONPAGED_MEMORY_CACHEABLE
     {
         gckMMU mmu = Os->device->kernels[Core]->mmu;
         gcsADDRESS_AREA * area = &mmu->dynamicArea;
 
         offset = (gctUINT8_PTR)PageTable - (gctUINT8_PTR)area->stlbLogical;
 
-
+        /* must be in dynamic area. */
         gcmkASSERT(offset < area->stlbSize);
 
-        gcmkVERIFY_OK(gckOS_CacheClean(
-            Os,
-            _GetProcessID(),
-            area->stlbHandle,
+        gcmkVERIFY_OK(gckVIDMEM_NODE_CleanCache(
+            Os->device->kernels[Core],
+            area->stlbVideoMem,
             offset,
             PageTable,
             bytes
             ));
 
-        if (mmu->mtlbHandle)
+        if (mmu->mtlbVideoMem)
         {
-
-            gcmkVERIFY_OK(gckOS_CacheClean(
-                Os,
-                _GetProcessID(),
-                mmu->mtlbHandle,
-                0,
+            /* Flush MTLB table. */
+            gcmkVERIFY_OK(gckVIDMEM_NODE_CleanCache(
+                Os->device->kernels[Core],
+                mmu->mtlbVideoMem,
+                offset,
                 mmu->mtlbLogical,
                 mmu->mtlbSize
                 ));
         }
     }
-#endif
 
 OnError:
     /* Return the status. */
@@ -4069,7 +4073,13 @@ _CacheOperation(
 
         mutex_unlock(&mdl->mapsMutex);
 
-        if (!mdlMap || mdlMap->cacheable)
+        if (ProcessID && mdlMap == gcvNULL)
+        {
+            return gcvSTATUS_INVALID_ARGUMENT;
+        }
+
+        if ((!ProcessID && mdl->cacheable) ||
+            (mdlMap && mdlMap->cacheable))
         {
             allocator->ops->Cache(allocator,
                 mdl, Offset, Logical, Bytes, Operation);
@@ -5154,8 +5164,8 @@ gckOS_CreateSignal(
 
     atomic_set(&signal->ref, 1);
 
-#if gcdANDROID_NATIVE_FENCE_SYNC
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0)
+#if gcdLINUX_SYNC_FILE
+#ifndef CONFIG_SYNC_FILE
     signal->timeline = gcvNULL;
 #  else
     signal->fence = gcvNULL;
@@ -5270,8 +5280,8 @@ gckOS_Signal(
 {
     gceSTATUS status;
     gcsSIGNAL_PTR signal;
-#if gcdANDROID_NATIVE_FENCE_SYNC
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0)
+#if gcdLINUX_SYNC_FILE
+#ifndef CONFIG_SYNC_FILE
     struct sync_timeline * timeline = gcvNULL;
 #  else
     struct fence * fence = gcvNULL;
@@ -5317,8 +5327,8 @@ gckOS_Signal(
 
         wake_up(&signal->wait);
 
-#if gcdANDROID_NATIVE_FENCE_SYNC
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0)
+#if gcdLINUX_SYNC_FILE
+#ifndef CONFIG_SYNC_FILE
         timeline = signal->timeline;
 #  else
         fence = signal->fence;
@@ -5333,8 +5343,8 @@ gckOS_Signal(
 
     spin_unlock(&signal->lock);
 
-#if gcdANDROID_NATIVE_FENCE_SYNC
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0)
+#if gcdLINUX_SYNC_FILE
+#ifndef CONFIG_SYNC_FILE
     /* Signal timeline. */
     if (timeline)
     {
@@ -6048,8 +6058,8 @@ gckOS_DetectProcessByName(
                               : gcvSTATUS_FALSE;
 }
 
-#if gcdANDROID_NATIVE_FENCE_SYNC
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0)
+#if gcdLINUX_SYNC_FILE
+#ifndef CONFIG_SYNC_FILE
 gceSTATUS
 gckOS_CreateSyncTimeline(
     IN gckOS Os,
@@ -6319,7 +6329,7 @@ OnError:
     return status;
 }
 
-#  else /* v4.9.0 */
+#  else /* !CONFIG_SYNC_FILE */
 
 gceSTATUS
 gckOS_CreateSyncTimeline(
@@ -6431,6 +6441,24 @@ OnError:
     return status;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0)
+/**
+ * sync_file_fdget() - get a sync_file from an fd
+ * @fd:     fd referencing a fence
+ *
+ * Ensures @fd references a valid sync_file, increments the refcount of the
+ * backing file. Returns the sync_file or NULL in case of error.
+ */
+static struct sync_file *sync_file_fdget(int fd)
+{
+    struct file *file = fget(fd);
+
+    if (!file)
+        return NULL;
+
+    return file->private_data;
+}
+
 gceSTATUS
 gckOS_WaitNativeFence(
     IN gckOS Os,
@@ -6439,13 +6467,82 @@ gckOS_WaitNativeFence(
     IN gctUINT32 Timeout
     )
 {
-    struct fence *fence;
     struct viv_sync_timeline *timeline;
     gceSTATUS status = gcvSTATUS_OK;
     unsigned int i;
-    unsigned int numFences;
-    struct fence **fences;
     unsigned long timeout;
+    unsigned int numFences;
+    struct sync_file *sync_file;
+
+    timeline = (struct viv_sync_timeline *) Timeline;
+
+    sync_file = sync_file_fdget(FenceFD);
+
+    if (!sync_file)
+    {
+        gcmkONERROR(gcvSTATUS_GENERIC_IO);
+    }
+
+    numFences = sync_file->num_fences;
+
+    timeout = msecs_to_jiffies(Timeout);
+
+    for (i = 0; i < numFences; i++)
+    {
+        struct fence *f = sync_file->cbs[i].fence;
+        fence_get(f);
+
+        if (f->context != timeline->context &&
+            !fence_is_signaled(f))
+        {
+            signed long ret;
+            ret = fence_wait_timeout(f, 1, timeout);
+
+            if (ret == -ERESTARTSYS)
+            {
+                status = gcvSTATUS_INTERRUPTED;
+                fence_put(f);
+                break;
+            }
+            else if (ret <= 0)
+            {
+                status = gcvSTATUS_TIMEOUT;
+                fence_put(f);
+                break;
+            }
+            else
+            {
+                /* wait success. */
+                timeout -= ret;
+            }
+        }
+
+        fence_put(f);
+    }
+
+    return gcvSTATUS_OK;
+
+OnError:
+    return status;
+}
+
+#    else
+
+gceSTATUS
+gckOS_WaitNativeFence(
+    IN gckOS Os,
+    IN gctHANDLE Timeline,
+    IN gctINT FenceFD,
+    IN gctUINT32 Timeout
+    )
+{
+    struct viv_sync_timeline *timeline;
+    gceSTATUS status = gcvSTATUS_OK;
+    unsigned int i;
+    unsigned long timeout;
+    unsigned int numFences;
+    struct fence *fence;
+    struct fence **fences;
 
     timeline = (struct viv_sync_timeline *) Timeline;
 
@@ -6478,7 +6575,7 @@ gckOS_WaitNativeFence(
             !fence_is_signaled(f))
         {
             signed long ret;
-            ret = fence_wait_timeout(fence, 1, timeout);
+            ret = fence_wait_timeout(f, 1, timeout);
 
             if (ret == -ERESTARTSYS)
             {
@@ -6506,7 +6603,8 @@ OnError:
     return status;
 }
 
-#  endif /* v4.9.0 */
+#    endif
+#  endif
 #endif
 
 #if gcdSECURITY
@@ -6688,7 +6786,7 @@ gckOS_QueryOption(
 #if gcdSECURITY
         *Value = 0;
 #else
-        *Value = 1;
+        *Value = device->args.enableMmu;
 #endif
     }
     else if (!strcmp(Option, "contiguousSize"))

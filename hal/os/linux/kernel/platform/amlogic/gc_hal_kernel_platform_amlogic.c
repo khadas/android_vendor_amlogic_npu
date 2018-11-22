@@ -73,7 +73,7 @@
 #define HHI_NANOQ_MEM_PD_REG0 (HHI_BASE_ADDR+(0x43<<2))
 #define HHI_NANOQ_MEM_PD_REG1 (HHI_BASE_ADDR+(0x44<<2))
 //800m to 960m
-#define MAX_NANOQ_FREQ        960000000
+#define MAX_NANOQ_FREQ        800000000
 /*======== add by zxw for g12b hardware reg define end========*/
 /*
 static gceSTATUS _CmaAlloc(struct platform_device *pdev,gctSIZE_T NumPages,unsigned long *pmem)

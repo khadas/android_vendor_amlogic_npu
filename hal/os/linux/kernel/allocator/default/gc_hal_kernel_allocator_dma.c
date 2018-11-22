@@ -309,7 +309,7 @@ _DmaMmap(
             pgprot_writecombine(vma->vm_page_prot)) < 0)
 #else
     /* map kernel memory to user space.. */
-    if (dma_mmap_writecombine(gcvNULL,
+    if (dma_mmap_writecombine(galcore_device,
             vma,
             (gctINT8_PTR)mdlPriv->kvaddr + (skipPages << PAGE_SHIFT),
             mdlPriv->dmaHandle + (skipPages << PAGE_SHIFT),

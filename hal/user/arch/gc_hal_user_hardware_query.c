@@ -1017,6 +1017,25 @@ static struct _gcsSURF_FORMAT_INFO formatYUV[] =
         gcvINVALID_RENDER_FORMAT, gcmINVALID_RENDER_FORMAT_ENTRY,
         gcvSURF_ANV16, 0x25 << 12, baseComponents_rgba, gcvTRUE
     },
+
+    {
+        gcmNameFormat(AUYVY), gcvFORMAT_CLASS_YUV, gcvFORMAT_DATATYPE_UNSIGNED_NORMALIZED, 32, 1, 1, 32,
+        1, 0, 0, gcvFALSE,
+        {{{ 8, 8 }, { 16, 8 }, { 24, 8 }, {0}, {0}, {0}}},
+        {{{ 8, 8 }, { 16, 8 }, { 24, 8 }, {0}, {0}, {0}}},
+        gcvINVALID_RENDER_FORMAT, gcmINVALID_RENDER_FORMAT_ENTRY,
+        gcvSURF_AUYVY, 0x25 << 12, baseComponents_rgba, gcvTRUE
+    },
+
+    {
+        gcmNameFormat(YV16), gcvFORMAT_CLASS_YUV, gcvFORMAT_DATATYPE_UNSIGNED_NORMALIZED, 16, 2, 1, 32,
+        1, 0, 0, gcvFALSE,
+        {{{ 0, 8 }, { 0, 8 }, { 0, 8 }, {0}, {0}, {0}}},
+        {{{ 0, 8 }, { 0, 8 }, { 0, 8 }, {0}, {0}, {0}}},
+        gcvINVALID_RENDER_FORMAT, gcmINVALID_RENDER_FORMAT_ENTRY,
+        gcvINVALID_TEXTURE_FORMAT, gcmINVALID_TEXTURE_FORMAT_ENTRY
+    },
+
 #endif
 };
 
@@ -4730,7 +4749,7 @@ gcoHARDWARE_QueryBPP(
             case gcvSURF_NV16:
             case gcvSURF_NV61:
                 bpps[0] = 1.0;
-                bpps[1] = 2.0;
+                bpps[1] = 1.0;
                 break;
 
             case gcvSURF_YV12:
@@ -6499,6 +6518,8 @@ gcoHARDWARE_QueryShaderCapsEx(
 
     if (ClockFrequency != gcvNULL)
     {
+        gcmONERROR(gcoHARDWARE_QueryFrequency(Hardware));
+
         /* Return the shader core clock in Mhz. */
         *ClockFrequency = (Hardware->shClk + 500000) / 1000000;
     }
@@ -7148,9 +7169,7 @@ gcoHARDWARE_QueryMultiGPUSyncLength(
     coreCount = Hardware->config->gpuCoreCount;
     if (Hardware->features[gcvFEATURE_MULTIGPU_SYNC_V3])
     {
-        /* make compiler happy */
-        coreCount = coreCount + 1;
-        *Bytes = (24 + 4) * gcmSIZEOF(gctUINT32);
+        *Bytes =  (4 + (coreCount - 2) * 8 + 4 * 2 ) * gcmSIZEOF(gctUINT32);
     }
     else if (Hardware->features[gcvFEATURE_MULTIGPU_SYNC_V2])
     {

@@ -233,17 +233,6 @@ Contents
    USE_POWER_MANAGEMENT      1        Enable GPU power managment code;
                              0        Disable GPU power management code; Should set it to 0 on FPGA board;
 
-   PAGED_MEMORY_CACHEABLE    1        paged memory will be cacheable;
-                                      only for those SOC which cann't enable writecombine without enabling cacheable;
-                             0        paged memory won't be cacheable;
-
-   NONPAGED_MEMORY_CACHEABLE 1        non paged memory will be cacheable;
-                             0        paged memory won't be cacheable;
-
-   NONPAGED_MEMORY_BUFFERABLE 1       non paged memory will be bufferable;
-                                      NONPAGED_MEMORY_CACHEABLE and USE_POWER_MANAGEMENT cann't be set to 1 at the same time;
-                                      non paged memory won't be bufferable;
-
 4. Run the applications
 =======================
 

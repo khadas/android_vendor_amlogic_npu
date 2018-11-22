@@ -464,10 +464,10 @@ This define enables the use of VM for gckCommand and fence buffers.
         before it broadcasts the GPU is stuck.  In other words, it will define
         the timeout of any operation that needs to wait for the GPU.
 
-        If the value is 0, no timeout will be checked for.
+        If the value is 0, no timeout will be checked for.  20000 to 100
 */
 #ifndef gcdGPU_TIMEOUT
-#   define gcdGPU_TIMEOUT                   20000
+#   define gcdGPU_TIMEOUT                   100
 #endif
 
 /*
@@ -628,39 +628,21 @@ This define enables the use of VM for gckCommand and fence buffers.
 #endif
 
 /*
-   gcdPAGED_MEMORY_CACHEABLE
+   gcdENABLE_CACHEABLE_COMMAND_BUFFER
 
-        When non-zero, paged memory will be cacheable.
-
-        Normally, driver will detemines whether a video memory
-        is cacheable or not. When cacheable is not neccessary,
-        it will be writecombine.
-
-        This option is only for those SOC which can't enable
-        writecombine without enabling cacheable.
+        When non-zero, command buffer will be cacheable.
 */
-#ifndef gcdPAGED_MEMORY_CACHEABLE
-#   define gcdPAGED_MEMORY_CACHEABLE            0
+#ifndef gcdENABLE_CACHEABLE_COMMAND_BUFFER
+#   define gcdENABLE_CACHEABLE_COMMAND_BUFFER          0
 #endif
 
 /*
-   gcdNONPAGED_MEMORY_CACHEABLE
+   gcdENABLE_BUFFERABLE_VIDEO_MEMORY
 
-        When non-zero, non paged memory will be cacheable.
+        When non-zero, all video memory will be bufferable by default.
 */
-#ifndef gcdNONPAGED_MEMORY_CACHEABLE
-#   define gcdNONPAGED_MEMORY_CACHEABLE         0
-#endif
-
-/*
-   gcdNONPAGED_MEMORY_BUFFERABLE
-
-        When non-zero, non paged memory will be bufferable.
-        gcdNONPAGED_MEMORY_BUFFERABLE and gcdNONPAGED_MEMORY_CACHEABLE
-        can't be set 1 at same time
-*/
-#ifndef gcdNONPAGED_MEMORY_BUFFERABLE
-#   define gcdNONPAGED_MEMORY_BUFFERABLE        1
+#ifndef gcdENABLE_BUFFERABLE_VIDEO_MEMORY
+#   define gcdENABLE_BUFFERABLE_VIDEO_MEMORY           1
 #endif
 
 /*
@@ -887,6 +869,10 @@ This define enables the use of VM for gckCommand and fence buffers.
  */
 #ifndef gcdANDROID_NATIVE_FENCE_SYNC
 #   define gcdANDROID_NATIVE_FENCE_SYNC         0
+#endif
+
+#ifndef gcdLINUX_SYNC_FILE
+#   define gcdLINUX_SYNC_FILE                   0
 #endif
 
 /*

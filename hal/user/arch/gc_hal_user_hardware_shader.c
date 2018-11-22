@@ -1168,15 +1168,15 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  16:16) - (0 ?
  16:16) + 1))))))) << (0 ?
  16:16))) : 0) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 22:17) - (0 ?
- 22:17) + 1) == 32) ?
+ 25:20) - (0 ?
+ 25:20) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
- 22:17) - (0 ?
- 22:17) + 1))))))) << (0 ?
- 22:17))) | (((gctUINT32) ((gctUINT32) (groupNumberPerClusterEachGPU[i]) & ((gctUINT32) ((((1 ?
- 22:17) - (0 ?
- 22:17) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 22:17) - (0 ? 22:17) + 1))))))) << (0 ? 22:17))));    gcmENDSTATEBATCH_NEW(reserve, memory);
+ 25:20) - (0 ?
+ 25:20) + 1))))))) << (0 ?
+ 25:20))) | (((gctUINT32) ((gctUINT32) (groupNumberPerClusterEachGPU[i]) & ((gctUINT32) ((((1 ?
+ 25:20) - (0 ?
+ 25:20) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:20) - (0 ? 25:20) + 1))))))) << (0 ? 25:20))));    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
 
@@ -2643,15 +2643,15 @@ gcoHARDWARE_InvokeThreadWalkerGL(
  16:16) - (0 ?
  16:16) + 1))))))) << (0 ?
  16:16))) : 0) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 22:17) - (0 ?
- 22:17) + 1) == 32) ?
+ 25:20) - (0 ?
+ 25:20) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
- 22:17) - (0 ?
- 22:17) + 1))))))) << (0 ?
- 22:17))) | (((gctUINT32) ((gctUINT32) (groupNumberPerCluster) & ((gctUINT32) ((((1 ?
- 22:17) - (0 ?
- 22:17) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 22:17) - (0 ? 22:17) + 1))))))) << (0 ? 22:17))));    gcmENDSTATEBATCH_NEW(reserve, memory);
+ 25:20) - (0 ?
+ 25:20) + 1))))))) << (0 ?
+ 25:20))) | (((gctUINT32) ((gctUINT32) (groupNumberPerCluster) & ((gctUINT32) ((((1 ?
+ 25:20) - (0 ?
+ 25:20) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:20) - (0 ? 25:20) + 1))))))) << (0 ? 25:20))));    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
 

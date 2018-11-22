@@ -224,7 +224,7 @@ typedef struct _gckHARDWARE *       gckHARDWARE;
 
 #define gcdMAX_DRAW_BUFFERS            16
 
-#define gcdMAX_3DGPU_COUNT             4
+#define gcdMAX_3DGPU_COUNT             8
 /*******************************************************************************
 **
 **  gcmVERIFY_OBJECT

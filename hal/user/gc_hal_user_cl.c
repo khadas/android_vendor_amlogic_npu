@@ -1525,7 +1525,7 @@ gcoCL_QueryDeviceCount(
 
     gcoHAL_QueryMultiGPUAffinityConfig(gcvHARDWARE_3D, &mode, &coreIndex);
 
-    if (mode == gcvMULTI_GPU_MODE_COMBINED)   /*Combined Mode count is 1*/
+    if(mode == gcvMULTI_GPU_MODE_COMBINED)   /*Combined Mode count is 1*/
     {
         *Count = 1;
     }

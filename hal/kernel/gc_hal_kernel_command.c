@@ -1464,13 +1464,18 @@ gckCOMMAND_Construct(
         gcePOOL pool = gcvPOOL_DEFAULT;
         gctSIZE_T size = pageSize;
         gckVIDMEM_NODE videoMem = gcvNULL;
+        gctUINT32 allocFlag = 0;
+
+#if gcdENABLE_CACHEABLE_COMMAND_BUFFER
+        allocFlag = gcvALLOC_FLAG_CACHEABLE;
+#endif
 
         /* Allocate video memory node for command buffers. */
         gcmkONERROR(gckKERNEL_AllocateVideoMemory(
             Kernel,
             64,
             gcvVIDMEM_TYPE_COMMAND,
-            0,
+            allocFlag,
             &size,
             &pool,
             &videoMem
@@ -1919,7 +1924,7 @@ _StartWaitLinkFE(
     Command->waitPos.logical  = (gctUINT8_PTR) logical  + waitOffset;
     Command->waitPos.address  =                address  + waitOffset;
 
-    gcmkONERROR(gckVIDMEM_NODE_FlushCache(
+    gcmkONERROR(gckVIDMEM_NODE_CleanCache(
         Command->kernel,
         Command->videoMem,
         Command->offset,
@@ -2098,7 +2103,7 @@ _StopWaitLinkFE(
                                             Command->logical,
                                             Command->offset));
 
-    gcmkONERROR(gckVIDMEM_NODE_FlushCache(
+    gcmkONERROR(gckVIDMEM_NODE_CleanCache(
         Command->kernel,
         Command->waitPos.videoMem,
         Command->waitPos.offset,
@@ -2501,7 +2506,7 @@ _CommitWaitLinkOnce(
             &commandLinkHigh
             ));
 
-        gcmkONERROR(gckVIDMEM_NODE_FlushCache(
+        gcmkONERROR(gckVIDMEM_NODE_CleanCache(
             Command->kernel,
             contextBuffer->videoMem,
             entryAddress - contextBuffer->address,
@@ -2610,7 +2615,7 @@ _CommitWaitLinkOnce(
 
     if (Command->newQueue)
     {
-        gcmkONERROR(gckVIDMEM_NODE_FlushCache(
+        gcmkONERROR(gckVIDMEM_NODE_CleanCache(
             Command->kernel,
             Command->videoMem,
             0,
@@ -2620,7 +2625,7 @@ _CommitWaitLinkOnce(
     }
     else
     {
-        gcmkONERROR(gckVIDMEM_NODE_FlushCache(
+        gcmkONERROR(gckVIDMEM_NODE_CleanCache(
             Command->kernel,
             Command->videoMem,
             Command->offset,
@@ -2702,7 +2707,7 @@ _CommitWaitLinkOnce(
         &commandBufferVideoMem
         ));
 
-    gcmkONERROR(gckVIDMEM_NODE_FlushCache(
+    gcmkONERROR(gckVIDMEM_NODE_CleanCache(
         Command->kernel,
         commandBufferVideoMem,
         CommandBuffer->startOffset,
@@ -2800,7 +2805,7 @@ _CommitWaitLinkOnce(
     }
 #endif
 
-    gcmkONERROR(gckVIDMEM_NODE_FlushCache(
+    gcmkONERROR(gckVIDMEM_NODE_CleanCache(
         Command->kernel,
         Command->waitPos.videoMem,
         Command->waitPos.offset,
@@ -2900,19 +2905,6 @@ _CommitWaitLinkOnce(
     /* Release the command queue. */
     gcmkONERROR(gckCOMMAND_ExitCommit(Command, gcvFALSE));
     commitEntered = gcvFALSE;
-
-    if  ((Command->kernel->hardware->options.gpuProfiler == gcvTRUE) &&
-         (Command->kernel->profileEnable == gcvTRUE))
-    {
-        gcmkONERROR(gckCOMMAND_Stall(Command, gcvTRUE));
-
-        if (Command->currContext)
-        {
-            gcmkONERROR(gckHARDWARE_UpdateContextProfile(
-                        hardware,
-                        Command->currContext));
-        }
-    }
 
     if (status == gcvSTATUS_INTERRUPTED)
     {
@@ -3104,19 +3096,6 @@ _CommitAsyncOnce(
             - CommandBuffer->reservedHead
             - CommandBuffer->reservedTail
         );
-
-    if  ((Command->kernel->hardware->options.gpuProfiler == gcvTRUE) &&
-         (Command->kernel->profileEnable == gcvTRUE))
-    {
-        gcmkONERROR(gckCOMMAND_Stall(Command, gcvTRUE));
-
-        if (Command->currContext)
-        {
-            gcmkONERROR(gckHARDWARE_UpdateContextProfile(
-                        hardware,
-                        Command->currContext));
-        }
-    }
 
     gckOS_ReleaseMutex(Command->os, Command->mutexContext);
     acquired = gcvFALSE;
@@ -3638,7 +3617,7 @@ gckCOMMAND_Execute(
         execAddress  = Command->address;
         execBytes    = Command->offset + RequestedBytes + waitLinkBytes;
 
-        gcmkONERROR(gckVIDMEM_NODE_FlushCache(
+        gcmkONERROR(gckVIDMEM_NODE_CleanCache(
             Command->kernel,
             Command->videoMem,
             0,
@@ -3654,7 +3633,7 @@ gckCOMMAND_Execute(
         execAddress  =              Command->address  + Command->offset;
         execBytes    = RequestedBytes + waitLinkBytes;
 
-        gcmkONERROR(gckVIDMEM_NODE_FlushCache(
+        gcmkONERROR(gckVIDMEM_NODE_CleanCache(
             Command->kernel,
             Command->videoMem,
             Command->offset,
@@ -3690,7 +3669,7 @@ gckCOMMAND_Execute(
         ));
 #endif
 
-    gcmkONERROR(gckVIDMEM_NODE_FlushCache(
+    gcmkONERROR(gckVIDMEM_NODE_CleanCache(
         Command->kernel,
         Command->waitPos.videoMem,
         Command->waitPos.offset,
@@ -3789,7 +3768,7 @@ gckCOMMAND_ExecuteAsync(
         execAddress  = Command->address;
         execBytes    = Command->offset + RequestedBytes;
 
-        gcmkONERROR(gckVIDMEM_NODE_FlushCache(
+        gcmkONERROR(gckVIDMEM_NODE_CleanCache(
             Command->kernel,
             Command->videoMem,
             0,
@@ -3805,7 +3784,7 @@ gckCOMMAND_ExecuteAsync(
         execAddress  =              Command->address  + Command->offset;
         execBytes    = RequestedBytes;
 
-        gcmkONERROR(gckVIDMEM_NODE_FlushCache(
+        gcmkONERROR(gckVIDMEM_NODE_CleanCache(
             Command->kernel,
             Command->videoMem,
             Command->offset,
@@ -3901,7 +3880,7 @@ gckCOMMAND_ExecuteMultiChannel(
 
     if (Command->newQueue)
     {
-        gcmkONERROR(gckVIDMEM_NODE_FlushCache(
+        gcmkONERROR(gckVIDMEM_NODE_CleanCache(
             Command->kernel,
             Command->videoMem,
             0,
@@ -3911,7 +3890,7 @@ gckCOMMAND_ExecuteMultiChannel(
     }
     else
     {
-        gcmkONERROR(gckVIDMEM_NODE_FlushCache(
+        gcmkONERROR(gckVIDMEM_NODE_CleanCache(
             Command->kernel,
             Command->videoMem,
             Command->offset,
@@ -4026,7 +4005,7 @@ gckCOMMAND_Stall(
     do
     {
         /* Wait for the signal. */
-        status = gckOS_WaitSignal(os, signal, gcvTRUE, gcdGPU_ADVANCETIMER);
+        status = gckOS_WaitSignal(os, signal, !FromPower, gcdGPU_ADVANCETIMER);
 
         if (status == gcvSTATUS_TIMEOUT)
         {

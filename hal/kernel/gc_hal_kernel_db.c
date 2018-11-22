@@ -1203,7 +1203,6 @@ gckKERNEL_DestroyProcessDB(
                    ProcessID, database->mapMemory.totalBytes,
                    database->mapMemory.maxBytes);
 
-    if (database->list != gcvNULL)
     {
         gcmkTRACE_ZONE(gcvLEVEL_WARNING, gcvZONE_DATABASE,
                        "Process %d has entries in its database:",

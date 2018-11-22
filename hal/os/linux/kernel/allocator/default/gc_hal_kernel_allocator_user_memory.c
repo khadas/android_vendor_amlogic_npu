@@ -684,8 +684,10 @@ _UserMemoryCache(
         dma_sync_sg_for_device(galcore_device, um->sgt.sgl, um->sgt.nents, dir);
         break;
     case gcvCACHE_FLUSH:
-        dir = DMA_BIDIRECTIONAL;
+        dir = DMA_TO_DEVICE;
         dma_sync_sg_for_device(galcore_device, um->sgt.sgl, um->sgt.nents, dir);
+        dir = DMA_FROM_DEVICE;
+        dma_sync_sg_for_cpu(galcore_device, um->sgt.sgl, um->sgt.nents, dir);
         break;
     case gcvCACHE_INVALIDATE:
         dir = DMA_FROM_DEVICE;

@@ -261,7 +261,7 @@ _FillInOptions(
     }
     else  if(envctrl[0] == '1')/* VIV_MGPU_AFFINITY is INDEPENENT */
     {
-        if (mode != gcvMULTI_GPU_MODE_COMBINED)
+        if(mode != gcvMULTI_GPU_MODE_COMBINED)
         {
             gcOptions[gcvOPTION_OCL_USE_MULTI_DEVICES] = gcvTRUE;
         }
@@ -300,7 +300,7 @@ _FillInOptions(
 
     envctrl = gcvNULL;
     gcoOS_GetEnv(gcvNULL,"VIV_OVX_USE_MULTI_DEVICE", &envctrl);
-    if (envctrl == gcvNULL || envctrl[0] == '0')
+    if(envctrl == gcvNULL || envctrl[0] == '0')
     {
 
          gcOptions[gcvOPTION_OVX_USE_MULTI_DEVICES] = gcvFALSE;
@@ -308,7 +308,7 @@ _FillInOptions(
     }
     else  if(envctrl[0] == '1')/* VIV_MGPU_AFFINITY is INDEPENENT */
     {
-        if (mode != gcvMULTI_GPU_MODE_COMBINED)
+        if(mode != gcvMULTI_GPU_MODE_COMBINED)
         {
             gcOptions[gcvOPTION_OVX_USE_MULTI_DEVICES] = gcvTRUE;
         }
