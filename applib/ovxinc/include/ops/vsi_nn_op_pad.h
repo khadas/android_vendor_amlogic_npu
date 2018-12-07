@@ -27,7 +27,10 @@
 #include "vsi_nn_types.h"
 
 typedef enum {
-    VSI_NN_PAD_MODE_CONST,
+    VSI_NN_PAD_MODE_CONSTANT,
+    VSI_NN_PAD_MODE_REPLICATE,
+    VSI_NN_PAD_MODE_SYMMETRIC,
+    VSI_NN_PAD_MODE_REFLECT,
 }vsi_nn_pad_mode_e;
 
 typedef struct _vsi_nn_pad_param

@@ -29,6 +29,7 @@
 
 #define gcoMATH_MIN(X, Y) (((X) < (Y))?(X):(Y))
 #define gcoMATH_MAX(X, Y) (((X) > (Y))?(X):(Y))
+#define DIM_SIZE 4
 
 /*! if there are more than 1 kernel in solution
 the KERNEL_ENUM_LIBNNEXT_OFFSET must be modified keep different for any kernel
@@ -70,7 +71,11 @@ enum vx_kernel_libnnext_offset_e
     KERNEL_ENUM_SCALETOTENSOR,
     KERNEL_ENUM_GEMM,
     KERNEL_ENUM_LAYERNORM,
+    KERNEL_ENUM_LAYERNORMFP16TOU8_OFFSET,
     KERNEL_ENUM_REDUCE,
+    KERNEL_ENUM_INSTANCENORM,
+    KERNEL_ENUM_TENSORSTACKCONCAT,
+    KERNEL_ENUM_TENSORSTACKCONCAT8BITS_OFFSET,
 };
 
 //! [KERNEL NAME]
@@ -93,14 +98,19 @@ enum vx_kernel_libnnext_offset_e
 #define VX_KERNEL_NAME_PARAMETRICRELU                      "com.vivantecorp.extension.vxcParametricRelu"
 #define VX_KERNEL_NAME_PARAMETRICRELU_INT8                 "com.vivantecorp.extension.vxcParametricRelu_int8"
 #define VX_KERNEL_NAME_PARAMETRICRELU_INT8_OPT             "com.vivantecorp.extension.vxcParametricRelu_int8_opt"
+#define VX_KERNEL_NAME_PARAMETRICRELU_INT8_OPT1            "com.vivantecorp.extension.vxcParametricRelu_int8_opt1"
 #define VX_KERNEL_NAME_PARAMETRICRELU_INT8_FP16            "com.vivantecorp.extension.vxcParametricRelu_int8_fp16"
 #define VX_KERNEL_NAME_PARAMETRICRELU_INT16_INT16          "com.vivantecorp.extension.vxcParametricReluInt16_Int16"
 #define VX_KERNEL_NAME_PARAMETRICRELU_INT16_INT16_OPT      "com.vivantecorp.extension.vxcParametricReluInt16_Int16_opt"
+#define VX_KERNEL_NAME_PARAMETRICRELU_INT16_INT16_OPT1     "com.vivantecorp.extension.vxcParametricReluInt16_Int16_opt1"
 #define VX_KERNEL_NAME_PARAMETRICRELU_UINT8_UINT8          "com.vivantecorp.extension.vxcParametricReluUint8_Uint8"
+#define VX_KERNEL_NAME_PARAMETRICRELU_UINT8_2D             "com.vivantecorp.extension.vxcParametricRelu_uint8_2d"
 #define VX_KERNEL_NAME_PARAMETRICRELU_FP16_UINT8           "com.vivantecorp.extension.vxcParametricReluFp16_Uint8"
 #define VX_KERNEL_NAME_PARAMETRICRELU_FP16_INT16           "com.vivantecorp.extension.vxcParametricReluFp16_Int16"
 #define VX_KERNEL_NAME_PARAMETRICRELU_INT16_FP16           "com.vivantecorp.extension.vxcParametricReluInt16_Fp16"
 #define VX_KERNEL_NAME_PARAMETRICRELU_UINT8_FP16           "com.vivantecorp.extension.vxcParametricReluUint8_Fp16"
+#define VX_KERNEL_NAME_PARAMETRICRELU_UINT8_FP16_2D        "com.vivantecorp.extension.vxcParametricRelu_uint8tofp16_2d"
+#define VX_KERNEL_NAME_PARAMETRICRELU_FP16_INT8            "com.vivantecorp.extension.vxcParametricReluFp16_Int8"
 #define VX_KERNEL_NAME_PREBBOX                             "com.vivantecorp.extension.preBBoxVXC"
 #define VX_KERNEL_NAME_ADD_RELU_KERNEL                     "com.vivantecorp.extension.addRelu"
 #define VX_KERNEL_NAME_POOLING_WITH_ARGMAX                 "com.vivantecorp.extension.poolingWithArgmax"
@@ -116,6 +126,7 @@ enum vx_kernel_libnnext_offset_e
 #define VX_KERNEL_NAME_POOLING_WITH_ARGMAX_UINT8_FP16      "com.vivantecorp.extension.poolingWithArgmaxUint8_fp16_s2k2p0"
 #define VX_KERNEL_NAME_POOLING_WITH_ARGMAX_UINT8_FP16_FP16 "com.vivantecorp.extension.poolingWithArgmaxUint8_fp16_fp16_s2k2p0"
 #define VX_KERNEL_NAME_POOLING_WITH_ARGMAX_INT8_FP16       "com.vivantecorp.extension.poolingWithArgmaxInt8_fp16_s2k2p0"
+#define VX_KERNEL_NAME_POOLING_WITH_ARGMAX_UINT8_2D        "com.vivantecorp.extension.poolingWithArgmaxU8_s2k2p0_2D"
 #define VX_KERNEL_NAME_UNPOOLING                           "com.vivantecorp.extension.unpooling"
 #define VX_KERNEL_NAME_UNPOOLING_INT8                      "com.vivantecorp.extension.unpoolingInt8"
 #define VX_KERNEL_NAME_UNPOOLING_INT8_INT8                 "com.vivantecorp.extension.unpoolingInt8_Int8"
@@ -124,12 +135,16 @@ enum vx_kernel_libnnext_offset_e
 #define VX_KERNEL_NAME_UNPOOLING_INT16_INT16               "com.vivantecorp.extension.unpoolingInt16_Int16"
 #define VX_KERNEL_NAME_UNPOOLING_INT16_INT16_OPT           "com.vivantecorp.extension.unpoolingInt16_Int16_opt"
 #define VX_KERNEL_NAME_UNPOOLING_INT16_INT16_AXINT16       "com.vivantecorp.extension.unpoolingInt16_Int16_axI16"
+#define VX_KERNEL_NAME_UNPOOLING_INT16_FP16_AXINT16        "com.vivantecorp.extension.unpoolingInt16_Fp16_axI16"
 #define VX_KERNEL_NAME_UNPOOLING_INT16_FP16                "com.vivantecorp.extension.unpoolingInt16_Fp16"
 #define VX_KERNEL_NAME_UNPOOLING_FP16_UINT8                "com.vivantecorp.extension.unpoolingFp16_Uint8"
 #define VX_KERNEL_NAME_UNPOOLING_FP16_INT8                 "com.vivantecorp.extension.unpoolingFp16_Int8"
 #define VX_KERNEL_NAME_UNPOOLING_FP16_INT16                "com.vivantecorp.extension.unpoolingFp16_Int16"
 #define VX_KERNEL_NAME_UNPOOLING_FP16FP16_UINT8            "com.vivantecorp.extension.unpoolingFp16Fp16_Uint8"
 #define VX_KERNEL_NAME_UNPOOLING_UINT8_FP16                "com.vivantecorp.extension.unpoolingUint8_Fp16"
+#define VX_KERNEL_NAME_UNPOOLING_INT8_FP16                 "com.vivantecorp.extension.unpoolingInt8_Fp16"
+#define VX_KERNEL_NAME_UNPOOLING_UINT8_2D                  "com.vivantecorp.extension.unpoolingUint8_Uint8_2D"
+#define VX_KERNEL_NAME_UNPOOLING_FP16_UINT8_2D             "com.vivantecorp.extension.unpoolingFp16_Uint8_2D"
 #define VX_KERNEL_NAME_ARGMAX                              "com.vivantecorp.extension.argMaxVXC"
 #define VX_KERNEL_NAME_ARGMAX_INT8                         "com.vivantecorp.extension.argMaxVXCInt8"
 #define VX_KERNEL_NAME_ARGMAX_INT8_INT16                   "com.vivantecorp.extension.argMaxVXCInt8_Int16"
@@ -166,8 +181,17 @@ enum vx_kernel_libnnext_offset_e
 #define VX_KERNEL_NAME_SCALETOTENSOR_UINT8                 "com.vivantecorp.extension.ScaletoTensor_UInt8"
 #define VX_KERNEL_NAME_SCALETOTENSOR_UINT8_COPY            "com.vivantecorp.extension.ScaletoTensor_UInt8_copy"
 #define VX_KERNEL_NAME_GEMM                                "com.vivantecorp.extension.gemm_block4x4_fp16"
-#define VX_KERNEL_NAME_GEMM_TRANSED                        "com.vivantecorp.extension.gemm_transA_fp16"
+#define VX_KERNEL_NAME_GEMM_UINT8                          "com.vivantecorp.extension.gemm_block4x4_u8"
+#define VX_KERNEL_NAME_GEMM_FP16U8_Fp16                    "com.vivantecorp.extension.gemm_block4x4_fp16_u8_fp16"
+#define VX_KERNEL_NAME_GEMM_FP16U8_U8                      "com.vivantecorp.extension.gemm_block4x4_fp16_u8_u8"
 #define VX_KERNEL_NAME_LAYERNORM                           "com.vivantecorp.extension.vxcLayerNorm"
+#define VX_KERNEL_NAME_LAYERNORM_UINT8                     "com.vivantecorp.extension.vxcLayerNorm_u8"
+#define VX_KERNEL_NAME_LAYERNORM_FP16TOU8                  "com.vivantecorp.extension.vxcLayerNormFP16toU8"
+#define VX_KERNEL_NAME_INSTANCENORM                        "com.vivantecorp.extension.vxcInstanceNorm"
+#define VX_KERNEL_NAME_INSTANCENORM_UINT8                  "com.vivantecorp.extension.vxcInstanceNorm_U8"
+#define VX_KERNEL_NAME_INSTANCENORM_UINT8_FP16             "com.vivantecorp.extension.vxcInstanceNormU8_fp16"
+#define VX_KERNEL_NAME_TENSORSTACKCONCAT                   "com.vivantecorp.extension.vxcTensorStackConcat"
+#define VX_KERNEL_NAME_TENSORSTACKCONCAT8BITS              "com.vivantecorp.extension.vxcTensorStackConcat8Bits"
 
 /*! \brief The Example Library Set
  * \ingroup group_example_ext
@@ -219,7 +243,11 @@ enum vx_kernel_libnnext_ext_e
     VX_KERNEL_ENUM_SCALETOTENSOR        = VX_KERNEL_BASE(VX_ID_DEFAULT, VX_LIBRARY_LIBNNEXT) + KERNEL_ENUM_SCALETOTENSOR,
     VX_KERNEL_ENUM_GEMM                 = VX_KERNEL_BASE(VX_ID_DEFAULT, VX_LIBRARY_LIBNNEXT) + KERNEL_ENUM_GEMM,
     VX_KERNEL_ENUM_LAYERNORM            = VX_KERNEL_BASE(VX_ID_DEFAULT, VX_LIBRARY_LIBNNEXT) + KERNEL_ENUM_LAYERNORM,
+    VX_KERNEL_ENUM_LAYERNORM_FP16TOU8   = VX_KERNEL_BASE(VX_ID_DEFAULT, VX_LIBRARY_LIBNNEXT) + KERNEL_ENUM_LAYERNORMFP16TOU8_OFFSET,
     VX_KERNEL_ENUM_REDUCE               = VX_KERNEL_BASE(VX_ID_DEFAULT, VX_LIBRARY_LIBNNEXT) + KERNEL_ENUM_REDUCE,
+    VX_KERNEL_ENUM_INSTANCENORM         = VX_KERNEL_BASE(VX_ID_DEFAULT, VX_LIBRARY_LIBNNEXT) + KERNEL_ENUM_INSTANCENORM,
+    VX_KERNEL_ENUM_TENSORSTACKCONCAT    = VX_KERNEL_BASE(VX_ID_DEFAULT, VX_LIBRARY_LIBNNEXT) + KERNEL_ENUM_TENSORSTACKCONCAT,
+    VX_KERNEL_ENUM_TENSORSTACKCONCAT8BITS = VX_KERNEL_BASE(VX_ID_DEFAULT, VX_LIBRARY_LIBNNEXT) + KERNEL_ENUM_TENSORSTACKCONCAT8BITS_OFFSET,
     // up to 0xFFF kernel enums can be created.
 };
 

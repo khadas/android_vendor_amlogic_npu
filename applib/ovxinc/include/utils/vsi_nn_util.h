@@ -153,6 +153,13 @@ vsi_bool vsi_nn_CheckFilePath
     const char *path
     );
 
+void vsi_nn_GetFP32MultiAndPostShift
+    (
+    vx_float32 mult,
+    vx_uint16 *M0,
+    vx_int8 *N
+    );
+
 #ifdef __cplusplus
 }
 #endif

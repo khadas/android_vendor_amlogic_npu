@@ -26,6 +26,13 @@
 
 #include "vsi_nn_types.h"
 
+#define _VSI_NN_POOLWITHARGMAX_LOCAL_TENSOR_NUM 3
+
+typedef struct _vsi_nn_poolwithargmax_lcl_data
+{
+    vx_tensor   local_tensor[_VSI_NN_POOLWITHARGMAX_LOCAL_TENSOR_NUM];
+} vsi_nn_poolwithargmax_lcl_data;
+
 typedef struct _vsi_nn_pool_param
 {
     vsi_enum     type;
@@ -37,6 +44,8 @@ typedef struct _vsi_nn_pool_param
     uint32_t     pad[4];
     /* Pad type default value shall be AUTO */
     vsi_nn_pad_e pad_type;
+    /* poolwithargmax layer local data structure */
+    vsi_nn_poolwithargmax_lcl_data local;
 } vsi_nn_pool_param;
 
 #endif

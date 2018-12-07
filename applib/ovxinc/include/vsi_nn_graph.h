@@ -58,6 +58,7 @@ struct _vsi_nn_graph
         uint32_t          node_num;
     };
     uint32_t          max_node_num;
+    uint32_t          max_node_io;
     /* Inputs to the graph */
     struct
     {
@@ -146,6 +147,15 @@ void vsi_nn_GetTensors
     vsi_nn_tensor_id_t * tensors_id,
     uint32_t            num,
     vsi_nn_tensor_t   ** tensors
+    );
+
+vsi_nn_node_t * vsi_nn_AddNode
+    (
+    vsi_nn_graph_t      * graph,
+    vsi_nn_op_t           op,
+    uint32_t              input_num,
+    uint32_t              output_num,
+    vsi_nn_node_id_t    * node_id
     );
 
 vsi_nn_node_t * vsi_nn_AppendNode

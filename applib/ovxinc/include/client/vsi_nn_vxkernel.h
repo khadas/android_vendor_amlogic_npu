@@ -113,4 +113,17 @@ const char * vsi_nn_VxResourceGetResource
     char* name
     );
 
+const uint8_t * vsi_nn_VxBinResourceGetResource
+    (
+    char* name,
+    vx_size *len
+    );
+
+vx_kernel_type_e vsi_nn_GetVXKernelTypeForShader();
+
+vx_bool vsi_nn_is_do_vx_op_pre_init
+    (
+    vx_kernel_type_e type
+    );
+
 #endif

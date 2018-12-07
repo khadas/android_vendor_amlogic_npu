@@ -464,7 +464,7 @@ This define enables the use of VM for gckCommand and fence buffers.
         before it broadcasts the GPU is stuck.  In other words, it will define
         the timeout of any operation that needs to wait for the GPU.
 
-        If the value is 0, no timeout will be checked for.  20000 to 100
+        If the value is 0, no timeout will be checked for. 20000 to  100
 */
 #ifndef gcdGPU_TIMEOUT
 #   define gcdGPU_TIMEOUT                   100

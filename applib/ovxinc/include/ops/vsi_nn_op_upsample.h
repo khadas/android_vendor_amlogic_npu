@@ -26,10 +26,19 @@
 
 #include "vsi_nn_types.h"
 
+#define _VSI_NN_UPSAMPLE_LOCAL_TENSOR_NUM 3
+
+typedef struct _vsi_nn_upsample_lcl_data
+{
+    vx_tensor   local_tensor[_VSI_NN_POOLWITHARGMAX_LOCAL_TENSOR_NUM];
+} vsi_nn_upsample_lcl_data;
+
 typedef struct _vsi_nn_upsample_param
 {
     uint32_t   scale[2];
     uint32_t   size[2];
+    /* upsample layer local data structure */
+    vsi_nn_upsample_lcl_data local;
 } vsi_nn_upsample_param;
 
 #endif

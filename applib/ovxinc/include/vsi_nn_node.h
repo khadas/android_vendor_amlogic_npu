@@ -74,6 +74,13 @@ struct _vsi_nn_node
 /*------------------------------------
               Functions
   -----------------------------------*/
+vsi_nn_node_t * vsi_nn_NewNode
+    (
+    vsi_nn_graph_t * graph,
+    vsi_nn_op_t      op,
+    uint32_t         input_num,
+    uint32_t         output_num
+    );
 
 vsi_nn_node_t * vsi_nn_CreateNode
     (

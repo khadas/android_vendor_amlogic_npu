@@ -66,54 +66,60 @@
 #include "ops/vsi_nn_op_lstmunit.h"
 #include "ops/vsi_nn_op_layernormalize.h"
 #include "ops/vsi_nn_op_reduce.h"
+#include "ops/vsi_nn_op_softmax.h"
+#include "ops/vsi_nn_op_instancenormalize.h"
+#include "ops/vsi_nn_op_tensorstackconcat.h"
 
 typedef union _vsi_nn_nn_param
 {
     struct
     {
-        vsi_nn_conv2d_param conv2d;
-        vsi_nn_pool_param   pool;
+        vsi_nn_conv2d_param         conv2d;
+        vsi_nn_pool_param           pool;
     };
-    vsi_nn_fcl_param        fcl;
-    vsi_nn_activation_param activation;
-    vsi_nn_lrn_param        lrn;
-    vsi_nn_concat_param     concat;
-    vsi_nn_split_param      split;
-    vsi_nn_roi_pool_param   roi_pool;
-    vsi_nn_batch_norm_param batch_norm;
-    vsi_nn_multiply_param   multiply;
-    vsi_nn_proposal_param   proposal;
-    vsi_nn_deconv_param     deconv;
-    vsi_nn_reshape_param    reshape;
-    vsi_nn_permute_param    permute;
-    vsi_nn_upsample_param   upsample;
-    vsi_nn_resize_param     resize;
-    vsi_nn_lstm_param       lstm;
-    vsi_nn_reorg_param      reorg;
-    vsi_nn_l2normalizescale_param l2normalizescale;
-    vsi_nn_crop_param       crop;
-    vsi_nn_relun_param      relun;
-    vsi_nn_divide_param     divide;
-    vsi_nn_tanh_param       tanh;
-    vsi_nn_dropout_param    dropout;
-    vsi_nn_shufflechannel_param shufflechannel;
-    vsi_nn_prelu_param      prelu;
-    vsi_nn_elu_param        elu;
-    vsi_nn_reverse_param    reverse;
-    vsi_nn_space2depth_param space2depth;
-    vsi_nn_depth2space_param depth2space;
-    vsi_nn_eltwisemax_param eltwisemax;
-    vsi_nn_scale_param      scale;
-    vsi_nn_slice_param      slice;
-    vsi_nn_space2batch_param space2batch;
-    vsi_nn_batch2space_param batch2space;
-    vsi_nn_pad_param        pad;
-    vsi_nn_imageprocess_param imageprocess;
-    vsi_nn_matrixmul_param  matrixmul;
-    vsi_nn_lstmunit_param   lstmunit;
-    vsi_nn_layernormalize_param layernorm;
-    vsi_nn_reduce_param     reduce;
-    uint8_t                 client_param[128];
+    vsi_nn_fcl_param                fcl;
+    vsi_nn_activation_param         activation;
+    vsi_nn_lrn_param                lrn;
+    vsi_nn_concat_param             concat;
+    vsi_nn_split_param              split;
+    vsi_nn_roi_pool_param           roi_pool;
+    vsi_nn_batch_norm_param         batch_norm;
+    vsi_nn_multiply_param           multiply;
+    vsi_nn_proposal_param           proposal;
+    vsi_nn_deconv_param             deconv;
+    vsi_nn_reshape_param            reshape;
+    vsi_nn_permute_param            permute;
+    vsi_nn_upsample_param           upsample;
+    vsi_nn_resize_param             resize;
+    vsi_nn_lstm_param               lstm;
+    vsi_nn_reorg_param              reorg;
+    vsi_nn_l2normalizescale_param   l2normalizescale;
+    vsi_nn_crop_param               crop;
+    vsi_nn_relun_param              relun;
+    vsi_nn_divide_param             divide;
+    vsi_nn_tanh_param               tanh;
+    vsi_nn_dropout_param            dropout;
+    vsi_nn_shufflechannel_param     shufflechannel;
+    vsi_nn_prelu_param              prelu;
+    vsi_nn_elu_param                elu;
+    vsi_nn_reverse_param            reverse;
+    vsi_nn_space2depth_param        space2depth;
+    vsi_nn_depth2space_param        depth2space;
+    vsi_nn_eltwisemax_param         eltwisemax;
+    vsi_nn_scale_param              scale;
+    vsi_nn_slice_param              slice;
+    vsi_nn_space2batch_param        space2batch;
+    vsi_nn_batch2space_param        batch2space;
+    vsi_nn_pad_param                pad;
+    vsi_nn_imageprocess_param       imageprocess;
+    vsi_nn_matrixmul_param          matrixmul;
+    vsi_nn_lstmunit_param           lstmunit;
+    vsi_nn_layernormalize_param     layernorm;
+    vsi_nn_reduce_param             reduce;
+    vsi_nn_instancenormalize_param  instancenorm;
+    vsi_nn_tensorstackconcat_param  tensorstackconcat;
+    vsi_nn_softmax_param            softmax;
+    uint8_t                         client_param[128];
 } vsi_nn_nn_param_t;
 
 typedef struct _vsi_nn_vx_param

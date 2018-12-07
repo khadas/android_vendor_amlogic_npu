@@ -235,6 +235,14 @@ void vsi_nn_Free
     void * data
     );
 
+vx_tensor vsi_nn_CreateViewTensor
+    (
+    vsi_nn_graph_t *graph,
+    uint32_t *start,
+    uint32_t *end,
+    vsi_nn_tensor_t *tensor
+    );
+
 #ifdef __cplusplus
 }
 #endif
