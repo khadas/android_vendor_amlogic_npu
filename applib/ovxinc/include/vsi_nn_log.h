@@ -28,7 +28,7 @@ typedef enum _vsi_nn_log_level_e
 #define _LOG_( fmt, ... ) \
     vsi_nn_LogMsg(VSI_NN_LOG_DEBUG, "[%s:%d]" fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 
-void vsi_nn_LogMsg
+OVXLIB_API void vsi_nn_LogMsg
     (
     vsi_nn_log_level_e level,
     const char *fmt,

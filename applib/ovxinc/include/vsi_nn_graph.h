@@ -73,14 +73,14 @@ struct _vsi_nn_graph
     } output;
 };
 
-vsi_nn_graph_t * vsi_nn_CreateGraph
+OVXLIB_API vsi_nn_graph_t * vsi_nn_CreateGraph
     (
     vsi_nn_context_t ctx,
     uint32_t        tensor_num,
     uint32_t        node_num
     );
 
-void vsi_nn_ReleaseGraph
+OVXLIB_API void vsi_nn_ReleaseGraph
     (
     vsi_nn_graph_t ** graph
     );
@@ -88,7 +88,7 @@ void vsi_nn_ReleaseGraph
 /*
  * Create vx tensor and nodes.
  * */
-vsi_status vsi_nn_SetupGraph
+OVXLIB_API vsi_status vsi_nn_SetupGraph
     (
     vsi_nn_graph_t * graph,
     vsi_bool          sort
@@ -97,17 +97,17 @@ vsi_status vsi_nn_SetupGraph
 /*
  * Call vx verify graph.
  * */
-vsi_status vsi_nn_VerifyGraph
+OVXLIB_API vsi_status vsi_nn_VerifyGraph
     (
     vsi_nn_graph_t * graph
     );
 
-vsi_status vsi_nn_RunGraph
+OVXLIB_API vsi_status vsi_nn_RunGraph
     (
     vsi_nn_graph_t * graph
     );
 
-vsi_nn_tensor_id_t vsi_nn_AddTensor
+OVXLIB_API vsi_nn_tensor_id_t vsi_nn_AddTensor
     (
     vsi_nn_graph_t       * graph,
     vsi_nn_tensor_id_t     id,
@@ -116,32 +116,32 @@ vsi_nn_tensor_id_t vsi_nn_AddTensor
     uint8_t             * data
     );
 
-vsi_nn_tensor_id_t vsi_nn_AttachTensorToGraph
+OVXLIB_API vsi_nn_tensor_id_t vsi_nn_AttachTensorToGraph
     (
     vsi_nn_graph_t       * graph,
     vsi_nn_tensor_id_t     id,
     vsi_nn_tensor_t      * tensor
     );
 
-void vsi_nn_DeleteTensor
+OVXLIB_API void vsi_nn_DeleteTensor
     (
     vsi_nn_graph_t       * graph,
     vsi_nn_tensor_id_t     id
     );
 
-vsi_nn_tensor_t * vsi_nn_GetTensor
+OVXLIB_API vsi_nn_tensor_t * vsi_nn_GetTensor
     (
     vsi_nn_graph_t   * graph,
     vsi_nn_tensor_id_t tensor_id
     );
 
-vsi_nn_node_t * vsi_nn_GetNode
+OVXLIB_API vsi_nn_node_t * vsi_nn_GetNode
     (
     vsi_nn_graph_t   * graph,
     vsi_nn_node_id_t   id
     );
 
-void vsi_nn_GetTensors
+OVXLIB_API void vsi_nn_GetTensors
     (
     vsi_nn_graph_t     * graph,
     vsi_nn_tensor_id_t * tensors_id,
@@ -149,7 +149,7 @@ void vsi_nn_GetTensors
     vsi_nn_tensor_t   ** tensors
     );
 
-vsi_nn_node_t * vsi_nn_AddNode
+OVXLIB_API vsi_nn_node_t * vsi_nn_AddNode
     (
     vsi_nn_graph_t      * graph,
     vsi_nn_op_t           op,
@@ -158,39 +158,39 @@ vsi_nn_node_t * vsi_nn_AddNode
     vsi_nn_node_id_t    * node_id
     );
 
-vsi_nn_node_t * vsi_nn_AppendNode
+OVXLIB_API vsi_nn_node_t * vsi_nn_AppendNode
     (
     vsi_nn_graph_t      * graph,
     vsi_nn_op_t           op,
     vsi_nn_node_id_t    * node_id
     );
 
-vsi_bool vsi_nn_SetGraphInputs
+OVXLIB_API vsi_bool vsi_nn_SetGraphInputs
     (
     vsi_nn_graph_t      * graph,
     vsi_nn_tensor_id_t  * tensors_id,
     uint32_t             tensor_num
     );
 
-vsi_bool vsi_nn_SetGraphOutputs
+OVXLIB_API vsi_bool vsi_nn_SetGraphOutputs
     (
     vsi_nn_graph_t      * graph,
     vsi_nn_tensor_id_t  * tensors_id,
     uint32_t             tensor_num
     );
 
-void vsi_nn_RemoveNode
+OVXLIB_API void vsi_nn_RemoveNode
     (
     vsi_nn_graph_t      * graph,
     vsi_nn_node_id_t      id
     );
 
-vsi_nn_node_id_t * vsi_nn_SortGraphNode
+OVXLIB_API vsi_nn_node_id_t * vsi_nn_SortGraphNode
     (
     vsi_nn_graph_t * graph
     );
 
-uint32_t vsi_nn_GetNodesByUids
+OVXLIB_API uint32_t vsi_nn_GetNodesByUids
     (
     vsi_nn_graph_t   * graph,
     uint32_t        * node_uids,
@@ -199,7 +199,7 @@ uint32_t vsi_nn_GetNodesByUids
     uint32_t          nodes_num
     );
 
-void vsi_nn_DumpGraphNodeOutputs
+OVXLIB_API void vsi_nn_DumpGraphNodeOutputs
     (
     vsi_nn_graph_t * graph,
     const char     * path,
@@ -209,9 +209,25 @@ void vsi_nn_DumpGraphNodeOutputs
     vsi_nn_dim_fmt_e data_fmt
     );
 
-void vsi_nn_PrintGraph
+OVXLIB_API void vsi_nn_DumpGraphNodeOutputsEx
+    (
+    vsi_nn_graph_t * graph,
+    const char     * path,
+    const char     * prefix,
+    uint32_t       * node_uids,
+    uint32_t         node_uids_size,
+    vsi_bool         force_fp32,
+    vsi_nn_dim_fmt_e data_fmt
+    );
+
+OVXLIB_API void vsi_nn_PrintGraph
     (
     vsi_nn_graph_t * graph
+    );
+
+OVXLIB_API void vsi_nn_DumpGraphToJson
+    (
+    vsi_nn_graph_t *graph
     );
 
 #ifdef __cplusplus

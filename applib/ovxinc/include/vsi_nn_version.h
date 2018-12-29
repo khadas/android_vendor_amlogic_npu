@@ -26,10 +26,10 @@
 
 #define VSI_NN_VERSION_MAJOR 1
 #define VSI_NN_VERSION_MINOR 0
-#define VSI_NN_VERSION_PATCH 8
+#define VSI_NN_VERSION_PATCH 9
 #define VSI_NN_VERSION \
     (VSI_NN_VERSION_MAJOR * 10000 + VSI_NN_VERSION_MINOR * 100 + VSI_NN_VERSION_PATCH)
 
-const char *vsi_nn_GetVersion(void);
+OVXLIB_API const char *vsi_nn_GetVersion(void);
 
 #endif

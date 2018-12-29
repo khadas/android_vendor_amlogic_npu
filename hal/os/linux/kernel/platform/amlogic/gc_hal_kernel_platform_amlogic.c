@@ -85,7 +85,7 @@ module_param(hardwareResetNum, int, 0644);
 static gceSTATUS _CmaAlloc(struct platform_device *pdev,gctSIZE_T NumPages,unsigned long *pmem)
 {
 	struct page *nano_pages;
-
+	
 	nano_pages = dma_alloc_from_contiguous(&pdev->dev,NumPages, 0);
 	if(nano_pages == NULL)
 	{
@@ -96,48 +96,49 @@ static gceSTATUS _CmaAlloc(struct platform_device *pdev,gctSIZE_T NumPages,unsig
 	{
 		*pmem = page_to_phys(nano_pages);
 	}
-	return gcvSTATUS_OK;
+    return gcvSTATUS_OK;	
 }
 
 static gceSTATUS _DmaAlloc(struct platform_device *pdev,gctSIZE_T memsize,dma_addr_t *pmem)
 {
 	u32 gfp = GFP_KERNEL | gcdNOWARN;
-
+	
 	dma_alloc_coherent(&pdev->dev, memsize, pmem, gfp);
 	if(pmem == NULL)
 	{
 		printk("dma_alloc_from contiguous fail\n");
 		return gcvSTATUS_OUT_OF_MEMORY;
 	}
-	return gcvSTATUS_OK;
+
+    return gcvSTATUS_OK;	
 }
 */
 
 gceSTATUS _AdjustParam(IN gcsPLATFORM *Platform,OUT gcsMODULE_PARAMETERS *Args)
 {
-	struct platform_device *pdev = Platform->device;
+    struct platform_device *pdev = Platform->device;
 	struct resource *res;
-	int irqLine = platform_get_irq_byname(pdev, "galcore");
+    int irqLine = platform_get_irq_byname(pdev, "galcore");
 	//dma_addr_t dma_start = 0;
 	//gceSTATUS ret;
-	printk("galcore irq number is %d.\n", irqLine);
-	if (irqLine < 0) {
-		printk("get galcore irq resource error\n");
-		irqLine = platform_get_irq(pdev, 0);
-		printk("galcore irq number is %d\n", irqLine);
-	}
-	if (irqLine < 0) return gcvSTATUS_OUT_OF_RESOURCES;
-	Args->irqs[gcvCORE_MAJOR] = irqLine;
-	/*================read reg value from dts===============*/
+    printk("galcore irq number is %d.\n", irqLine);
+    if (irqLine < 0) {
+        printk("get galcore irq resource error\n");
+        irqLine = platform_get_irq(pdev, 0);
+        printk("galcore irq number is %d\n", irqLine);
+    }
+    if (irqLine < 0) return gcvSTATUS_OUT_OF_RESOURCES;
+    Args->irqs[gcvCORE_MAJOR] = irqLine;
+    /*================read reg value from dts===============*/
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (res)
+	if (res) 
 	{
 		//printk("reg resource 0,start:%ld,end:%ld",(unsigned long)res->start,(unsigned long)res->end);
 		Args->registerBases[0] = (gctPHYS_ADDR_T)res->start;
 		Args->registerSizes[0] = (gctSIZE_T)(res->end - res->start+1);
 		printk("read from dts,regbase:0x%llx,size:0x%lx\n",Args->registerBases[0],Args->registerSizes[0]);
-	}
-	else
+	} 
+	else 
 	{
 		printk("no memory resource 0\n");
 		Args->registerBases[0] = 0xFF100000;
@@ -145,7 +146,7 @@ gceSTATUS _AdjustParam(IN gcsPLATFORM *Platform,OUT gcsMODULE_PARAMETERS *Args)
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (res)
+	if (res) 
 	{
 		//printk("reg resource 1,start:%ld,end:%ld",(unsigned long)res->start,(unsigned long)res->end);
 		Args->sRAMBases[0][0] = 0xFFFFFFFF;
@@ -163,8 +164,8 @@ gceSTATUS _AdjustParam(IN gcsPLATFORM *Platform,OUT gcsMODULE_PARAMETERS *Args)
 				printk("contiguousBase use from cma,page size is %ld\n",Args->contiguousSize/PAGE_SIZE);
 			}
 		}*/
-	}
-	else
+	} 
+	else 
 	{
 		printk("no memory resource 1\n");
 		Args->contiguousBase = 0;
@@ -172,7 +173,7 @@ gceSTATUS _AdjustParam(IN gcsPLATFORM *Platform,OUT gcsMODULE_PARAMETERS *Args)
 		Args->sRAMBases[0][0] = 0xFFFFFFFF;
 		Args->sRAMBases[0][1] = 0xFF000000;
 		Args->sRAMBases[0][2] = 0xFFFFFFFF;
-	}
+	}	
 	Args->registerSizes[0] = 0x20000;
     return gcvSTATUS_OK;
 }
@@ -181,10 +182,11 @@ int _RegWrite(unsigned int reg, unsigned int writeval)
 {
 	void __iomem *vaddr;
 	reg = round_down(reg, 0x3);
-
+	
 	vaddr = ioremap(reg, 0x4);
 	writel(writeval, vaddr);
 	iounmap(vaddr);
+	
 	return 0;
 }
 
@@ -222,7 +224,7 @@ static void set_clock(struct platform_device *pdev)
 		clk_prepare_enable(npu_axi_clk);
 	}
 	clk_set_rate(npu_axi_clk, MAX_NANOQ_FREQ);
-
+	
 	npu_core_clk = clk_get(&pdev->dev, "cts_vipnanoq_core_clk_composite");
 	if (IS_ERR(npu_core_clk))
 	{
@@ -249,13 +251,14 @@ gceSTATUS _GetPower(IN gcsPLATFORM *Platform)
 	_RegWrite(HHI_NANOQ_MEM_PD_REG1, 0x0);
 	set_clock(Platform->device);
 	delay(500);
-	return gcvSTATUS_OK;
+    return gcvSTATUS_OK;
 }
 
 gceSTATUS _Reset(IN gcsPLATFORM * Platform, IN gceCORE GPU)
 {
 	unsigned int readReg=0;
-	printk("====>>>>npu hardware reset!\n");
+
+	printk("====>>>>begin npu hardware reset!\n");
 	_RegWrite(RESET_LEVEL2, 0xffffefff);
 	_RegWrite(HHI_NANOQ_MEM_PD_REG0, 0xffffffff);
 	_RegWrite(HHI_NANOQ_MEM_PD_REG1, 0xffffffff);
@@ -278,18 +281,20 @@ gceSTATUS _Reset(IN gcsPLATFORM * Platform, IN gceCORE GPU)
 	mdelay(10);
 	_RegWrite(RESET_LEVEL2, 0xffffffff);
 	mdelay(20);
+	printk("====>>>>npu hardware reset end!\n");
 	hardwareResetNum++;
 	if (hardwareResetNum > 10000)
 	{
 		printk("hardwareResetNum is too large over 10000,just set zero\n");
 		hardwareResetNum = 0;
 	}
-	return gcvSTATUS_NOT_SUPPORTED;
+
+    return gcvSTATUS_NOT_SUPPORTED;
 }
 
 static gcsPLATFORM_OPERATIONS default_ops =
 {
-	.adjustParam   = _AdjustParam,
+    .adjustParam   = _AdjustParam,
 	.getPower  = _GetPower,
 	.reset = _Reset,
 };
@@ -315,7 +320,7 @@ int gckPLATFORM_Init(struct platform_driver *pdrv, gcsPLATFORM **platform)
     pdrv->driver.of_match_table = galcore_dev_match;
 
     *platform = &default_platform;
-    /*  default_dev = platform;  hot plug just not support  */
+	/*  default_dev = platform;  hot plug just not support  */
     return 0;
 }
 

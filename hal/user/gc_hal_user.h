@@ -455,6 +455,18 @@ gcoHARDWARE_Construct(
     OUT gcoHARDWARE * Hardware
     );
 
+gceSTATUS
+gcoHARDWARE_ConstructEx(
+    IN gcoHAL Hal,
+    IN gctBOOL ThreadDefault,
+    IN gctBOOL Robust,
+    IN gceHARDWARE_TYPE Type,
+    IN gctUINT32    AttachGpuCount,
+    IN gctUINT32    CoreIndexs[],
+    OUT gcoHARDWARE * Hardware
+    );
+
+
 /* Destroy an gcoHARDWARE object. */
 gceSTATUS
 gcoHARDWARE_Destroy(
@@ -581,6 +593,12 @@ gcoHARDWARE_LoadStateX(
     IN gctUINT32 Address,
     IN gctUINT32 Count,
     IN gctPOINTER States
+    );
+
+gceSTATUS
+gcoHARDWARE_McfeSubmitJob(
+    IN gcoHARDWARE Hardware,
+    IN gctPOINTER *Memory
     );
 #endif
 
@@ -718,6 +736,13 @@ gcoHARDWARE_SelectChannel(
     IN gcoHARDWARE Hardware,
     IN gctBOOL Priority,
     IN gctUINT32 ChannelId
+    );
+
+gceSTATUS
+gcoHARDWARE_GetChannelInfo(
+    IN gcoHARDWARE Hardware,
+    OUT gctBOOL *Priority,
+    OUT gctUINT32 *ChannelId
     );
 
 gceSTATUS
@@ -2917,8 +2942,6 @@ typedef struct _vx_drv_option
     gctUINT enableTPInterleave8;
     gctUINT enableTPRTNE;
     gctUINT enableShader;
-    gctUINT enableNNInt16Alu;
-    gctUINT enableTfQuant;
     gctUINT enableNNXYDP9;
     gctUINT enableNNXYDP6;
     gctUINT enableSwtilingPhase1;
@@ -2926,6 +2949,7 @@ typedef struct _vx_drv_option
     gctUINT enableSwtilingPhase3;
     gctUINT enableHandleBranch; /*merge more branches to use AB Buffer for SWTiling for arch model*/
     gctUINT enableNNFirstPixelPooling;
+    gctUINT enableNNDepthWiseSupport;
     gctUINT enablePrintOperaTarget;
     gctUINT enableSaveBinary;
     gctUINT enableGraphCommandBuffer;
@@ -2963,6 +2987,7 @@ typedef struct _vx_drv_option
     gctUINT enableGraphWAR7;
     gctUINT enableGraphMerge;
     gctUINT enableGraphDump;
+    gctUINT enableGraphConvertAvgPool2Conv;
     gctUINT enableGraphOptimizationToTest;
     gctUINT enableGraphConvertBatchFC2NNConv;
     gctUINT freqInMHZ;
@@ -2971,6 +2996,9 @@ typedef struct _vx_drv_option
     gctUINT enableHuffmanEnhancement;
     gctUINT enableTPHuffman;
     gctUINT enableMultiVIPCombined;
+    gctUINT enableVectorPrune;
+    gctUINT enableYUV2RGBScaler;
+    gctUINT enableVIPDEC400;
 }
 vx_drv_option;
 
@@ -2978,8 +3006,6 @@ typedef union _vx_nn_cmd_info_union
 {
     struct _vx_nn_general_cmd_info
     {
-
-
         gctUINT32 kernelAddress;
         gctUINT32 kernelXSize;
         gctUINT32 kernelYSize;
@@ -3049,6 +3075,7 @@ typedef union _vx_nn_cmd_info_union
         gctUINT8  outImageDataTypeMsb;
         gctUINT8  outImageCacheEvictPolicy;
         gctUINT32 noFlush;
+        gctUINT8  hwDepthWise;
     }
     vx_nn_general_cmd_info;
 
@@ -3152,6 +3179,44 @@ typedef union _vx_nn_cmd_info_union
         gctUINT32 physical;
     }
     vx_nn_image_cmd_info;
+
+    struct _vx_yuv2rgb_scaler_cmd_info
+    {
+        gctUINT32 inImageBaseY;
+        gctUINT32 inImageBaseU;
+        gctUINT32 inImageBaseV;
+        gctUINT16 inRectX;
+        gctUINT16 inRectY;
+        gctUINT16 inRectWidth;
+        gctUINT16 inRectHeight;
+        gctUINT16 inImageWidth;
+        gctUINT16 inImageHeight;
+        gctUINT16 inImageStrideY;
+        gctUINT32 outImageBaseR;
+        gctUINT32 outImageBaseG;
+        gctUINT32 outImageBaseB;
+        gctUINT16 outImageWidth;
+        gctUINT16 outImageHeight;
+        gctUINT16 outImageStride;
+        gctUINT16 outImageBitsSize;
+        gctUINT32 scaleX;
+        gctUINT32 scaleY;
+        gctUINT16 inImageInitErrX;
+        gctUINT16 inImageInitErrY;
+        gctUINT8  yOnly;
+        gctUINT8  outSigned;
+        gctUINT8  postShift;
+        gctUINT16 c0;
+        gctUINT16 c1;
+        gctUINT16 c2;
+        gctUINT16 c3;
+        gctUINT16 c4;
+        gctINT32  c5;
+        gctINT32  c6;
+        gctINT32  c7;
+        gctUINT32 outRequestCount;
+    }
+    vx_yuv2rgb_scaler_cmd_info;
 }
 vx_nn_cmd_info_u;
 
@@ -3381,6 +3446,15 @@ gcoHARDWAREVX_SetRemapAddress(
     IN gctUINT32 remapEnd,
     IN gceVX_REMAP_TYPE remapType
 );
+
+gceSTATUS
+gcoHARDWAREVX_YUV2RGBScale(
+    IN gcoHARDWARE Hardware,
+    IN gctPOINTER Info,
+    IN gctUINT32  gpuId,
+    IN gctBOOL    mGpuSync
+    );
+
 #if GC_VX_ASM
 gceSTATUS
 gcoHARDWAREVX_GenerateMC(
@@ -3407,7 +3481,6 @@ gcoHARDWAREVX_CaptureState(
     IN gctBOOL Enabled,
     IN gctBOOL dropCommandEnabled
     );
-
 
 #endif
 
@@ -3566,6 +3639,13 @@ gcoBUFFER_SelectChannel(
     IN gcoBUFFER Buffer,
     IN gctBOOL Priority,
     IN gctUINT32 ChannelId
+    );
+
+gceSTATUS
+gcoBUFFER_GetChannelInfo(
+    IN gcoBUFFER Buffer,
+    OUT gctBOOL *Priority,
+    OUT gctUINT32 *ChannelId
     );
 
 gceSTATUS

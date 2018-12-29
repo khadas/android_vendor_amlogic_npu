@@ -26,7 +26,7 @@
 
 #include "vsi_nn_types.h"
 
-void vsi_nn_TypeGetRange
+OVXLIB_API void vsi_nn_TypeGetRange
     (
     vsi_nn_type_e type,
     double  * max_range,

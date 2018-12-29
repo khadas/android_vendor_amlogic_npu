@@ -26,7 +26,7 @@
 
 #include "vsi_nn_types.h"
 
-vsi_status vsi_nn_QuantDFPCalParam
+OVXLIB_API vsi_status vsi_nn_QuantDFPCalParam
     (
     vsi_nn_type_e dtype,
     float    max_data,
@@ -34,7 +34,7 @@ vsi_status vsi_nn_QuantDFPCalParam
     int8_t     * fl
     );
 
-vsi_bool vsi_nn_QuantDFPCheck
+OVXLIB_API vsi_bool vsi_nn_QuantDFPCheck
     (
     vsi_nn_tensor_t *input,
     vsi_nn_tensor_t *weight,

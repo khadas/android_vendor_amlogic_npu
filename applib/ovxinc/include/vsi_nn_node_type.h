@@ -69,6 +69,8 @@
 #include "ops/vsi_nn_op_softmax.h"
 #include "ops/vsi_nn_op_instancenormalize.h"
 #include "ops/vsi_nn_op_tensorstackconcat.h"
+#include "ops/vsi_nn_op_strided_slice.h"
+#include "ops/vsi_nn_op_signalframe.h"
 
 typedef union _vsi_nn_nn_param
 {
@@ -119,6 +121,8 @@ typedef union _vsi_nn_nn_param
     vsi_nn_instancenormalize_param  instancenorm;
     vsi_nn_tensorstackconcat_param  tensorstackconcat;
     vsi_nn_softmax_param            softmax;
+    vsi_nn_strided_slice_param      strided_slice;
+    vsi_nn_signalframe_param        signalframe;
     uint8_t                         client_param[128];
 } vsi_nn_nn_param_t;
 

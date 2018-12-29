@@ -46,23 +46,23 @@
               Functions
   -----------------------------------*/
 
-vsi_bool vsi_nn_OpIsRegistered
+OVXLIB_API vsi_bool vsi_nn_OpIsRegistered
     (
     vsi_nn_op_t op
     );
 
-vsi_bool vsi_nn_OpRegisterClient
+OVXLIB_API vsi_bool vsi_nn_OpRegisterClient
     (
     vsi_nn_op_t op,
     vsi_nn_op_proc_t * proc
     );
 
-vsi_nn_op_proc_t * vsi_nn_OpGetClient
+OVXLIB_API vsi_nn_op_proc_t * vsi_nn_OpGetClient
     (
     vsi_nn_op_t op
     );
 
-void vsi_nn_OpRemoveClient
+OVXLIB_API void vsi_nn_OpRemoveClient
     (
     vsi_nn_op_t op
     );

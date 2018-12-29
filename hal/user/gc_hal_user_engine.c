@@ -95,6 +95,7 @@ gco3D_Construct(
     gco3D engine = gcvNULL;
     gceSTATUS status;
     gctPOINTER pointer = gcvNULL;
+    gctUINT32  coreIndex;
 
     gcmHEADER();
 
@@ -130,6 +131,12 @@ gco3D_Construct(
 
     /* Construct hardware object for this engine */
     gcmONERROR(gcoHARDWARE_Construct(Hal, gcvFALSE, Robust, &engine->hardware));
+
+    /* ES construct hardware will query VIV_MGPU_AFFINITY
+    and we need  keep the TLS->currentCoreIndex same with VIV_MGPU_AFFINITY attri
+    */
+    gcmONERROR(gcoHARDWARE_QueryCoreIndex(engine->hardware, 0, &coreIndex));
+    gcmONERROR(gcoHAL_SetCoreIndex(gcvNULL, coreIndex));
     gcmONERROR(gcoHARDWARE_SelectPipe(engine->hardware, gcvPIPE_3D, gcvNULL));
     gcmONERROR(gcoHARDWARE_InvalidateCache(engine->hardware));
     /* Initialize 3D hardware. */
@@ -5922,7 +5929,7 @@ gco3D_Set3DEngine(
 {
      gceSTATUS status;
      gcsTLS_PTR tls;
-
+     gctUINT32 coreIndex;
      gcmHEADER();
 
      /* Verify the arguments. */
@@ -5937,6 +5944,12 @@ gco3D_Set3DEngine(
 
      /* Set this engine's hardware object to be current one */
      gcmONERROR(gcoHARDWARE_Set3DHardware(Engine->hardware));
+
+     /*
+      For ES ,We need  keep the TLS->currentCoreIndex same with VIV_MGPU_AFFINITY attri
+     */
+    gcmONERROR(gcoHARDWARE_QueryCoreIndex(Engine->hardware, 0, &coreIndex));
+    gcmONERROR(gcoHAL_SetCoreIndex(gcvNULL, coreIndex));
 
      /* Success. */
      gcmFOOTER_NO();

@@ -26,7 +26,7 @@
 
 #include "vsi_nn_node.h"
 
-void vsi_nn_apply_node_attr_template(vsi_nn_node_t * node);
+OVXLIB_API void vsi_nn_apply_node_attr_template(vsi_nn_node_t * node);
 
 #endif
 

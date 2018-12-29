@@ -127,7 +127,7 @@ typedef struct _vsi_nn_cmupose_config_t
     vsi_nn_cmupose_image_t  image;
 }vsi_nn_cmupose_config_t;
 
-vsi_status vsi_nn_CMUPose_Post_Process
+OVXLIB_API vsi_status vsi_nn_CMUPose_Post_Process
     (
     float *net_out,
     vsi_nn_cmupose_config_t *config,
@@ -138,7 +138,7 @@ vsi_status vsi_nn_CMUPose_Post_Process
     uint32_t *peak_candidate_num_out
     );
 
-vsi_status vsi_nn_CMUPose_PostProcess
+OVXLIB_API vsi_status vsi_nn_CMUPose_PostProcess
     (
     vsi_nn_graph_t *graph,
     vsi_nn_cmupose_inputs_t *inputs,

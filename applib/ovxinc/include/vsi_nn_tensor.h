@@ -52,8 +52,6 @@ typedef enum
     VSI_NN_QNT_TYPE_NA = 0xff,
 } vsi_nn_qnt_type_e;
 
-typedef uint32_t  vsi_nn_tensor_id_t;
-
 typedef struct vsi_nn_dtype
 {
     vsi_nn_dim_fmt_e  fmt;
@@ -97,6 +95,26 @@ struct _vsi_nn_tensor
     /* Optimized weight bias tensor */
     vx_weights_biases_parameter wb;
 };
+
+typedef struct _vsi_nn_tensor_rel_table
+{
+    vsi_nn_node_id_t node;
+    uint32_t         index;
+}vsi_nn_tensor_rel_table_t;
+
+typedef struct _vsi_nn_tensor_rel
+{
+    struct
+    {
+        vsi_nn_tensor_rel_table_t *table;
+        uint32_t                   num;
+    } input;
+    struct
+    {
+        vsi_nn_tensor_rel_table_t *table;
+        uint32_t                   num;
+    } output;
+}vsi_nn_tensor_rel_t;
 
 #endif
 

@@ -47,19 +47,19 @@ extern "C" {
                   Functions
 -------------------------------------------*/
 
-uint8_t * vsi_nn_LoadBinaryData
+OVXLIB_API uint8_t * vsi_nn_LoadBinaryData
     (
     const char * filename,
     uint32_t  * sz
     );
 
-uint32_t vsi_nn_GetStrideSize
+OVXLIB_API uint32_t vsi_nn_GetStrideSize
     (
     vsi_nn_tensor_attr_t * attr,
     uint32_t            * stride
     );
 
-uint32_t vsi_nn_GetStrideSizeBySize
+OVXLIB_API uint32_t vsi_nn_GetStrideSizeBySize
     (
     uint32_t   * size,
     uint32_t     dim_num,
@@ -67,25 +67,25 @@ uint32_t vsi_nn_GetStrideSizeBySize
     uint32_t   * stride
     );
 
-uint32_t vsi_nn_GetTotalBytesBySize
+OVXLIB_API uint32_t vsi_nn_GetTotalBytesBySize
     (
     uint32_t   * size,
     uint32_t     dim_num,
     vsi_nn_type_e type
     );
 
-float vsi_nn_DataAsFloat32
+OVXLIB_API float vsi_nn_DataAsFloat32
     (
     uint8_t    * data,
     vsi_nn_type_e type
     );
 
-void vsi_nn_UpdateTensorDims
+OVXLIB_API void vsi_nn_UpdateTensorDims
     (
     vsi_nn_tensor_attr_t * attr
     );
 
-uint32_t vsi_nn_ComputeFilterSize
+OVXLIB_API uint32_t vsi_nn_ComputeFilterSize
     (
     uint32_t   i_size,
     uint32_t   ksize,
@@ -95,13 +95,13 @@ uint32_t vsi_nn_ComputeFilterSize
     vsi_nn_round_type_e rounding
     );
 
-void vsi_nn_InitTensorsId
+OVXLIB_API void vsi_nn_InitTensorsId
     (
     vsi_nn_tensor_id_t * ids,
     int                  num
     );
 
-void vsi_nn_ComputePadWithPadType
+OVXLIB_API void vsi_nn_ComputePadWithPadType
     (
     uint32_t   * in_shape,
     uint32_t     in_dim_num,
@@ -112,13 +112,13 @@ void vsi_nn_ComputePadWithPadType
     uint32_t   * out_pad
     );
 
-void vsi_nn_GetPadForOvx
+OVXLIB_API void vsi_nn_GetPadForOvx
     (
     uint32_t * in_pad,
     uint32_t * out_pad
     );
 
-vsi_bool vsi_nn_CreateTensorGroup
+OVXLIB_API vsi_bool vsi_nn_CreateTensorGroup
     (
     vsi_nn_graph_t  *  graph,
     vsi_nn_tensor_t *  in_tensor,
@@ -127,7 +127,7 @@ vsi_bool vsi_nn_CreateTensorGroup
     uint32_t          group_number
     );
 
-uint32_t vsi_nn_ShapeToString
+OVXLIB_API uint32_t vsi_nn_ShapeToString
     (
     uint32_t * shape,
     uint32_t   dim_num,
@@ -136,24 +136,24 @@ uint32_t vsi_nn_ShapeToString
     vsi_bool     for_print
     );
 
-int32_t vsi_nn_Access
+OVXLIB_API int32_t vsi_nn_Access
     (
     const char *path,
     int32_t mode
     );
 
-int32_t vsi_nn_Mkdir
+OVXLIB_API int32_t vsi_nn_Mkdir
     (
     const char *path,
     int32_t mode
     );
 
-vsi_bool vsi_nn_CheckFilePath
+OVXLIB_API vsi_bool vsi_nn_CheckFilePath
     (
     const char *path
     );
 
-void vsi_nn_GetFP32MultiAndPostShift
+OVXLIB_API void vsi_nn_GetFP32MultiAndPostShift
     (
     vx_float32 mult,
     vx_uint16 *M0,

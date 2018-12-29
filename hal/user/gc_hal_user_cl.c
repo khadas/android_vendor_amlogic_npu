@@ -228,6 +228,13 @@ gcoCL_AllocateMemory(
                                 Physical,
                                 Logical));
 
+    gcmDUMP(gcvNULL, "#[info: initialize OCL node memory at create time]");
+    gcmDUMP_BUFFER(gcvNULL,
+                   gcvDUMP_BUFFER_MEMORY,
+                   *Physical,
+                   *Logical,
+                   0,
+                   node->size);
     if (gcoHAL_GetOption(gcvNULL, gcvOPTION_OCL_ASYNC_BLT) &&
         gcoHARDWARE_IsFeatureAvailable(gcvNULL, gcvFEATURE_ASYNC_BLIT))
     {
@@ -1503,38 +1510,107 @@ OnError:
     return status;
 }
 
+
+  /*  Three modes for openCL
+   *      1. combined mode, one device use all gpucore.
+   *         VIV_MGPU_AFFINITY=0, default mode
+   *      2. independent mode, one device use one gpucore
+   *         VIV_MGPU_AFFINITY=1:0 or 1:1,
+   *      3. mulit-device mode, mulit device ,and every device will use one or more gpu count.
+   *         this mode only work on independent mode.
+   *         VIV_MGPU_AFFINITY=1:0
+   *         VIV_OCL_USE_MULTI_DEVICE=1 or 1:1, 1:2,1:4, 1:2 means multi-device is enable, and every
+   *         device will use 2 gpu core.
+   *
+   */
+
 gceSTATUS
 gcoCL_QueryDeviceCount(
-    OUT gctUINT32 * Count
+    OUT gctUINT32 * DeviceCount,
+    OUT gctUINT32 * GPUCountPerDevice
     )
 {
     gctUINT chipIDs[32];
     gceMULTI_GPU_MODE mode;
     gctUINT coreIndex;
-    gcmHEADER();
+    gctSTRING attr;
+    gctUINT32 gpuCount;
+    static gctUINT gpuCountPerDevice = 1, deviceCount = 1;
+    static gctBOOL queriedOnce = gcvFALSE;
 
-    /* Verify the arguments. */
-    gcmDEBUG_VERIFY_ARGUMENT(Count != gcvNULL);
-
-    gcoHAL_QueryCoreCount(gcvNULL, gcvHARDWARE_3D, Count, chipIDs);
-
-    if (*Count == 0)
+    if(queriedOnce)
     {
-        gcoHAL_QueryCoreCount(gcvNULL, gcvHARDWARE_3D2D, Count, chipIDs);
+        if(DeviceCount) *DeviceCount = deviceCount;
+        if(GPUCountPerDevice) *GPUCountPerDevice = gpuCountPerDevice;
+
+        return gcvSTATUS_OK;
+    }
+
+    queriedOnce = gcvTRUE;
+    gcoHAL_QueryCoreCount(gcvNULL, gcvHARDWARE_3D, &gpuCount, chipIDs);
+
+    if (gpuCount == 0)
+    {
+        gcoHAL_QueryCoreCount(gcvNULL, gcvHARDWARE_3D2D, &gpuCount, chipIDs);
     }
 
     gcoHAL_QueryMultiGPUAffinityConfig(gcvHARDWARE_3D, &mode, &coreIndex);
 
-    if(mode == gcvMULTI_GPU_MODE_COMBINED)   /*Combined Mode count is 1*/
+    if(mode == gcvMULTI_GPU_MODE_COMBINED)      /*Combined Mode*/
     {
-        *Count = 1;
+        if(gcoHAL_GetOption(gcvNULL, gcvOPTION_OCL_USE_MULTI_DEVICES))
+        {
+            gcmPRINT("VIV Warning : VIV_OCL_USE_MULTI_DEVICES=1 only for INDEPENDENT mode");
+            return gcvSTATUS_INVALID_ARGUMENT;
+        }
+
+        gpuCountPerDevice = gpuCount;
+        deviceCount = 1;
     }
-    else if(gcoHAL_GetOption(gcvNULL, gcvOPTION_OCL_USE_MULTI_DEVICES) == gcvFALSE)  /*Dependent mode depend on macro gcvOPTION_OCL_USE_MULTI_DEVICES*/
+    else    /* Indepedent mode*/
     {
-        *Count = 1;
+        if(gcoHAL_GetOption(gcvNULL, gcvOPTION_OCL_USE_MULTI_DEVICES))  /*multi-device mode is enable */
+        {
+            gcoOS_GetEnv(gcvNULL, "VIV_OCL_USE_MULTI_DEVICE", &attr);
+
+            if(attr && attr[0] == '1')
+            {
+                gpuCountPerDevice = 1;
+
+                if(attr[1] == ':' && ( attr[2] == '2' || attr[2] == '4' || attr[2] =='1' ))
+                {
+                    gpuCountPerDevice = attr[2] - '0';
+                }
+                else if (attr[1] != '\0')
+                {
+                    gcmPRINT("VIV Warning : VIV_OCL_USE_MULIT_DEVICES only supporte 1 | 1:1 | 1:2 | 1:4");
+                }
+            }
+
+            if((gpuCount % gpuCountPerDevice != 0) || (gpuCountPerDevice > gpuCount))
+            {
+                gcmPRINT("VIV Warning: Invalid VIV_OCL_USE_MULIT_DEVICES Env vars PerDevivceGPUCount is invalid");
+                return gcvSTATUS_INVALID_ARGUMENT;
+            }
+
+            deviceCount = gpuCount / gpuCountPerDevice;
+        }
+        else    /* Independent mode , one device and device has only one gpucore */
+        {
+            gpuCountPerDevice = 1;
+            deviceCount = 1;
+
+            if(coreIndex >= gpuCount) /*coreIndex need small than maxCoreCount*/
+            {
+                return gcvSTATUS_INVALID_ARGUMENT;
+            }
+        }
     }
 
-    gcmFOOTER_ARG("*Count=%d", *Count);
+    if(DeviceCount) *DeviceCount = deviceCount;
+
+    if(GPUCountPerDevice) *GPUCountPerDevice = gpuCountPerDevice;
+
     return gcvSTATUS_OK;
 }
 
@@ -1568,21 +1644,43 @@ gcoCL_SelectDevice(
 **      k) submit hardware1 related command to kernel
 */
 
- gceSTATUS
-    gcoCL_CreateHW(
+gceSTATUS
+gcoCL_CreateHW(
     IN gctUINT32    DeviceId,
     OUT gcoHARDWARE * Hardware
     )
 {
     gceSTATUS status = gcvSTATUS_OK;
     gcoHARDWARE  hardware = gcvNULL;
+    gctUINT      gpuCountPerDevice, deviceCount;
+    gctUINT32    gpuCoreIndexs[]={0, 1, 2, 3, 4, 5, 6, 7};
+    gceMULTI_GPU_MODE  mode;
+    gctUINT32 mainCoreIndex;
     gcmDECLARE_SWITCHVARS;
     gcmHEADER_ARG("DeviceId=%d", DeviceId);
     gcmSWITCH_TO_DEFAULT();
     gcoHAL_SetHardwareType(gcvNULL,gcvHARDWARE_3D);
-    gcmONERROR(gcoHAL_SetCoreIndex(gcvNULL, DeviceId));
 
-    gcmONERROR(gcoHARDWARE_Construct(gcPLS.hal, gcvFALSE, gcvFALSE, &hardware));
+
+    gcmONERROR(gcoCL_QueryDeviceCount(&deviceCount, &gpuCountPerDevice));
+
+     if(deviceCount == 1 && gpuCountPerDevice == 1) /*Special deal with independent mode*/
+    {
+         gcoHAL_QueryMultiGPUAffinityConfig(gcvHARDWARE_3D, &mode, &mainCoreIndex);
+
+         gpuCoreIndexs[0] = mainCoreIndex;
+    }
+
+    gcmONERROR(gcoHAL_SetCoreIndex(gcvNULL, gpuCoreIndexs[DeviceId * gpuCountPerDevice]));
+
+
+    gcmONERROR(gcoHARDWARE_ConstructEx(gcPLS.hal,
+                                       gcvFALSE,
+                                       gcvFALSE,
+                                       gcvHARDWARE_3D,
+                                       gpuCountPerDevice,
+                                       &gpuCoreIndexs[DeviceId * gpuCountPerDevice],
+                                       &hardware));
 
     if (gcoHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_MCFE))
     {
@@ -1641,6 +1739,22 @@ gceSTATUS
     gcoHAL_Query3DCoreCount(gcvNULL, GpuCount);
     return gcvSTATUS_OK;
 }
+
+
+/*
+** For OCL Mulit-Device  we need flush more GPU cache for every GPU 's commit .
+** The resource may be used in GPU1 but be released on GPU0 ,the event only trigger to
+** flush GPU0's internel cache but the cache is still in  GPU1.
+** So we flush all cache in user command in every OCL's commit for safe.
+**
+*/
+
+gceSTATUS gcoCL_MultiDevcieCacheFlush()
+{
+    return gcoHARDWARE_MultiGPUCacheFlush(gcvNULL, gcvNULL);
+}
+
+
 /*******************************************************************************
 **
 **  gcoCL_Commit
@@ -1664,8 +1778,17 @@ gcoCL_Commit(
     )
 {
     gceSTATUS status;
+    gctUINT32  deviceCount;
 
     gcmHEADER_ARG("Stall=%d", Stall);
+
+
+    gcoCL_QueryDeviceCount(&deviceCount, gcvNULL);
+
+    if(deviceCount > 1)
+    {
+        gcmONERROR(gcoCL_MultiDevcieCacheFlush());
+    }
 
     /* Commit the command buffer to hardware. */
     gcmONERROR(gcoHARDWARE_Commit(gcvNULL));

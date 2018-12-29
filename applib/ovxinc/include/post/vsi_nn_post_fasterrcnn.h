@@ -60,7 +60,7 @@ typedef struct _vsi_nn_fasterrcnn_inputs_t
     vsi_nn_tensor_t *bbox;
 }vsi_nn_fasterrcnn_inputs_t;
 
-vsi_status vsi_nn_FasterRCNN_PostProcess
+OVXLIB_API vsi_status vsi_nn_FasterRCNN_PostProcess
     (
     vsi_nn_graph_t *graph,
     vsi_nn_fasterrcnn_inputs_t *inputs,

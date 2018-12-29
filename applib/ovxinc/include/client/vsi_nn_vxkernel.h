@@ -45,13 +45,13 @@ typedef struct vsi_nn_kernel_info
     uint8_t init_index;
 } vsi_nn_kernel_info_t;
 
-uint8_t * vsi_nn_LoadBinarySource
+OVXLIB_API uint8_t * vsi_nn_LoadBinarySource
     (
     uint8_t * file,
     int32_t * sz
     );
 
-vsi_status vsi_nn_RegisterClientKernel
+OVXLIB_API vsi_status vsi_nn_RegisterClientKernel
     (
     vsi_nn_graph_t * graph,
     vsi_nn_kernel_info_t * kernel_info
@@ -60,26 +60,26 @@ vsi_status vsi_nn_RegisterClientKernel
 /*
  * Deprecated(vsi_nn_RegisterClientKernelAndCreateNode): use vsi_nn_RegisterClientKernelAndNewNode() insteatd.
 */
-vx_node vsi_nn_RegisterClientKernelAndCreateNode
+OVXLIB_API vx_node vsi_nn_RegisterClientKernelAndCreateNode
     (
     vsi_nn_graph_t * graph,
     vx_kernel_description_t * kernel
     );
 
-vx_node vsi_nn_RegisterClientKernelAndNewNode
+OVXLIB_API vx_node vsi_nn_RegisterClientKernelAndNewNode
     (
     vsi_nn_graph_t * graph,
     vsi_nn_kernel_info_t * kernel_info
     );
 
-vsi_status vsi_nn_ClientNodePassParameters
+OVXLIB_API vsi_status vsi_nn_ClientNodePassParameters
     (
     vx_node node,
     vx_reference * params,
     uint32_t num
     );
 
-vsi_status VX_CALLBACK vsi_nn_KernelValidator
+OVXLIB_API vsi_status VX_CALLBACK vsi_nn_KernelValidator
     (
     vx_node node,
     const vx_reference parameters[],
@@ -87,41 +87,41 @@ vsi_status VX_CALLBACK vsi_nn_KernelValidator
     vx_meta_format metas[]
     );
 
-vsi_status VX_CALLBACK vsi_nn_KernelInitializer
+OVXLIB_API vsi_status VX_CALLBACK vsi_nn_KernelInitializer
     (
     vx_node nodObj,
     const vx_reference *paramObj,
     uint32_t paraNum
     );
 
-vsi_status VX_CALLBACK vsi_nn_KernelDeinitializer
+OVXLIB_API vsi_status VX_CALLBACK vsi_nn_KernelDeinitializer
     (
     vx_node nodObj,
     const vx_reference *paraObj,
     uint32_t paraNum
     );
 
-const char * vsi_nn_VxResourceGetPath();
+OVXLIB_API const char * vsi_nn_VxResourceGetPath();
 
-void vsi_nn_VxResourceSetPath
+OVXLIB_API void vsi_nn_VxResourceSetPath
     (
     char* path
     );
 
-const char * vsi_nn_VxResourceGetResource
+OVXLIB_API const char * vsi_nn_VxResourceGetResource
     (
     char* name
     );
 
-const uint8_t * vsi_nn_VxBinResourceGetResource
+OVXLIB_API const uint8_t * vsi_nn_VxBinResourceGetResource
     (
     char* name,
     vx_size *len
     );
 
-vx_kernel_type_e vsi_nn_GetVXKernelTypeForShader();
+OVXLIB_API vx_kernel_type_e vsi_nn_GetVXKernelTypeForShader();
 
-vx_bool vsi_nn_is_do_vx_op_pre_init
+OVXLIB_API vx_bool vsi_nn_is_do_vx_op_pre_init
     (
     vx_kernel_type_e type
     );

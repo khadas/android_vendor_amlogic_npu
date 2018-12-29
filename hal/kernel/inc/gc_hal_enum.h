@@ -584,6 +584,9 @@ typedef enum _gceFEATURE
     gcvFEATURE_TP_SMALLBATCH,
     gcvFEATURE_NN_ZDP_INIMAGE_SIZE_FIX,
     gcvFEATURE_HI_REORDER_FIX,
+    gcvFEATURE_TP_COEF_COMPRESSION_ENHANCEMENT,
+    gcvFEATURE_NN_DEPTHWISE_SUPPORT,
+    gcvFEATURE_VIP_DEC400,
 
     /* Insert features above this comment only. */
     gcvFEATURE_COUNT                /* Not a feature. */

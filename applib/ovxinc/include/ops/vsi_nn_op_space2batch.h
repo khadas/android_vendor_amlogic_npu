@@ -26,9 +26,20 @@
 
 #include "vsi_nn_types.h"
 
+typedef struct _vsi_nn_space2batch_lcl_data_t
+{
+    vsi_nn_tensor_t *block_size_tensor;
+    vsi_nn_tensor_t *pad_tensor;
+} vsi_nn_space2batch_lcl_data_t;
+
 typedef struct _vsi_nn_space2batch_param
 {
-    uint32_t block_size;
+    /* local data must be the first. */
+    vsi_nn_space2batch_lcl_data_t local;
+
+    uint32_t block_size; //only for old code
+    uint32_t *block_size_2;
+    uint32_t block_size_2_num;
     uint32_t pad[4]; // [top, bottom, left, right]
 } vsi_nn_space2batch_param;
 

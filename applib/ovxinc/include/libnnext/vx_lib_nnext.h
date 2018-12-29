@@ -76,6 +76,7 @@ enum vx_kernel_libnnext_offset_e
     KERNEL_ENUM_INSTANCENORM,
     KERNEL_ENUM_TENSORSTACKCONCAT,
     KERNEL_ENUM_TENSORSTACKCONCAT8BITS_OFFSET,
+    KERNEL_ENUM_SIGNALFRAME,
 };
 
 //! [KERNEL NAME]
@@ -189,9 +190,19 @@ enum vx_kernel_libnnext_offset_e
 #define VX_KERNEL_NAME_LAYERNORM_FP16TOU8                  "com.vivantecorp.extension.vxcLayerNormFP16toU8"
 #define VX_KERNEL_NAME_INSTANCENORM                        "com.vivantecorp.extension.vxcInstanceNorm"
 #define VX_KERNEL_NAME_INSTANCENORM_UINT8                  "com.vivantecorp.extension.vxcInstanceNorm_U8"
+#define VX_KERNEL_NAME_INSTANCENORM_INT8                   "com.vivantecorp.extension.vxcInstanceNorm_int8"
+#define VX_KERNEL_NAME_INSTANCENORM_INT16                  "com.vivantecorp.extension.vxcInstanceNorm_int16"
 #define VX_KERNEL_NAME_INSTANCENORM_UINT8_FP16             "com.vivantecorp.extension.vxcInstanceNormU8_fp16"
+#define VX_KERNEL_NAME_INSTANCENORM_INT8_FP16              "com.vivantecorp.extension.vxcInstanceNormInt8_fp16"
+#define VX_KERNEL_NAME_INSTANCENORM_INT16_FP16             "com.vivantecorp.extension.vxcInstanceNormInt16_fp16"
+#define VX_KERNEL_NAME_INSTANCENORMSUM_UINT8               "com.vivantecorp.extension.vxcInstanceNormSum_u8"
+#define VX_KERNEL_NAME_INSTANCENORMSQR_UINT8               "com.vivantecorp.extension.vxcInstanceNormSqr_u8"
+#define VX_KERNEL_NAME_INSTANCENORMMEAN_VARI_UINT8         "com.vivantecorp.extension.vxcInstanceNormMeanVari_u8"
 #define VX_KERNEL_NAME_TENSORSTACKCONCAT                   "com.vivantecorp.extension.vxcTensorStackConcat"
 #define VX_KERNEL_NAME_TENSORSTACKCONCAT8BITS              "com.vivantecorp.extension.vxcTensorStackConcat8Bits"
+#define VX_KERNEL_NAME_SIGNALFRAME_WIDTH                   "com.vivantecorp.extension.vxcSignalFrame_width"
+#define VX_KERNEL_NAME_SIGNALFRAME_HEIGHT                  "com.vivantecorp.extension.vxcSignalFrame_height"
+#define VX_KERNEL_NAME_SIGNALFRAME_CHANNEL                 "com.vivantecorp.extension.vxcSignalFrame_channel"
 
 /*! \brief The Example Library Set
  * \ingroup group_example_ext
@@ -248,6 +259,7 @@ enum vx_kernel_libnnext_ext_e
     VX_KERNEL_ENUM_INSTANCENORM         = VX_KERNEL_BASE(VX_ID_DEFAULT, VX_LIBRARY_LIBNNEXT) + KERNEL_ENUM_INSTANCENORM,
     VX_KERNEL_ENUM_TENSORSTACKCONCAT    = VX_KERNEL_BASE(VX_ID_DEFAULT, VX_LIBRARY_LIBNNEXT) + KERNEL_ENUM_TENSORSTACKCONCAT,
     VX_KERNEL_ENUM_TENSORSTACKCONCAT8BITS = VX_KERNEL_BASE(VX_ID_DEFAULT, VX_LIBRARY_LIBNNEXT) + KERNEL_ENUM_TENSORSTACKCONCAT8BITS_OFFSET,
+    VX_KERNEL_ENUM_SIGNALFRAME          = VX_KERNEL_BASE(VX_ID_DEFAULT, VX_LIBRARY_LIBNNEXT) + KERNEL_ENUM_SIGNALFRAME,
     // up to 0xFFF kernel enums can be created.
 };
 

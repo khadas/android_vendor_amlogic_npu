@@ -29,8 +29,10 @@
 #define vsi_nn_abs(x)               (((x) < 0)    ? -(x) :  (x))
 #define vsi_nn_max(a,b)             ((a > b) ? a : b)
 #define vsi_nn_min(a,b)             ((a < b) ? a : b)
+#define vsi_nn_clamp(x, min, max)   (((x) < (min)) ? (min) : \
+                                 ((x) > (max)) ? (max) : (x))
 
-void vsi_nn_Transpose
+OVXLIB_API void vsi_nn_Transpose
     (
     uint8_t  * dst,
     uint8_t  * data,
@@ -40,20 +42,20 @@ void vsi_nn_Transpose
     vsi_nn_type_e type
     );
 
-void vsi_nn_SqueezeShape
+OVXLIB_API void vsi_nn_SqueezeShape
     (
     uint32_t * shape,
     uint32_t * dim_num
     );
 
-uint32_t vsi_nn_ShapeProduct
+OVXLIB_API uint32_t vsi_nn_ShapeProduct
     (
     uint32_t * shape,
     uint32_t   dim_num
     );
 
 //shape: row first <--> column first
-void vsi_nn_InvertShape
+OVXLIB_API void vsi_nn_InvertShape
     (
     uint32_t * in,
     uint32_t   dim_num,
@@ -61,19 +63,19 @@ void vsi_nn_InvertShape
     );
 
 //Permute shape: row first <--> column first
-void vsi_nn_InvertPermuteShape
+OVXLIB_API void vsi_nn_InvertPermuteShape
     (
     uint32_t * in,
     uint32_t   dim_num,
     uint32_t * out
     );
 
-double vsi_nn_Rint
+OVXLIB_API double vsi_nn_Rint
     (
     double x
     );
 
-float vsi_nn_SimpleRound
+OVXLIB_API float vsi_nn_SimpleRound
     (
     float x
     );

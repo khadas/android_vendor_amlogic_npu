@@ -93,55 +93,55 @@ typedef struct _vsi_nn_op_proc
               Functions
   -----------------------------------*/
 
-vsi_status vsi_nn_op_common_compute
+OVXLIB_API vsi_status vsi_nn_op_common_compute
     (
     vsi_nn_node_t * self,
     vsi_nn_tensor_t ** inputs,
     vsi_nn_tensor_t ** outputs
     );
 
-vsi_status vsi_nn_op_common_deinit
+OVXLIB_API vsi_status vsi_nn_op_common_deinit
     (
     vsi_nn_node_t * self
     );
 
-vsi_bool vsi_nn_op_common_setup
+OVXLIB_API vsi_bool vsi_nn_op_common_setup
     (
     vsi_nn_node_t * node,
     vsi_nn_tensor_t ** inputs,
     vsi_nn_tensor_t ** outputs
     );
 
-vsi_status vsi_nn_op_common_optimize
+OVXLIB_API vsi_status vsi_nn_op_common_optimize
     (
     vsi_nn_node_t * node,
     vsi_nn_tensor_t ** inputs,
     vsi_nn_tensor_t ** outputs
     );
 
-vsi_bool vsi_nn_OpIsValid
+OVXLIB_API vsi_bool vsi_nn_OpIsValid
     (
     vsi_nn_op_t op
     );
 
-const vsi_nn_op_proc_t * vsi_nn_OpGetProc
+OVXLIB_API const vsi_nn_op_proc_t * vsi_nn_OpGetProc
     (
     vsi_nn_op_t op
     );
 
-vsi_status vsi_nn_OpCompute
+OVXLIB_API vsi_status vsi_nn_OpCompute
     (
     vsi_nn_node_t * node,
     vsi_nn_tensor_t ** inputs,
     vsi_nn_tensor_t ** outputs
     );
 
-vsi_status vsi_nn_OpDeinit
+OVXLIB_API vsi_status vsi_nn_OpDeinit
     (
     vsi_nn_node_t * node
     );
 
-vsi_status vsi_nn_OpOptimize
+OVXLIB_API vsi_status vsi_nn_OpOptimize
     (
     vsi_nn_node_t * node,
     vsi_nn_tensor_t ** inputs,
@@ -149,7 +149,7 @@ vsi_status vsi_nn_OpOptimize
     vsi_nn_opt_direction_e direction
     );
 
-vsi_bool vsi_nn_OpCheck
+OVXLIB_API vsi_bool vsi_nn_OpCheck
     (
     vsi_nn_op_t op,
     vsi_nn_node_t * node,
@@ -157,21 +157,21 @@ vsi_bool vsi_nn_OpCheck
     vsi_nn_tensor_t ** outputs
     );
 
-void vsi_nn_OpGetIoNum
+OVXLIB_API void vsi_nn_OpGetIoNum
     (
     vsi_nn_node_t * node,
     uint32_t     * input_num,
     uint32_t     * output_num
     );
 
-vsi_bool vsi_nn_OpGenerateTensor
+OVXLIB_API vsi_bool vsi_nn_OpGenerateTensor
     (
     vsi_nn_node_t * node,
     vsi_nn_tensor_t ** inputs,
     vsi_nn_tensor_t ** outputs
     );
 
-vsi_bool vsi_nn_OpSetup
+OVXLIB_API vsi_bool vsi_nn_OpSetup
     (
     vsi_nn_op_t op,
     vsi_nn_node_t * node,
@@ -179,13 +179,13 @@ vsi_bool vsi_nn_OpSetup
     vsi_nn_tensor_t ** outputs
     );
 
-vsi_bool vsi_nn_OpRegisterOvxInit
+OVXLIB_API vsi_bool vsi_nn_OpRegisterOvxInit
     (
     vsi_nn_op_t op,
     vsi_nn_op_compute_t compute
     );
 
-const char * vsi_nn_OpGetName
+OVXLIB_API const char * vsi_nn_OpGetName
     (
     vsi_nn_op_t op
     );

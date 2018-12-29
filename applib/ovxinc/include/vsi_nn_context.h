@@ -55,10 +55,10 @@ typedef struct _vsi_nn_context_t
     vsi_nn_hw_config_t config;
 } *vsi_nn_context_t;
 
-vsi_nn_context_t vsi_nn_CreateContext
+OVXLIB_API vsi_nn_context_t vsi_nn_CreateContext
     ( void );
 
-void vsi_nn_ReleaseContext
+OVXLIB_API void vsi_nn_ReleaseContext
     ( vsi_nn_context_t * ctx );
 
 #ifdef __cplusplus

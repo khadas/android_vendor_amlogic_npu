@@ -1498,7 +1498,7 @@ _SetupDynamicSpace(
 
         gcmkDUMP(Mmu->os,
                  "@[physical.step 0x%010llX 0x%08X 0x%08X 0x%08X 0x%08X]",
-                 Mmu->mtlbPhysical + area->mappingStart,
+                 (unsigned long long)(Mmu->mtlbPhysical + area->mappingStart * 4),
                  data, numEntries * 4, step, mask);
     }
 #endif

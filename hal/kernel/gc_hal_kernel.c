@@ -2109,28 +2109,30 @@ _Commit(
             eventObj = kernel->eventObj;
         }
 
-        /* Commit command buffers. */
-        status = gckCOMMAND_Commit(command,
-                                   subCommit,
-                                   ProcessId,
-                                   Commit->shared,
-                                   &Commit->commitStamp);
-
-        if (status != gcvSTATUS_INTERRUPTED)
         {
-            gcmkONERROR(status);
-        }
+            /* Commit command buffers. */
+            status = gckCOMMAND_Commit(command,
+                                       subCommit,
+                                       ProcessId,
+                                       Commit->shared,
+                                       &Commit->commitStamp);
 
-        /* Commit events. */
-        status = gckEVENT_Commit(
-            eventObj,
-            gcmUINT64_TO_PTR(subCommit->queue),
-            kernel->hardware->options.powerManagement
-            );
+            if (status != gcvSTATUS_INTERRUPTED)
+            {
+                gcmkONERROR(status);
+            }
 
-        if (status != gcvSTATUS_INTERRUPTED)
-        {
-            gcmkONERROR(status);
+            /* Commit events. */
+            status = gckEVENT_Commit(
+                eventObj,
+                gcmUINT64_TO_PTR(subCommit->queue),
+                kernel->hardware->options.powerManagement
+                );
+
+            if (status != gcvSTATUS_INTERRUPTED)
+            {
+                gcmkONERROR(status);
+            }
         }
 
         next = subCommit->next;
@@ -5518,16 +5520,18 @@ gckDEVICE_ChipInfo(
     IN gcsHAL_INTERFACE_PTR Interface
     )
 {
-    gctUINT i;
-    gcsCORE_INFO * info = Device->coreInfoArray;
-
-    for (i = 0; i < Device->coreNum; i++)
     {
-        Interface->u.ChipInfo.types[i] = info[i].type;
-        Interface->u.ChipInfo.ids[i] = info[i].chipID;
-    }
+        gctUINT i;
+        gcsCORE_INFO * info = Device->coreInfoArray;
 
-    Interface->u.ChipInfo.count = Device->coreNum;
+        for (i = 0; i < Device->coreNum; i++)
+        {
+            Interface->u.ChipInfo.types[i] = info[i].type;
+            Interface->u.ChipInfo.ids[i] = info[i].chipID;
+        }
+
+        Interface->u.ChipInfo.count = Device->coreNum;
+    }
 
     return gcvSTATUS_OK;
 }

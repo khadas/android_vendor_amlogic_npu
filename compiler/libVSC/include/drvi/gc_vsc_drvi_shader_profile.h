@@ -1102,6 +1102,13 @@ typedef enum SHADER_EDH_MEM_ACCESS_HINT
                                                     SHADER_EDH_MEM_ACCESS_HINT_ATOMIC,
 
     SHADER_EDH_MEM_ACCESS_HINT_BARRIER            = 0x0020,
+    SHADER_EDH_MEM_ACCESS_HINT_EVIS_ATOMADD       = 0x0040, /* evis atomadd can operate on 16B data in parallel,
+                                                             * we need to tell driver to turn off workgroup packing
+                                                             * if it is used so the HW will not merge different
+                                                             * workgroup into one which can cause the different
+                                                             * address be used for the evis_atom_add */
+/* Note: 1. must sync with VIR_MemoryAccessFlag !!!
+ *       2. make sure it fits in bits in SHADER_EXECUTABLE_DERIVED_HINTS::memoryAccessHint */
 }SHADER_EDH_MEM_ACCESS_HINT;
 
 /* For these hints, we can retrieve them by analyzing machine code on the fly, but it will
@@ -1134,7 +1141,7 @@ typedef struct SHADER_EXECUTABLE_DERIVED_HINTS
         /****************************************/
 
         /* What kind of memory access operations shader holds, see SHADER_EDH_MEM_ACCESS_HINT */
-        gctUINT                   memoryAccessHint                : 6;
+        gctUINT                   memoryAccessHint                : 8;
 
         /* First HW reg and its channel that will be used to store addresses
            of USC for each vertex when executing hs/ds/gs. */
@@ -1152,7 +1159,7 @@ typedef struct SHADER_EXECUTABLE_DERIVED_HINTS
         /* Whether enable robust out-of-bounds check for memory access . */
         gctUINT                   bEnableRobustCheck              : 1;
 
-        gctUINT                   reserved                        : 8;
+        gctUINT                   reserved                        : 6;
 
         gctUINT                   gprSpillSize;  /* the byte count of register spill mem to be
                                                   * allocated by driver in MultiGPU mode*/

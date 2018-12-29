@@ -2477,7 +2477,7 @@ _FillInFeatureTable(
     Features[gcvFEATURE_NN_ASYNC_COPY_MERGE_FIX] = database->NN_ASYNC_COPY_MERGE_FIX;
 
     Features[gcvFEATURE_USC_ATOMIC_FIX2] = database->USC_ATOMIC_FIX2;
-    Features[gcvFEATURE_MULTICORE_CONFIG] = (database->CoreCount > 1);
+    Features[gcvFEATURE_MULTICORE_CONFIG] = database->MP_ARCH;
     Features[gcvFEATURE_NN_CONVOUT_FIFO_DEPTH_FIX] = database->NN_CONVOUT_FIFO_DEPTH_FIX;
     Features[gcvFEATURE_NN_SMALLBATCH_PHASE1] = database->NN_SMALLBATCH_PHASE1;
     Features[gcvFEATURE_TP_SMALLBATCH_PHASE1] = database->TP_SMALLBATCH_PHASE1;
@@ -2490,6 +2490,9 @@ _FillInFeatureTable(
     Features[gcvFEATURE_TP_SMALLBATCH] = database->TP_SMALLBATCH;
     Features[gcvFEATURE_NN_ZDP_INIMAGE_SIZE_FIX] = database->NN_ZDP_INIMAGE_SIZE_FIX;
     Features[gcvFEATURE_HI_REORDER_FIX] = database->HI_REORDER_FIX;
+    Features[gcvFEATURE_TP_COEF_COMPRESSION_ENHANCEMENT] = database->TP_COEF_COMPRESSION_ENHANCEMENT;
+    Features[gcvFEATURE_NN_DEPTHWISE_SUPPORT] = database->NN_DEPTHWISE_SUPPORT;
+    Features[gcvFEATURE_VIP_DEC400] = database->VIP_DEC400;
 
 
 
@@ -2788,7 +2791,7 @@ if (smallBatch){    Config->vsConstBase  = 0xD000;
     Config->nnConfig.fixedFeature.nnFP16XYDPX          = featureDatabase->NNFP16_XYDP_X;
     Config->nnConfig.fixedFeature.nnFP16XYDPY          = featureDatabase->NNFP16_XYDP_Y;
     Config->nnConfig.fixedFeature.nnFP16ZDP            = featureDatabase->NNFP16_ZDP;
-    Config->nnConfig.fixedFeature.zrlBits              = featureDatabase->ZRL_7BIT ? 7 : 5;
+    Config->nnConfig.fixedFeature.zrlBits              = featureDatabase->ZRL_8BIT ? 8 : (featureDatabase->ZRL_7BIT ? 7 : 5);
     Config->nnConfig.fixedFeature.uscCacheControllers  = featureDatabase->USC_CACHE_CONTROLLERS;
     Config->nnConfig.fixedFeature.uscBanks             = featureDatabase->USC_BANKS;
     Config->nnConfig.fixedFeature.nnLanesPerOutCycle   = featureDatabase->NN_LANES_PER_OUT_CYCLE;
@@ -4113,7 +4116,12 @@ _DetectProcess(
             gcvFALSE
         },
 #endif
-
+        {
+            gcvPATCH_COMPUTBENCH_CL,
+            /*viv: CompuBench-CLI */
+            "\xbc\x90\x92\x8f\x8a\xbd\x9a\x91\x9c\x97\xd2\xbc\xb3\xb6",
+            gcvFALSE
+        },
     };
 
 #if defined(ANDROID)
@@ -4899,10 +4907,13 @@ _UpdateDelta(
 **          Pointer to a variable that will hold the gcoHARDWARE object.
 */
 gceSTATUS
-gcoHARDWARE_Construct(
+gcoHARDWARE_ConstructEx(
     IN gcoHAL Hal,
     IN gctBOOL ThreadDefault,
     IN gctBOOL Robust,
+    IN gceHARDWARE_TYPE Type,
+    IN gctUINT32    AttachGpuCount,
+    IN gctUINT32    CoreIndexs[],
     OUT gcoHARDWARE * Hardware
     )
 {
@@ -4916,9 +4927,8 @@ gcoHARDWARE_Construct(
 #if gcdENABLE_3D
     gctUINT j;
 #endif
-    gceHARDWARE_TYPE type;
+    gceHARDWARE_TYPE type = Type;
 #if gcdENABLE_3D
-    gctUINT32 currentCoreIndex;
     gceMULTI_GPU_MODE mode;
 #endif
     gcmHEADER_ARG("Hal=0x%x", Hal);
@@ -4935,7 +4945,6 @@ gcoHARDWARE_Construct(
                               gcmSIZEOF(struct _gcoHARDWARE),
                               &pointer));
     hardware = pointer;
-
     /* Reset the object. */
     gcoOS_ZeroMemory(hardware, gcmSIZEOF(struct _gcoHARDWARE));
 
@@ -5766,6 +5775,8 @@ gcoHARDWARE_Construct(
     gcmONERROR(_SetSpecialHint(hardware));
 #endif
     gcmONERROR(_FillInConfigTable(hardware, hardware->config));
+    gcmASSERT(AttachGpuCount <= hardware->config->gpuCoreCount);
+
     gcmVERIFY_OK(_FillInFeatureTable(hardware, hardware->features));
 
     /* Don't stall before primitive. */
@@ -5880,7 +5891,6 @@ gcoHARDWARE_Construct(
     /***************************************************************************
     ** Allocate the gckCONTEXT object.
     */
-    gcmGETCURRENTHARDWARE(type);
 
     hardware->constructType = type;
 
@@ -5889,8 +5899,8 @@ gcoHARDWARE_Construct(
     if (type != gcvHARDWARE_2D)
     {
         gctUINT i;
-        gctUINT coreCount = hardware->deltasCount = hardware->config->gpuCoreCount;
-
+        gctUINT coreCount;
+        coreCount = hardware->deltasCount = hardware->config->gpuCoreCount;
         gcmONERROR(gcoOS_Allocate(
             gcvNULL,
             gcmSIZEOF(gcsSTATE_DELTA_PTR) * coreCount,
@@ -5907,9 +5917,9 @@ gcoHARDWARE_Construct(
 
         gcoOS_ZeroMemory(hardware->contexts, gcmSIZEOF(gctUINT32) * coreCount);
 
-        for (i = 0; i < coreCount; i++)
+        for (i = 0; i < AttachGpuCount; i++) /* only create for AttachGpuCount cores */
         {
-            gcmONERROR(_Attach(hardware, i));
+            gcmONERROR(_Attach(hardware, CoreIndexs[i]));
         }
     }
 #endif
@@ -6165,39 +6175,18 @@ gcoHARDWARE_Construct(
     gcmONERROR(_InitializeFlatMappingRange(hardware));
 
 #if gcdENABLE_3D
-    gcmVERIFY_OK(gcoHAL_QueryMultiGPUAffinityConfig(hardware->constructType, &mode, &currentCoreIndex));
-
-    if (mode == gcvMULTI_GPU_MODE_INDEPENDENT &&
-        currentCoreIndex > hardware->config->gpuCoreCount - 1)
-    {
-        /* reset default value.*/
-        gcoHAL_SetCoreIndex(gcvNULL, 0);
-        /* current used GPU Core exceed the max gpu Core Count.*/
-        gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
-    }
-
-    if (mode == gcvMULTI_GPU_MODE_INDEPENDENT)
-    {
-        /* gcvMULTI_GPU_MODE_COMBINED is default, no need to set to it.*/
-        gcoHARDWARE_SetMultiGPUMode(hardware, mode);
-    }
+    hardware->config->gpuCoreCount = AttachGpuCount;
+    mode = AttachGpuCount == 1 ? gcvMULTI_GPU_MODE_INDEPENDENT : gcvMULTI_GPU_MODE_COMBINED;
+    hardware->gpuMode = mode;
 
     /* Multi-GPUs mode has been set, now determine the coreIndex of GPUs
     ** bound to the gcoHARDWARE object. */
-    gcoHAL_GetCurrentCoreIndex(gcvNULL, &currentCoreIndex);
 
-    /* Bind the first GPU used by the gcoHARDWARE object to curretCoreIndex. */
-    hardware->coreIndexs[0] = currentCoreIndex;
-
-    if (currentCoreIndex == 0)
     {
         /* Bind the following GPUs. */
-        for (i = 1; i < hardware->config->gpuCoreCount; i++)
+        for (i = 0; i < hardware->config->gpuCoreCount; i++)
         {
-            /* For now, if mode is gcvMULTI_GPU_MODE_COMBINED, bind order must
-            *  be [0...gpuCoreCount-1]
-            */
-            hardware->coreIndexs[i] = i;
+            hardware->coreIndexs[i] = CoreIndexs[i];
         }
     }
 
@@ -6299,6 +6288,96 @@ OnError:
 static gceSTATUS _DestroyFence(gcoFENCE fence);
 #endif
 #endif
+
+/*******************************************************************************
+**
+**  gcoHARDWARE_Construct
+**
+**  Construct a new gcoHARDWARE object.
+**
+**  INPUT:
+**
+**      gcoHAL Hal
+**          Pointer to an gcoHAL object.
+**
+**      gctBOOL ThreadDefault
+**          It's default hardware object of current thread or not.
+**
+**  OUTPUT:
+**
+**      gcoHARDWARE * Hardware
+**          Pointer to a variable that will hold the gcoHARDWARE object.
+*/
+gceSTATUS
+gcoHARDWARE_Construct(
+    IN gcoHAL Hal,
+    IN gctBOOL ThreadDefault,
+    IN gctBOOL Robust,
+    OUT gcoHARDWARE * Hardware
+    )
+{
+    gceSTATUS         status = gcvSTATUS_OK;
+    gceHARDWARE_TYPE  type;
+    gctUINT32         attachGpuCount;
+    gceMULTI_GPU_MODE mode;
+    gctUINT32         currentCoreIndex;
+    gctUINT32         gpuCoreCount ;
+    gctUINT           coreIndexs[gcdMAX_3DGPU_COUNT] = {0, 1, 2, 3, 4, 5, 6, 7};
+    gctUINT           chipIDs[32];
+    gcmGETCURRENTHARDWARE(type);
+
+
+    /* Get real Gpu count */
+    if (type == gcvHARDWARE_3D2D || type == gcvHARDWARE_3D)
+    {
+        gcoHAL_QueryCoreCount(gcvNULL, type, &gpuCoreCount, chipIDs);
+
+        if (gpuCoreCount == 0)
+        {
+            type = type == gcvHARDWARE_3D2D
+                 ? gcvHARDWARE_3D
+                 : gcvHARDWARE_3D2D
+                 ;
+
+            gcoHAL_QueryCoreCount(gcvNULL, type, &gpuCoreCount, chipIDs);
+
+            gcmASSERT(gpuCoreCount);
+        }
+
+        gcmVERIFY_OK(gcoHAL_QueryMultiGPUAffinityConfig(type, &mode, &currentCoreIndex));
+
+        if(mode == gcvMULTI_GPU_MODE_COMBINED) /*combined mode */
+        {
+            attachGpuCount = gpuCoreCount;
+        }
+        else  /*independent mode */
+        {
+            attachGpuCount = 1;
+            coreIndexs[0] = currentCoreIndex;
+
+            if(coreIndexs[0] >= gpuCoreCount)
+            {
+                gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
+            }
+        }
+    }
+    else  /*gcvHARDWARE_2D */
+    {
+        gpuCoreCount = 1;
+        attachGpuCount = 1;
+    }
+
+
+
+    gcmONERROR(gcoHARDWARE_ConstructEx(Hal, ThreadDefault ,Robust, type, attachGpuCount, coreIndexs, Hardware));
+
+    return status;
+
+OnError:
+    return status;
+
+}
+
 
 /*******************************************************************************
 **
@@ -6567,7 +6646,12 @@ gceSTATUS gcoHARDWARE_Destroy(
 #endif
 
 #if (gcdENABLE_3D)
+
+    gcoHAL_GetCurrentCoreIndex(gcvNULL, &coreIndex);
+    gcoHAL_SetCoreIndex(gcvNULL,Hardware->coreIndexs[0]);
+    coreIndexChanged = gcvTRUE;
     /* Destroy the command buffer. */
+
     if (Hardware->engine[gcvENGINE_BLT].buffer != gcvNULL)
     {
         gcmONERROR(gcoBUFFER_Destroy(Hardware->engine[gcvENGINE_BLT].buffer));
@@ -6591,6 +6675,8 @@ gceSTATUS gcoHARDWARE_Destroy(
         gcmONERROR(gcoQUEUE_Destroy(Hardware->engine[gcvENGINE_RENDER].queue));
         Hardware->engine[gcvENGINE_RENDER].queue = gcvNULL;
     }
+    gcoHAL_SetCoreIndex(gcvNULL, coreIndex);
+    coreIndexChanged = gcvFALSE;
 #endif
 
 #if gcdENABLE_3D
@@ -7065,6 +7151,93 @@ OnError:
     /* Return the status. */
     gcmFOOTER();
     return status;
+}
+
+gceSTATUS
+gcoHARDWARE_McfeSubmitJob(
+    IN gcoHARDWARE Hardware,
+    IN gctPOINTER *Memory
+    )
+{
+#ifdef GCREG_MCFE_STD_DESC_RING_BUF_START_ADDR_Address
+    gcoCMDBUF reserve = gcvNULL;
+    gctUINT32_PTR memory = gcvNULL;
+
+    gceSTATUS status = gcvSTATUS_OK;
+
+    gcmHEADER_ARG("Hardware=%p", Hardware);
+
+    gcmGETHARDWARE(Hardware);
+
+    if (!Hardware->features[gcvFEATURE_MCFE])
+    {
+        gcmONERROR(gcvSTATUS_NOT_SUPPORTED);
+    }
+
+    if (Memory)
+    {
+        memory = (gctUINT32_PTR)*Memory;
+        *Memory = memory + 2;
+    }
+    else
+    {
+        gcmONERROR(gcoBUFFER_Reserve(
+            Hardware->engine[gcvENGINE_RENDER].buffer,
+            8,
+            gcvTRUE,
+            gcvCOMMAND_3D,
+            &reserve
+            ));
+
+        memory = (gctUINT32_PTR)gcmUINT64_TO_PTR(reserve->lastReserve);
+    }
+
+    /* SubmitJob is pared with the complete signal from FlushCache. */
+    *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
+ MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_SUB_COMMAND & ((gctUINT32) ((((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)))
+              | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ MCFE_COMMAND_SUB_OPCODE) - (0 ?
+ MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_SUB_OPCODE) - (0 ?
+ MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ?
+ MCFE_COMMAND_SUB_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_SUB_OPCODE_SUBMIT_JOB & ((gctUINT32) ((((1 ?
+ MCFE_COMMAND_SUB_OPCODE) - (0 ?
+ MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_SUB_OPCODE) - (0 ?
+ MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_SUB_OPCODE)));
+
+    *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
+ MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_NOP & ((gctUINT32) ((((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ MCFE_COMMAND_OPCODE) - (0 ?
+ MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)));
+
+OnError:
+    gcmFOOTER();
+
+    return status;
+#else
+    return gcvSTATUS_NOT_SUPPORTED;
+#endif
 }
 #endif
 
@@ -7626,8 +7799,6 @@ _DestroyFence(gcoFENCE fence)
                 fence->u.hwFence.dstSurfNode = gcvNULL;
             }
         }
-
-        gcoOS_AtomDecrement(gcvNULL, gcPLS.globalFenceID, &fence->id);
 
         gcmONERROR(gcoOS_Free(gcvNULL,fence));
     }
@@ -9595,6 +9766,34 @@ OnError:
 }
 
 gceSTATUS
+gcoHARDWARE_GetChannelInfo(
+    IN gcoHARDWARE Hardware,
+    INOUT gctBOOL *Priority,
+    INOUT gctUINT32 *ChannelId
+    )
+{
+    gceSTATUS status = gcvSTATUS_OK;
+    gcoBUFFER buffer = gcvNULL;
+
+    gcmHEADER_ARG("Hardware=%p Priority=%p ChannelId=%p", Hardware, Priority, ChannelId);
+
+    gcmGETHARDWARE(Hardware);
+
+    if (!Hardware->features[gcvFEATURE_MCFE])
+    {
+        gcmONERROR(gcvSTATUS_NOT_SUPPORTED);
+    }
+
+    buffer = Hardware->engine[gcvENGINE_RENDER].buffer;
+
+    gcmONERROR(gcoBUFFER_GetChannelInfo(buffer, Priority, ChannelId));
+
+OnError:
+    gcmFOOTER();
+    return status;
+}
+
+gceSTATUS
 gcoHARDWARE_AllocateMcfeSemaphore(
     IN gcoHARDWARE Hardware,
     OUT gctUINT32 * SemaHandle
@@ -9890,6 +10089,7 @@ gcoHARDWARE_Stall(
     gcsHAL_INTERFACE iface;
     gctUINT i;
     gctBOOL wait[gcvENGINE_GPU_ENGINE_COUNT];
+    gctUINT32 currentCoreId = 0;
 
     gcmHEADER_ARG("Hardware=0x%x", Hardware);
 
@@ -9900,6 +10100,8 @@ gcoHARDWARE_Stall(
 
     /* Dump the stall. */
     gcmDUMP(gcvNULL, "@[stall]");
+    gcmONERROR(gcoHAL_GetCurrentCoreIndex(gcvNULL, &currentCoreId));
+    gcmONERROR(gcoHAL_SetCoreIndex(gcvNULL, Hardware->coreIndexs[0]));
 
     for (i = 0; i < gcvENGINE_GPU_ENGINE_COUNT; i++)
     {
@@ -9943,6 +10145,8 @@ gcoHARDWARE_Stall(
         }
     }
 
+  /* Restore core index in TLS. */
+    gcmONERROR(gcoHAL_SetCoreIndex(gcvNULL, currentCoreId));
     /* Success. */
     gcmFOOTER_NO();
     return gcvSTATUS_OK;
@@ -18087,12 +18291,22 @@ gcoHARDWARE_FlushPipe(
 
     gcmGETHARDWARE(Hardware);
 
+#if gcdENABLE_3D
     if (Hardware->features[gcvFEATURE_MCFE])
     {
-        /* Flush the Shader L1 cache. */
-        gcmONERROR(gcoHARDWARE_LoadCtrlState(
+        gctUINT32 channelId = 0;
+
+        gcmONERROR(gcoHARDWARE_GetChannelInfo(
             Hardware,
-            0x0380C, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+            gcvNULL,
+            &channelId));
+
+        /* Flush SH L1 cache except for system channel (0). */
+        if (channelId != 0)
+        {
+            gcmONERROR(gcoHARDWARE_LoadCtrlState(
+                Hardware,
+                0x0380C, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  5:5) - (0 ?
  5:5) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -18102,11 +18316,15 @@ gcoHARDWARE_FlushPipe(
  5:5) - (0 ?
  5:5) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)))
-            ));
+                ));
+
+            gcmONERROR(gcoHARDWARE_McfeSubmitJob(Hardware, gcvNULL));
+        }
 
         gcmFOOTER_NO();
         return gcvSTATUS_OK;
     }
+#endif
 
     if (Hardware->currentPipe == 0x1)
     {
@@ -28611,6 +28829,10 @@ gcoHARDWARE_FlushSHL1Cache(
  11:11) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 11:11) - (0 ? 11:11) + 1))))))) << (0 ? 11:11)))));
 
+    if (Hardware->features[gcvFEATURE_MCFE])
+    {
+        gcmONERROR(gcoHARDWARE_McfeSubmitJob(Hardware, gcvNULL));
+    }
 
 OnError:
     /* Return the status */
@@ -29819,8 +30041,6 @@ gcoHARDWARE_ProgramResolve(
         memory++;
 
     }
-
-
 
     if (programRScontrol)
     {

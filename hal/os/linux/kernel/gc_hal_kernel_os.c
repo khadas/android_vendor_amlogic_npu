@@ -1751,6 +1751,70 @@ gckOS_ReadRegisterEx(
     return gcvSTATUS_OK;
 }
 
+static gceSTATUS
+_WriteRegisterEx(
+    IN gckOS Os,
+    IN gceCORE Core,
+    IN gctUINT32 Address,
+    IN gctUINT32 Data,
+    IN gctBOOL Dump
+    )
+{
+    if (in_irq())
+    {
+        spin_lock(&Os->registerAccessLock);
+
+        if (unlikely(Os->clockStates[Core] == gcvFALSE))
+        {
+            spin_unlock(&Os->registerAccessLock);
+
+            printk(KERN_ERR "[galcore]: %s(%d) GPU[%d] external clock off",
+                   __func__, __LINE__, Core);
+
+            /* Driver bug: register write when clock off. */
+            gcmkBUG_ON(1);
+            return gcvSTATUS_GENERIC_IO;
+        }
+
+        writel(Data, (gctUINT8 *)Os->device->registerBases[Core] + Address);
+        spin_unlock(&Os->registerAccessLock);
+    }
+    else
+    {
+        unsigned long flags;
+
+        if (Dump)
+        {
+            gcmkDUMP(Os, "@[register.write %u 0x%05X 0x%08X]", Core, Address, Data);
+        }
+
+        spin_lock_irqsave(&Os->registerAccessLock, flags);
+
+        if (unlikely(Os->clockStates[Core] == gcvFALSE))
+        {
+            spin_unlock_irqrestore(&Os->registerAccessLock, flags);
+
+            printk(KERN_ERR "[galcore]: %s(%d) GPU[%d] external clock off",
+                      __func__, __LINE__, Core);
+
+            /* Driver bug: register write when clock off. */
+            gcmkBUG_ON(1);
+            return gcvSTATUS_GENERIC_IO;
+        }
+
+        writel(Data, (gctUINT8 *)Os->device->registerBases[Core] + Address);
+        spin_unlock_irqrestore(&Os->registerAccessLock, flags);
+
+#if gcdDUMP_AHB_ACCESS
+        /* Dangerous to print in interrupt context, skip. */
+        gcmkPRINT("@[WR %d] %08x %08x", Core, Address, Data);
+#endif
+    }
+
+    /* Success. */
+    return gcvSTATUS_OK;
+}
+
 /*******************************************************************************
 **
 **  gckOS_WriteRegister
@@ -1779,7 +1843,7 @@ gckOS_WriteRegister(
     IN gctUINT32 Data
     )
 {
-    return gckOS_WriteRegisterEx(Os, gcvCORE_MAJOR, Address, Data);
+    return _WriteRegisterEx(Os, gcvCORE_MAJOR, Address, Data, gcvTRUE);
 }
 
 gceSTATUS
@@ -1790,56 +1854,18 @@ gckOS_WriteRegisterEx(
     IN gctUINT32 Data
     )
 {
-    if (in_irq())
-    {
-        spin_lock(&Os->registerAccessLock);
+    return _WriteRegisterEx(Os, Core, Address, Data, gcvTRUE);
+}
 
-        if (unlikely(Os->clockStates[Core] == gcvFALSE))
-        {
-            spin_unlock(&Os->registerAccessLock);
-
-            printk(KERN_ERR "[galcore]: %s(%d) GPU[%d] external clock off",
-                   __func__, __LINE__, Core);
-
-            /* Driver bug: register write when clock off. */
-            gcmkBUG_ON(1);
-            return gcvSTATUS_GENERIC_IO;
-        }
-
-        writel(Data, (gctUINT8 *)Os->device->registerBases[Core] + Address);
-        spin_unlock(&Os->registerAccessLock);
-    }
-    else
-    {
-        unsigned long flags;
-
-        gcmkDUMP(Os, "@[register.write %u 0x%05X 0x%08X]", Core, Address, Data);
-
-        spin_lock_irqsave(&Os->registerAccessLock, flags);
-
-        if (unlikely(Os->clockStates[Core] == gcvFALSE))
-        {
-            spin_unlock_irqrestore(&Os->registerAccessLock, flags);
-
-            printk(KERN_ERR "[galcore]: %s(%d) GPU[%d] external clock off",
-                      __func__, __LINE__, Core);
-
-            /* Driver bug: register write when clock off. */
-            gcmkBUG_ON(1);
-            return gcvSTATUS_GENERIC_IO;
-        }
-
-        writel(Data, (gctUINT8 *)Os->device->registerBases[Core] + Address);
-        spin_unlock_irqrestore(&Os->registerAccessLock, flags);
-
-#if gcdDUMP_AHB_ACCESS
-        /* Dangerous to print in interrupt context, skip. */
-        gcmkPRINT("@[WR %d] %08x %08x", Core, Address, Data);
-#endif
-    }
-
-    /* Success. */
-    return gcvSTATUS_OK;
+gceSTATUS
+gckOS_WriteRegisterEx_NoDump(
+    IN gckOS Os,
+    IN gceCORE Core,
+    IN gctUINT32 Address,
+    IN gctUINT32 Data
+    )
+{
+    return _WriteRegisterEx(Os, Core, Address, Data, gcvFALSE);
 }
 
 /*******************************************************************************

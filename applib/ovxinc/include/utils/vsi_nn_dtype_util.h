@@ -32,7 +32,7 @@
 extern "C" {
 #endif
 
-vsi_status vsi_nn_DtypeConvert
+OVXLIB_API vsi_status vsi_nn_DtypeConvert
     (
     uint8_t * src,
     const vsi_nn_dtype_t * src_dtype,
@@ -43,27 +43,27 @@ vsi_status vsi_nn_DtypeConvert
 /*
  * Deprecated: use vsi_nn_TypeGetBytes() insteatd.
  */
-uint32_t vsi_nn_GetTypeBytes
+OVXLIB_API uint32_t vsi_nn_GetTypeBytes
     (
     const vsi_nn_type_e type
     );
 
-uint32_t vsi_nn_TypeGetBytes
+OVXLIB_API uint32_t vsi_nn_TypeGetBytes
     (
     const vsi_nn_type_e type
     );
 
-vsi_bool vsi_nn_TypeIsSigned
+OVXLIB_API vsi_bool vsi_nn_TypeIsSigned
     (
     const vsi_nn_type_e type
     );
 
-vsi_bool vsi_nn_TypeIsInteger
+OVXLIB_API vsi_bool vsi_nn_TypeIsInteger
     (
     const vsi_nn_type_e type
     );
 
-uint16_t vsi_nn_Fp32ToFp16
+OVXLIB_API uint16_t vsi_nn_Fp32ToFp16
     (
     float in
     );
@@ -72,7 +72,7 @@ uint16_t vsi_nn_Fp32ToFp16
  */
 #define vsi_nn_Fp32toFp16(in) vsi_nn_Fp32ToFp16( in )
 
-float vsi_nn_Fp16ToFp32
+OVXLIB_API float vsi_nn_Fp16ToFp32
     (
     int16_t in
     );
@@ -81,7 +81,7 @@ float vsi_nn_Fp16ToFp32
  */
 #define vsi_nn_Fp16toFp32(in) vsi_nn_Fp16ToFp32( in )
 
-vsi_status vsi_nn_IntegerConvert
+OVXLIB_API vsi_status vsi_nn_IntegerConvert
     (
     const void *    src,
     vsi_nn_type_e   src_type,
@@ -89,21 +89,21 @@ vsi_status vsi_nn_IntegerConvert
     vsi_nn_type_e   dest_type
     );
 
-int32_t vsi_nn_Fp32ToDFP
+OVXLIB_API int32_t vsi_nn_Fp32ToDFP
     (
     const float in,
     const int8_t    fl,
     const vsi_nn_type_e type
     );
 
-float vsi_nn_DFPToFp32
+OVXLIB_API float vsi_nn_DFPToFp32
     (
     const int32_t val,
     const int8_t  fl,
     const vsi_nn_type_e type
     );
 
-int32_t vsi_nn_Fp32ToAffine
+OVXLIB_API int32_t vsi_nn_Fp32ToAffine
     (
     const float  in,
     const float  scale,
@@ -111,7 +111,7 @@ int32_t vsi_nn_Fp32ToAffine
     const vsi_nn_type_e type
     );
 
-float vsi_nn_AffineToFp32
+OVXLIB_API float vsi_nn_AffineToFp32
     (
     const int32_t    val,
     const float  scale,
@@ -122,7 +122,7 @@ float vsi_nn_AffineToFp32
 /*
  * Deprecated: Use vsi_nn_DtypeToFloat32() instead
  */
-vsi_status vsi_nn_DtypeToFp32
+OVXLIB_API vsi_status vsi_nn_DtypeToFp32
     (
     void       * src,
     float * dst,
@@ -133,7 +133,7 @@ vsi_status vsi_nn_DtypeToFp32
 /*
  * Deprecated: Use vsi_nn_Float32ToDtype() instead
  */
-vsi_status vsi_nn_Fp32toDtype
+OVXLIB_API vsi_status vsi_nn_Fp32toDtype
     (
     float   src,
     void       * dst,
@@ -141,21 +141,21 @@ vsi_status vsi_nn_Fp32toDtype
     const vsi_nn_dtype_t * dst_dtype
     );
 
-vsi_status vsi_nn_DtypeToFloat32
+OVXLIB_API vsi_status vsi_nn_DtypeToFloat32
     (
     uint8_t   * src,
     float * dst,
     const vsi_nn_dtype_t * src_dtype
     );
 
-vsi_status vsi_nn_Float32ToDtype
+OVXLIB_API vsi_status vsi_nn_Float32ToDtype
     (
     float   src,
     uint8_t   * dst,
     const vsi_nn_dtype_t * dst_dtype
     );
 
-int32_t vsi_nn_DtypeConvertRawData
+OVXLIB_API int32_t vsi_nn_DtypeConvertRawData
     (
     uint8_t * src,
     int32_t   src_bytes,
@@ -165,7 +165,7 @@ int32_t vsi_nn_DtypeConvertRawData
     const vsi_nn_dtype_t * dst_dtype
     );
 
-int32_t vsi_nn_DtypeConvertRawDataToFloat32
+OVXLIB_API int32_t vsi_nn_DtypeConvertRawDataToFloat32
     (
     uint8_t   * src,
     int32_t     src_bytes,
@@ -174,7 +174,7 @@ int32_t vsi_nn_DtypeConvertRawDataToFloat32
     int32_t     dst_size
     );
 
-int32_t vsi_nn_DtypeConvertFloat32ToRawData
+OVXLIB_API int32_t vsi_nn_DtypeConvertFloat32ToRawData
     (
     float * src,
     int32_t     src_size,
@@ -183,7 +183,7 @@ int32_t vsi_nn_DtypeConvertFloat32ToRawData
     const vsi_nn_dtype_t * dst_dtype
     );
 
-vsi_bool vsi_nn_QuantCheck
+OVXLIB_API vsi_bool vsi_nn_QuantCheck
     (
     vsi_nn_tensor_t *input,
     vsi_nn_tensor_t *weight,

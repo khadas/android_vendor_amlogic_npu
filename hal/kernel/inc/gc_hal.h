@@ -530,6 +530,15 @@ gckOS_WriteRegisterEx(
     IN gctUINT32 Data
     );
 
+/* Write data to a hardware register without dump. */
+gceSTATUS
+gckOS_WriteRegisterEx_NoDump(
+    IN gckOS Os,
+    IN gceCORE Core,
+    IN gctUINT32 Address,
+    IN gctUINT32 Data
+    );
+
 /* Write data to a 32-bit memory location. */
 gceSTATUS
 gckOS_WriteMemory(

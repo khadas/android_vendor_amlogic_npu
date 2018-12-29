@@ -223,7 +223,8 @@ gcoVX_SetNNImage(
 
 gceSTATUS
 gcoVX_QueryDeviceCount(
-    OUT gctUINT32 * Count
+    OUT gctUINT32 * DeviceCount,
+    OUT gctUINT32 * GPUCountPerDevice
     );
 
 gceSTATUS
@@ -308,6 +309,13 @@ gcoVX_SetRemapAddress(
     IN gctUINT32 remapStart,
     IN gctUINT32 remapEnd,
     IN gceVX_REMAP_TYPE remapType
+    );
+
+gceSTATUS
+gcoVX_ProgrammYUV2RGBScale(
+    IN gctPOINTER Data,
+    IN gctUINT32  gpuId,
+    IN gctBOOL    mGpuSync
     );
 
 gceSTATUS

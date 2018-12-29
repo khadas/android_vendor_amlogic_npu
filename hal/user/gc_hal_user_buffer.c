@@ -1887,6 +1887,11 @@ gcoBUFFER_Destroy(
         /* Get the head of the list. */
         commandBuffer = Buffer->commandBufferList;
 
+        if(Buffer->commandBufferTail == commandBuffer)
+        {
+            Buffer->commandBufferTail = gcvNULL;
+        }
+
         /* Remove the head buffer from the list. */
         if (commandBuffer->next == commandBuffer)
         {
@@ -2332,7 +2337,9 @@ gcoBUFFER_Commit(
     gceSTATUS status;
     gcoCMDBUF commandBuffer;
     gctBOOL emptyBuffer;
-
+    gctUINT32 currentCoreId = 0;
+    gctUINT32 coreIndex = 0;
+    gctUINT32 coreCount = 1;
     gcmHEADER_ARG("Buffer=0x%x Queue=0x%x",
                   Buffer, Queue);
 
@@ -2345,6 +2352,10 @@ gcoBUFFER_Commit(
         gcmTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_BUFFER, "Thread Default command buffer is comitting commands");
     }
 
+    gcmONERROR(gcoHAL_GetCurrentCoreIndex(gcvNULL, &currentCoreId));
+    gcmONERROR(gcoHARDWARE_QueryCoreIndex(Buffer->hardware,0, &coreIndex));
+
+    gcmONERROR(gcoHAL_SetCoreIndex(gcvNULL, coreIndex));
     /* When gcoBUFFER_EndTEMPCMDBUF, currentByteSize will set at last,
      * so currentByteSize > 0, means we still under temp Command buffer mode,
      * if the even is resource free and that resource is used by this tmp
@@ -2381,8 +2392,6 @@ gcoBUFFER_Commit(
     {
         gcsHAL_INTERFACE iface;
         gctUINT32 context = 0;
-        gctUINT32 coreCount = 1;
-        gctUINT32 currentCoreId = 0;
         gcoCMDBUF *commandBufferMirrors = commandBuffer->mirrors;
 
 #if gcdENABLE_3D
@@ -2419,22 +2428,22 @@ gcoBUFFER_Commit(
                             Buffer->queryPaused[type] = gcvTRUE;
                         }
                     }
-                }
 
-                /* need pauseXFB per commit and resuemeXFB when next draw flushXFB */
-                if (Buffer->hwFeature.hasHWTFB)
-                {
-                    gctUINT64 pauseXfbCommand, pauseXfbCommandsaved;
-
-                    pauseXfbCommandsaved =
-                    pauseXfbCommand      = gcmPTR_TO_UINT64((gctUINT8_PTR) gcmUINT64_TO_PTR(tailCommandBuffer->logical)
-                                                + tailCommandBuffer->offset);
-
-                    gcoHARDWARE_SetXfbCmd(gcvNULL, gcvXFBCMD_PAUSE_INCOMMIT, (gctPOINTER*)&pauseXfbCommand);
-                    if (pauseXfbCommand - pauseXfbCommandsaved > 0)
+                    /* need pauseXFB per commit and resuemeXFB when next draw flushXFB */
+                    if (Buffer->hwFeature.hasHWTFB)
                     {
-                        tailCommandBuffer->offset += (gctUINT32)(pauseXfbCommand - pauseXfbCommandsaved);
-                        Buffer->tfbPaused = gcvTRUE;
+                        gctUINT64 pauseXfbCommand, pauseXfbCommandsaved;
+
+                        pauseXfbCommandsaved =
+                        pauseXfbCommand      = gcmPTR_TO_UINT64((gctUINT8_PTR) gcmUINT64_TO_PTR(tailCommandBuffer->logical)
+                                                    + tailCommandBuffer->offset);
+
+                        gcoHARDWARE_SetXfbCmd(gcvNULL, gcvXFBCMD_PAUSE_INCOMMIT, (gctPOINTER*)&pauseXfbCommand);
+                        if (pauseXfbCommand - pauseXfbCommandsaved > 0)
+                        {
+                            tailCommandBuffer->offset += (gctUINT32)(pauseXfbCommand - pauseXfbCommandsaved);
+                            Buffer->tfbPaused = gcvTRUE;
+                        }
                     }
                 }
 
@@ -2455,36 +2464,52 @@ gcoBUFFER_Commit(
                 }
 
                 gcoHARDWARE_Query3DCoreCount(gcvNULL, &coreCount);
-                gcoHAL_GetCurrentCoreIndex(gcvNULL, &currentCoreId);
+                gcoHAL_GetCurrentCoreIndex(gcvNULL, &coreIndex);
 
-                alignedBytes = gcmALIGN(tailCommandBuffer->offset, Buffer->info.alignment) - tailCommandBuffer->offset;
+                if (!Buffer->hwFeature.hasComputeOnly)
+                {
+                    alignedBytes = gcmALIGN(tailCommandBuffer->offset, Buffer->info.alignment) - tailCommandBuffer->offset;
+                    if (coreCount > 1)
+                    {
+                        gctUINT32 bytes;
+                        gctUINT32_PTR flushCacheCommandLogical;
+
+                        flushCacheCommandLogical = (gctUINT32_PTR)((gctUINT8_PTR)gcmUINT64_TO_PTR(tailCommandBuffer->logical) +
+                                                   tailCommandBuffer->offset + alignedBytes);
+
+                        gcoHARDWARE_MultiGPUCacheFlush(gcvNULL, &flushCacheCommandLogical);
+
+                        gcoHARDWARE_QueryMultiGPUCacheFlushLength(gcvNULL, &bytes);
+                        tailCommandBuffer->offset += bytes + alignedBytes;
+                    }
+                    else
+                    {
+                        gctUINT8_PTR flushCacheCommand, flushCacheCommandsaved;
+
+                        flushCacheCommandsaved =
+                        flushCacheCommand = (gctUINT8_PTR)gcmUINT64_TO_PTR(tailCommandBuffer->logical)
+                                          + tailCommandBuffer->offset + alignedBytes;
+
+                        /* need flush ccache zcache and shl1_cache per commit */
+                        gcoHARDWARE_FlushCache(gcvNULL, (gctPOINTER*)&flushCacheCommand);
+                        tailCommandBuffer->offset += (gctUINT32)(flushCacheCommand - flushCacheCommandsaved) + alignedBytes;
+                    }
+                }
+
                 if (coreCount > 1)
                 {
                     gctUINT32 bytes;
                     gctUINT32_PTR syncCommandLogical;
 
-                    syncCommandLogical = (gctUINT32_PTR)((gctUINT8_PTR)gcmUINT64_TO_PTR(tailCommandBuffer->logical) +
-                                                         tailCommandBuffer->offset + alignedBytes);
+                    alignedBytes = gcmALIGN(tailCommandBuffer->offset, Buffer->info.alignment) - tailCommandBuffer->offset;
 
-                    gcoHARDWARE_MultiGPUCacheFlush(gcvNULL, &syncCommandLogical);
+                    syncCommandLogical = (gctUINT32_PTR)((gctUINT8_PTR)gcmUINT64_TO_PTR(tailCommandBuffer->logical) +
+                                         tailCommandBuffer->offset + alignedBytes);
 
                     gcoHARDWARE_MultiGPUSync(gcvNULL, &syncCommandLogical);
+
                     gcoHARDWARE_QueryMultiGPUSyncLength(gcvNULL, &bytes);
                     tailCommandBuffer->offset += bytes + alignedBytes;
-                    gcoHARDWARE_QueryMultiGPUCacheFlushLength(gcvNULL, &bytes);
-                    tailCommandBuffer->offset += bytes;
-                }
-                else
-                {
-                    gctUINT8_PTR flushCacheCommand, flushCacheCommandsaved;
-
-                    flushCacheCommandsaved =
-                    flushCacheCommand = (gctUINT8_PTR)gcmUINT64_TO_PTR(tailCommandBuffer->logical)
-                                      + tailCommandBuffer->offset + alignedBytes;
-
-                    /* need flush ccache zcache and shl1_cache per commit */
-                    gcoHARDWARE_FlushCache(gcvNULL, (gctPOINTER*)&flushCacheCommand);
-                    tailCommandBuffer->offset += (gctUINT32)(flushCacheCommand - flushCacheCommandsaved) + alignedBytes;
                 }
             }
 
@@ -2562,7 +2587,9 @@ gcoBUFFER_Commit(
          * For combine-core mode, current core should be 0.
          */
         /* Event queue is put to the first subCommit. */
-        gcmONERROR(_LinkSubCommit(Buffer, currentCoreId, gcvNULL, 0, Queue));
+        gcmONERROR(gcoHARDWARE_QueryCoreIndex(gcvNULL, 0, &coreIndex));
+
+        gcmONERROR(_LinkSubCommit(Buffer, coreIndex, gcvNULL, 0, Queue));
 
         /* Put context in the first sub commit. */
         Buffer->subCommitHead.context = context;
@@ -2612,9 +2639,6 @@ gcoBUFFER_Commit(
                 /* Set it to TLS to find correct command queue. */
                 gcmONERROR(gcoHAL_SetCoreIndex(gcvNULL, coreIndex));
             }
-
-            /* Restore core index in TLS. */
-            gcmONERROR(gcoHAL_SetCoreIndex(gcvNULL, currentCoreId));
         }
 
         /* Finish link sub-commits. */
@@ -2649,6 +2673,8 @@ gcoBUFFER_Commit(
     /* Empty buffer must be the tail. */
     gcmONERROR(gcoQUEUE_Free(Queue));
 
+    /* Restore core index in TLS. */
+    gcmONERROR(gcoHAL_SetCoreIndex(gcvNULL, currentCoreId));
     /* Success. */
     gcmFOOTER_NO();
     return gcvSTATUS_OK;
@@ -2836,6 +2862,32 @@ gcoBUFFER_SelectChannel(
     return gcvSTATUS_OK;
 
 OnError:
+    gcmFOOTER();
+    return status;
+}
+
+gceSTATUS
+gcoBUFFER_GetChannelInfo(
+    IN gcoBUFFER Buffer,
+    OUT gctBOOL *Priority,
+    OUT gctUINT32 *ChannelId
+    )
+{
+    gceSTATUS status = gcvSTATUS_OK;
+
+    gcmHEADER_ARG("Buffer=%p Priority=%p ChannelId=%p",
+                  Buffer, Priority, ChannelId);
+
+    if (Priority)
+    {
+        *Priority = Buffer->mcfePriority;
+    }
+
+    if (ChannelId)
+    {
+        *ChannelId = Buffer->mcfeChannelId;
+    }
+
     gcmFOOTER();
     return status;
 }

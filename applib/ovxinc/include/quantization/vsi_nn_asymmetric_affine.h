@@ -26,7 +26,7 @@
 
 #include "vsi_nn_types.h"
 
-vsi_status vsi_nn_QuantAffineCalParam
+OVXLIB_API vsi_status vsi_nn_QuantAffineCalParam
     (
     vsi_nn_type_e type,
     float    max_data,
@@ -35,7 +35,7 @@ vsi_status vsi_nn_QuantAffineCalParam
     uint32_t   * zero_point
     );
 
-vsi_bool vsi_nn_QuantAffineCheck
+OVXLIB_API vsi_bool vsi_nn_QuantAffineCheck
     (
     vsi_nn_tensor_t *input,
     vsi_nn_tensor_t *weight,

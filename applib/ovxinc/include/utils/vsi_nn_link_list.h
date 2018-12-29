@@ -43,58 +43,58 @@ typedef void ( * vsi_nn_link_list_deinit_t )
     vsi_nn_link_list_t * node
     );
 
-vsi_nn_link_list_t * vsi_nn_LinkListPopStart
+OVXLIB_API vsi_nn_link_list_t * vsi_nn_LinkListPopStart
     (
     vsi_nn_link_list_t ** root
     );
 
-vsi_nn_link_list_t * vsi_nn_LinkListPopEnd
+OVXLIB_API vsi_nn_link_list_t * vsi_nn_LinkListPopEnd
     (
     vsi_nn_link_list_t ** root
     );
 
-void vsi_nn_LinkListPushStart
+OVXLIB_API void vsi_nn_LinkListPushStart
     (
     vsi_nn_link_list_t ** root,
     vsi_nn_link_list_t  * nodes
     );
 
-void vsi_nn_LinkListPushEnd
+OVXLIB_API void vsi_nn_LinkListPushEnd
     (
     vsi_nn_link_list_t ** root,
     vsi_nn_link_list_t  * nodes
     );
 
-vsi_nn_link_list_t * vsi_nn_LinkListNext
+OVXLIB_API vsi_nn_link_list_t * vsi_nn_LinkListNext
     (
     vsi_nn_link_list_t * iter
     );
 
-vsi_nn_link_list_t * vsi_nn_LinkListNewNode
+OVXLIB_API vsi_nn_link_list_t * vsi_nn_LinkListNewNode
     (
     size_t sz,
     vsi_nn_link_list_init_t init
     );
 
-void vsi_nn_LinkListDeinit
+OVXLIB_API void vsi_nn_LinkListDeinit
     (
     vsi_nn_link_list_t * root,
     vsi_nn_link_list_deinit_t deinit
     );
 
-vsi_nn_link_list_t *vsi_nn_LinkListGetIndexNode
+OVXLIB_API vsi_nn_link_list_t *vsi_nn_LinkListGetIndexNode
     (
     vsi_nn_link_list_t * root,
     uint32_t index
     );
 
-void vsi_nn_LinkListDelIndexNode
+OVXLIB_API void vsi_nn_LinkListDelIndexNode
     (
     vsi_nn_link_list_t ** root,
     uint32_t index
     );
 
-uint32_t vsi_nn_LinkListGetNodeNumber
+OVXLIB_API uint32_t vsi_nn_LinkListGetNodeNumber
     (
     vsi_nn_link_list_t * root
     );

@@ -36,7 +36,7 @@ extern "C" {
 #define gcvINVALID_TEXTURE_FORMAT   ((gctUINT)(gceSURF_FORMAT) -1)
 #define gcvINVALID_RENDER_FORMAT    ((gctUINT)(gceSURF_FORMAT) -1)
 
-#define gcmTO_CHIP_ID(CoreID) (Hardware->chipIDs[CoreID])
+#define gcmTO_CHIP_ID(Index) (Hardware->chipIDs[Hardware->coreIndexs[Index]])
 
 #define gcmENABLE3DCORE(Memory, CoreId) \
 { \

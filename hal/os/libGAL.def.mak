@@ -769,6 +769,7 @@ EXPORTS
     gcoVX_RestoreContext
     gcoVX_WaitNNEvent
     gcoVX_SetRemapAddress
+    gcoVX_ProgrammYUV2RGBScale
     gcoVX_CaptureState
     gcoVX_CreateHW
     gcoVX_DestroyHW

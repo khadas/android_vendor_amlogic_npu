@@ -39,8 +39,12 @@
 /* 0.0.1.16 add a flag in VIR_Uniform, Apr. 2, 2018 */
 /* 0.0.1.17 save more memoryAccessFlag, Apr. 19, 2018 */
 /* 0.0.1.18 change image_fetch_gsamplerBuffer prototype, Aug. 28, 2018 */
-#define gcdVIR_SHADER_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 18)
-#define gcdVIR_PROGRAM_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 18)
+/* 0.0.1.19 add atomic patch library function */
+/* 0.0.1.20 add imageFetch/texelBufferToImage, Nov. 2, 2018 */
+/* 0.0.1.21 save the UBO symbol ID for the baseAddress, Nov. 8, 2018 */
+/* 0.0.1.22 modify _viv_atan2_float() to comform to CL spec on 11/20/2018 */
+#define gcdVIR_SHADER_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 22)
+#define gcdVIR_PROGRAM_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 22)
 
 #if !defined(gcdTARGETHOST_BIGENDIAN)
 #define gcdTARGETHOST_BIGENDIAN 0  /* default host little endian, to change the

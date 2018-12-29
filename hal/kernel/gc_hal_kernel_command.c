@@ -3073,9 +3073,6 @@ _CommitAsyncOnce(
 #if gcdNULL_DRIVER
     /* Skip submit to hardware for NULL driver. */
     gcmkDUMP(Command->os, "#[null driver: below command is skipped]");
-#else
-    /* Execute command buffer. */
-    gckASYNC_FE_Execute(hardware, commandBufferAddress, commandBufferSize);
 #endif
 
     gcmkDUMP(Command->os, "#[async-command: user]");
@@ -3096,6 +3093,11 @@ _CommitAsyncOnce(
             - CommandBuffer->reservedHead
             - CommandBuffer->reservedTail
         );
+
+#if !gcdNULL_DRIVER
+    /* Execute command buffer. */
+    gckASYNC_FE_Execute(hardware, commandBufferAddress, commandBufferSize);
+#endif
 
     gckOS_ReleaseMutex(Command->os, Command->mutexContext);
     acquired = gcvFALSE;
@@ -3199,15 +3201,6 @@ _CommitMultiChannelOnce(
 #if gcdNULL_DRIVER
     /* Skip submit to hardware for NULL driver. */
     gcmkDUMP(Command->os, "#[null driver: below command is skipped]");
-#else
-    /* Execute command buffer. */
-    gcmkONERROR(gckMCFE_Execute(
-        hardware,
-        (gctBOOL)CommandBuffer->priority,
-        (gctUINT32)CommandBuffer->channelId,
-        commandBufferAddress,
-        commandBufferSize
-        ));
 #endif
 
     gcmkDUMP(Command->os, "#[mcfe-command: user]");
@@ -3219,17 +3212,28 @@ _CommitMultiChannelOnce(
         commandBufferSize
         );
 
-    bit = 1ull << CommandBuffer->channelId;
-
-    /* This channel is dirty. */
-    Command->dirtyChannel[CommandBuffer->priority ? 1 : 0] |= bit;
-
     gcmkDUMP(Command->os,
              "@[execute %d %d 0x%08X 0x%08X]",
              CommandBuffer->channelId,
              CommandBuffer->priority,
              commandBufferAddress,
              commandBufferSize);
+
+#if !gcdNULL_DRIVER
+    /* Execute command buffer. */
+    gcmkONERROR(gckMCFE_Execute(
+        hardware,
+        (gctBOOL)CommandBuffer->priority,
+        (gctUINT32)CommandBuffer->channelId,
+        commandBufferAddress,
+        commandBufferSize
+        ));
+#endif
+
+    bit = 1ull << CommandBuffer->channelId;
+
+    /* This channel is dirty. */
+    Command->dirtyChannel[CommandBuffer->priority ? 1 : 0] |= bit;
 
     gckOS_ReleaseMutex(Command->os, Command->mutexQueue);
     acquired = gcvFALSE;
@@ -3811,9 +3815,6 @@ gckCOMMAND_ExecuteAsync(
 #if gcdNULL_DRIVER
     /* Skip submit to hardware for NULL driver. */
     gcmkDUMP(Command->os, "#[null driver: below command is skipped]");
-#else
-    /* Send descriptor. */
-    gckASYNC_FE_Execute(hardware, execAddress, execBytes);
 #endif
 
     gcmkDUMP(Command->os, "#[async-command: kernel execute]");
@@ -3824,6 +3825,11 @@ gckCOMMAND_ExecuteAsync(
         execAddress,
         execBytes
         );
+
+#if !gcdNULL_DRIVER
+    /* Send descriptor. */
+    gckASYNC_FE_Execute(hardware, execAddress, execBytes);
+#endif
 
     /* Update the command queue. */
     Command->offset   += RequestedBytes;
@@ -3902,14 +3908,6 @@ gckCOMMAND_ExecuteMultiChannel(
 #if gcdNULL_DRIVER
     /* Skip submit to hardware for NULL driver. */
     gcmkDUMP(Command->os, "#[null driver: below command is skipped]");
-#else
-    /* Send descriptor. */
-    gcmkONERROR(
-        gckMCFE_Execute(Command->kernel->hardware,
-                        Priority,
-                        ChannelId,
-                        execAddress,
-                        execBytes));
 #endif
 
     gcmkDUMP(Command->os, "#[mcfe-command: kernel execute]");
@@ -3921,13 +3919,23 @@ gckCOMMAND_ExecuteMultiChannel(
         execBytes
         );
 
-    /* Update the command queue. */
-    Command->offset   += RequestedBytes;
-    Command->newQueue  = gcvFALSE;
-
     gcmkDUMP(Command->os,
              "@[execute %u %u 0x%08X 0x%08X]",
              ChannelId, Priority, execAddress, execBytes);
+
+#if !gcdNULL_DRIVER
+    /* Send descriptor. */
+    gcmkONERROR(
+        gckMCFE_Execute(Command->kernel->hardware,
+                        Priority,
+                        ChannelId,
+                        execAddress,
+                        execBytes));
+#endif
+
+    /* Update the command queue. */
+    Command->offset   += RequestedBytes;
+    Command->newQueue  = gcvFALSE;
 
     return gcvSTATUS_OK;
 

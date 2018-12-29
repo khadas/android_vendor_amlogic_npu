@@ -5008,16 +5008,13 @@ gcoHARDWARE_QueryCommandBuffer(
         }
     }
 
-    if (Hardware->config->gpuCoreCount > 1)
-    {
-        mGpuModeSwitchBytes = 4 * gcmSIZEOF(gctUINT32);
-
-        gcoHARDWARE_QueryMultiGPUSyncLength(Hardware, &mGpuSyncBytes);
-        gcoHARDWARE_QueryMultiGPUCacheFlushLength(Hardware, &gpuFlushBytes);
-    }
+    mGpuModeSwitchBytes = Hardware->config->gpuCoreCount > 1 ?
+                          4 * gcmSIZEOF(gctUINT32) : 0;
 
     if (ReservedUser != gcvNULL)
     {
+        *ReservedUser = 0;
+
         if (Engine == gcvENGINE_BLT)
         {
             /* BLT engine will flush within command, so, don't need flush here
@@ -5034,24 +5031,28 @@ gcoHARDWARE_QueryCommandBuffer(
         }
         else
         {
-            *ReservedUser  = (gpuFlushBytes + mGpuSyncBytes);
-
-            if (Hardware->features[gcvFEATURE_FENCE_64BIT])
+            if (Hardware->config->gpuCoreCount > 1)
             {
-                *ReservedUser += (gcdRESERVED_HW_FENCE_64BIT + mGpuModeSwitchBytes);
-            }
-            else if (Hardware->features[gcvFEATURE_FENCE_32BIT])
-            {
-                *ReservedUser += (gcdRESERVED_HW_FENCE_32BIT + mGpuModeSwitchBytes);
+                gcoHARDWARE_QueryMultiGPUSyncLength(Hardware, &mGpuSyncBytes);
+                *ReservedUser += mGpuSyncBytes;
             }
 
-            *ReservedUser += gcdRESERVED_PAUSE_OQ_LENGTH;
-
-            if (Hardware->features[gcvFEATURE_HW_TFB])
+            if (!gcoHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_COMPUTE_ONLY))
             {
-                *ReservedUser += (gcdRESERVED_PAUSE_XFBWRITTEN_QUERY_LENGTH + mGpuModeSwitchBytes);
-                *ReservedUser += (gcdRESERVED_PAUSE_PRIMGEN_QUERY_LENGTH    + mGpuModeSwitchBytes);
-                *ReservedUser += (gcdRESERVED_PAUSE_XFB_LENGTH              + mGpuModeSwitchBytes);
+                if (Hardware->config->gpuCoreCount > 1)
+                {
+                    gcoHARDWARE_QueryMultiGPUCacheFlushLength(Hardware, &gpuFlushBytes);
+                }
+
+                *ReservedUser += gpuFlushBytes;
+                *ReservedUser += gcdRESERVED_PAUSE_OQ_LENGTH;
+
+                if (Hardware->features[gcvFEATURE_HW_TFB])
+                {
+                    *ReservedUser += (gcdRESERVED_PAUSE_XFBWRITTEN_QUERY_LENGTH + mGpuModeSwitchBytes);
+                    *ReservedUser += (gcdRESERVED_PAUSE_PRIMGEN_QUERY_LENGTH    + mGpuModeSwitchBytes);
+                    *ReservedUser += (gcdRESERVED_PAUSE_XFB_LENGTH              + mGpuModeSwitchBytes);
+                }
             }
 
             if (Hardware->features[gcvFEATURE_PROBE])
@@ -5080,6 +5081,15 @@ gcoHARDWARE_QueryCommandBuffer(
                         *ReservedUser += gcdRESERVED_PAUSE_PROBE_LENGTH;
                     }
                 }
+            }
+
+            if (Hardware->features[gcvFEATURE_FENCE_64BIT])
+            {
+                *ReservedUser += (gcdRESERVED_HW_FENCE_64BIT + mGpuModeSwitchBytes);
+            }
+            else if (Hardware->features[gcvFEATURE_FENCE_32BIT])
+            {
+                *ReservedUser += (gcdRESERVED_HW_FENCE_32BIT + mGpuModeSwitchBytes);
             }
         }
     }

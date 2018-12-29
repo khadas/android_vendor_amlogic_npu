@@ -31,14 +31,14 @@
 #include "vsi_nn_node.h"
 #include "vsi_nn_tensor.h"
 
-uint8_t * vsi_nn_VdataCreate
+OVXLIB_API uint8_t * vsi_nn_VdataCreate
     (
     vsi_nn_graph_t * graph,
     vsi_nn_node_t  * node,
     uint32_t      * p_stream_size
     );
 
-vsi_nn_tensor_t * vsi_nn_CreateVDataTensor
+OVXLIB_API vsi_nn_tensor_t * vsi_nn_CreateVDataTensor
     (
     vsi_nn_graph_t       * graph,
     uint8_t             * stream,

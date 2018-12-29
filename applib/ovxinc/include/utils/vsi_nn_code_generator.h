@@ -30,7 +30,7 @@
 extern "C" {
 #endif
 
-void vsi_nn_GenGraphCCode
+OVXLIB_API void vsi_nn_GenGraphCCode
     (
     vsi_nn_graph_t * graph,
     const char *     netpath,

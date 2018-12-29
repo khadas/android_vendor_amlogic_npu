@@ -34,20 +34,20 @@ typedef struct _vsi_nn_binary_tree
     void * data_ptr;
 } vsi_nn_binary_tree_t;
 
-void vsi_nn_BinaryTreeRemoveNode
+OVXLIB_API void vsi_nn_BinaryTreeRemoveNode
     (
     vsi_nn_binary_tree_t ** root,
     vsi_nn_binary_tree_key_t key
     );
 
-void vsi_nn_BinaryTreeNewNode
+OVXLIB_API void vsi_nn_BinaryTreeNewNode
     (
     vsi_nn_binary_tree_t ** root,
     vsi_nn_binary_tree_key_t key,
     void * data
     );
 
-void * vsi_nn_BinaryTreeGetNode
+OVXLIB_API void * vsi_nn_BinaryTreeGetNode
     (
     vsi_nn_binary_tree_t ** root,
     vsi_nn_binary_tree_key_t key

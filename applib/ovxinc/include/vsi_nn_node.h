@@ -43,9 +43,6 @@
 /*------------------------------------
                 Types
   -----------------------------------*/
-
-typedef uint32_t   vsi_nn_node_id_t;
-
 struct _vsi_nn_node
 {
     /* VSI NN graph */
@@ -74,7 +71,7 @@ struct _vsi_nn_node
 /*------------------------------------
               Functions
   -----------------------------------*/
-vsi_nn_node_t * vsi_nn_NewNode
+OVXLIB_API vsi_nn_node_t * vsi_nn_NewNode
     (
     vsi_nn_graph_t * graph,
     vsi_nn_op_t      op,
@@ -82,18 +79,18 @@ vsi_nn_node_t * vsi_nn_NewNode
     uint32_t         output_num
     );
 
-vsi_nn_node_t * vsi_nn_CreateNode
+OVXLIB_API vsi_nn_node_t * vsi_nn_CreateNode
     (
     vsi_nn_graph_t * graph,
     vsi_nn_op_t      op
     );
 
-void vsi_nn_ReleaseNode
+OVXLIB_API void vsi_nn_ReleaseNode
     (
     vsi_nn_node_t ** node
     );
 
-void vsi_nn_PrintNode
+OVXLIB_API void vsi_nn_PrintNode
     (
     vsi_nn_node_t * node,
     vsi_nn_node_id_t id

@@ -114,6 +114,7 @@ typedef struct _gcsNN_CUSTOMIZED_FEATURE
     gctUINT  maxSocOTNumber;/*max SOC outstanding transfer number*/
     gctUINT  nnWriteWithoutUSC;
     gctUINT  depthWiseSupport;
+    gctUINT  vipVectorPrune;
 } gcsNN_CUSTOMIZED_FEATURE;
 
 /* Features are unified (hardcoded) for hardwares */
@@ -123,7 +124,6 @@ typedef struct _gcsNN_UNIFIED_FEATURE
     gctUINT  nnCmdSizeInBytes;
     gctUINT  tpCmdSizeInBytes;
     gctUINT  vipCoefDecodePerf;
-    gctUINT  vipVectorPrune;
     gctUINT  vipCachedReadFromSram;
     gctUINT  vipImagePartialCache;
     gctUINT  lanesPerConv;

@@ -1,6 +1,14 @@
 #ifndef _VSI_NN_PUB_H
 #define _VSI_NN_PUB_H
 
+#if !defined(OVXLIB_API)
+    #if defined(_WIN32)
+        #define OVXLIB_API __declspec(dllimport)
+    #else
+        #define OVXLIB_API __attribute__((visibility("default")))
+    #endif
+#endif
+
 #include "vsi_nn_log.h"
 #include "vsi_nn_context.h"
 #include "vsi_nn_client_op.h"

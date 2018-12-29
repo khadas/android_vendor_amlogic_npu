@@ -819,41 +819,9 @@ gcoHAL_SetHardwareType(
 
     gcmONERROR(gcoOS_GetTLS(&__tls__));
 
-    /* if (__tls__->currentType != HardwardType) */
-    {
-        /* When hardware type is changed, reset currentCore according to
-        ** multiple GPUs affinity setting.
-        **
-        ** If mode is gcvMULTI_GPU_MODE_COMBINED, always uses 0 as main
-        ** core index.
-        **
-        ** so hardware with single core works without considering core index,
-        ** hardware with multiple cores must specify core index explicitly
-        ** before every device control calls.
-        **
-        ** Core index is global, for example, if there are four cores whose
-        ** type are gcoHARDWARE_3D, core indexes of them are 0, 1, 2, 3.
-        ** If a gcoHARDWARE object uses two of them 2 and 3, it should set
-        ** currentCore to 2/3 when call device control, instead of 0/1
-        */
-
-        gceMULTI_GPU_MODE mode;
-        gctUINT mainCoreIndex = 0;
-
-        gcmVERIFY_OK(gcoHAL_QueryMultiGPUAffinityConfig(
-            HardwardType,
-            &mode,
-            &mainCoreIndex
-            ));
-
-        if (mode == gcvMULTI_GPU_MODE_COMBINED)
-        {
-            mainCoreIndex = 0;
-        }
-
-        __tls__->currentCoreIndex = mainCoreIndex;
-    }
-
+    /* tls->currentCoreIndex is always 0 for hardware_2D, and it will process at gcoOS_DeviceControl.
+       tls->currentCoreIndex is only for hardware_3D
+    */
     __tls__->currentType = HardwardType;
 
     gcmFOOTER_NO();
@@ -1425,7 +1393,7 @@ gcoHAL_QueryMultiGPUAffinityConfig(
         if (length != 3
          || affinity[0] != '1'
          || affinity[1] != ':'
-         || (affinity[2] != '0' && affinity[2] != '1')
+         || (affinity[2] < '0' && affinity[2] > '7')
          )
         {
             return gcvSTATUS_INVALID_ARGUMENT;

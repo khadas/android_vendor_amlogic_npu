@@ -105,11 +105,15 @@ BEGIN_EXTERN_C()
 
 /* bump up version to 1.23 for remove VG from shader flags on 03/01/2018 */
 #define gcdSL_SHADER_BINARY_BEFORE_MOVE_VG_FROM_SHADER_FLAG gcmCC(0, 0, 1, 23)
+/* bump up version to 1.24 for adding transform feedback info on 08/20/2018 */
+
+/* bump up version to 1.26 for adding output's shader mode on 09/28/2018 */
+/* bump up version to 1.27 for modify _viv_atan2_float() to comform to CL spec on 11/20/2018 */
 
 /* current version */
-#define gcdSL_SHADER_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 25)
+#define gcdSL_SHADER_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 27)
 
-#define gcdSL_PROGRAM_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 25)
+#define gcdSL_PROGRAM_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 27)
 
 typedef union _gcsValue
 {
@@ -1038,6 +1042,11 @@ typedef enum _gceTYPE_QUALIFIER
     gcvTYPE_QUALIFIER_CONST        = 0x100, /* const */
 }gceTYPE_QUALIFIER;
 
+#define gcd_ADDRESS_SPACE_QUALIFIERS  (gcvTYPE_QUALIFIER_CONSTANT | \
+                                       gcvTYPE_QUALIFIER_GLOBAL | \
+                                       gcvTYPE_QUALIFIER_LOCAL | \
+                                       gcvTYPE_QUALIFIER_PRIVATE)
+
 typedef gctUINT16  gctTYPE_QUALIFIER;
 
 /* gcSHADER_PRECISION enumeration. */
@@ -1433,7 +1442,8 @@ typedef enum _gceBuiltinNameKind
     gcSL_IN_POINT_SIZE          = -37, /* gl_in.gl_PointSize */
     gcSL_BOUNDING_BOX           = -38, /* gl_BoundingBox */
     gcSL_LAST_FRAG_DATA         = -39, /* gl_LastFragData */
-    gcSL_BUILTINNAME_COUNT      = 40
+    gcSL_CLUSTER_ID             = -40, /* cluster id */
+    gcSL_BUILTINNAME_COUNT      = 41
 } gceBuiltinNameKind;
 
 /* Special code generation indices. */
@@ -1992,6 +2002,9 @@ typedef struct _gcBINARY_ATTRIBUTE
 
     /* The variable index of the type name, it is only enabled for a structure member only. */
     gctINT16                      typeNameVarIndex;
+
+    /* shader mode: flat/smooth/... */
+    gctINT16                      shaderMode;
 
     /* The attribute name. */
     char                          name[1];
@@ -2718,6 +2731,8 @@ struct _gcUNIFORM
 #define SetUniformImageFormat(u, g)             ((u)->imageFormat = (g))
 #define GetUniformQualifier(u)                  ((u)->qualifier)
 #define SetUniformQualifier(u, g)               ((u)->qualifier |= (g))
+#define ClrUniformAddrSpaceQualifier(u)         ((u)->qualifier &= ~gcd_ADDRESS_SPACE_QUALIFIERS)
+#define SetUniformAddrSpaceQualifier(u, g)      ((u)->qualifier = ((u)->qualifier & ~gcd_ADDRESS_SPACE_QUALIFIERS) | (g))
 #define GetUniformShaderKind(u)                 ((u)->shaderKind)
 #define SetUniformShaderKind(u, g)              (GetUniformShaderKind(u) = (g))
 #define GetUniformArrayLengthCount(u)           ((u)->arrayLengthCount)
@@ -3169,6 +3184,9 @@ typedef struct _gcBINARY_OUTPUT
 
     /* The variable index of the type name, it is only enabled for a structure member only. */
     gctINT16                        typeNameVarIndex;
+
+    /* shader mode: flat/smooth/... */
+    gctINT16                        shaderMode;
 
     /* layout qualifier */
     char                            layoutQualifier[sizeof(gceLAYOUT_QUALIFIER)];

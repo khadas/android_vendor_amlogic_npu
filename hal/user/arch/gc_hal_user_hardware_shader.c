@@ -874,9 +874,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
 
     cmdBuffer = gcvNULL;
 
- /* Calculate thread allocation. */
-
-
+    /* Calculate thread allocation. */
     for(i = 0 ;i < usedGPUCount; i++)
     {
         allocation = eachGPUInfo[i].workGroupSizeX;
@@ -2282,8 +2280,29 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  5:5) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)))
             ));
-         gcoHARDWARE_MultiGPUSync(Hardware, gcvNULL);
 
+        /* Invalidate Shader Icache. */
+        if (gcoHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_HALTI5))
+        {
+            gcmONERROR(gcoHARDWARE_LoadCtrlState(
+                Hardware,
+                0x008B0, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1))))))) << (0 ?
+ 4:4))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:4) - (0 ? 4:4) + 1))))))) << (0 ? 4:4)))
+                ));
+        }
+
+        /* SubmitJob is pared with the complete signal from FlushCache. */
+        gcoHARDWARE_McfeSubmitJob(Hardware, gcvNULL);
+
+        gcoHARDWARE_MultiGPUSync(Hardware, gcvNULL);
     }
 
 OnError:

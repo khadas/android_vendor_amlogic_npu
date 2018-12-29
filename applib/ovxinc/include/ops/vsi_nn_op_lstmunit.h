@@ -40,6 +40,9 @@ typedef struct _vsi_nn_lstmunit_lcl_data_t
     vsi_nn_tensor_t *activation_tensor;
     vsi_nn_tensor_t *cell_clip_tensor;
     vsi_nn_tensor_t *proj_clip_tensor;
+    vsi_nn_tensor_t *scratch_tensor;
+
+    vsi_nn_tensor_attr_t scratch_attr;
 } vsi_nn_lstmunit_lcl_data_t;
 
 typedef struct _vsi_nn_lstmunit_param_t

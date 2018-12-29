@@ -574,7 +574,8 @@ gcoCL_QueryDeviceInfo(
 
 gceSTATUS
 gcoCL_QueryDeviceCount(
-    OUT gctUINT32 * Count
+    OUT gctUINT32 * DeviceCount,
+    OUT gctUINT32 * GPUCountPerDevice
     );
 
 gceSTATUS

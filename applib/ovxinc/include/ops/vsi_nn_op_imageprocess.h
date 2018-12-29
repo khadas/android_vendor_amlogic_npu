@@ -64,7 +64,7 @@ typedef struct _vsi_nn_imageprocess_param
     } mean;
 } vsi_nn_imageprocess_param;
 
-vsi_status vsi_nn_op_imageprocess_single_node
+OVXLIB_API vsi_status vsi_nn_op_imageprocess_single_node
     (
     vsi_nn_graph_t *graph,
     vsi_nn_tensor_attr_t *attr,

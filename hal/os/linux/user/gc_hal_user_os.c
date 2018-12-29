@@ -2575,7 +2575,7 @@ gcoOS_DeviceControl(
         {
             gcmONERROR(gcoOS_GetTLS(&tls));
             inputBuffer->hardwareType = tls->currentType;
-            inputBuffer->coreIndex = tls->currentCoreIndex;
+            inputBuffer->coreIndex = tls->currentType == gcvHARDWARE_2D ? 0: tls->currentCoreIndex;
         }
         else
         {

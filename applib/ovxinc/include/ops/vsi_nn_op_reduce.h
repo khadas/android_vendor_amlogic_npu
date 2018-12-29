@@ -35,10 +35,18 @@ typedef vx_uint32 vsi_nn_reduce_t; enum
     VSI_NN_REDUCE_SUM,
 };
 
+typedef struct _vsi_nn_reduce_lcl_data_t
+{
+    vsi_nn_tensor_t *axis_tensor;
+} vsi_nn_reduce_lcl_data_t;
+
 typedef struct _vsi_nn_reduce_param
 {
+    /* local data must be the first. */
+    vsi_nn_reduce_lcl_data_t local;
+
     vx_enum     type;
-    vx_uint32   axis[4];
+    vx_uint32   *axis;
     vx_uint32   axis_num;
     vx_bool     keep_dim;
 } vsi_nn_reduce_param;

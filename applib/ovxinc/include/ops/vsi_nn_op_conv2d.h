@@ -37,6 +37,7 @@ typedef struct _vsi_nn_conv2d_param
     uint32_t     weights;
     uint32_t     group;
     uint32_t     dilation[2];
+    int32_t      multiplier;
 } vsi_nn_conv2d_param;
 
 #endif

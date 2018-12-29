@@ -3152,7 +3152,9 @@ gckHARDWARE_InitializeHardware(
     }
 
     if (gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_NN_ENGINE) &&
-        !gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_HI_REORDER_FIX))
+        (!gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_HI_REORDER_FIX) ||
+        (((gcsFEATURE_DATABASE *)Hardware->featureDatabase)->AXI_SRAM_SIZE == 0))
+        )
     {
         gcmkONERROR(gckOS_ReadRegisterEx(
             Hardware->os, Hardware->core, 0x00090, &data));
@@ -4897,7 +4899,7 @@ gckHARDWARE_SetMMU(
             /* Enable MMU. */
             if (Hardware->options.secureMode == gcvSECURE_IN_NORMAL)
             {
-                gcmkONERROR(gckOS_WriteRegisterEx(
+                gcmkONERROR(gckOS_WriteRegisterEx_NoDump(
                     Hardware->os,
                     Hardware->core,
                     0x00388,
@@ -14285,9 +14287,13 @@ _ResetGPU(
  ~0U : (~(~0U << ((1 ? 12:12) - (0 ? 12:12) + 1))))))) << (0 ? 12:12)))));
         }
 
+#if gcdFPGA_BUILD
+        /* Wait more time on FPGA for reset as lower frequency */
+        gcmkONERROR(gckOS_Delay(Os, 3));
+#else
         /* Wait for reset. */
         gcmkONERROR(gckOS_Delay(Os, 1));
-
+#endif
         /* Reset soft reset bit. */
         gcmkONERROR(gckOS_WriteRegisterEx(Os,
                                           Core,
@@ -14898,6 +14904,113 @@ OnError:
     return status;
 }
 
+static gceSTATUS
+_DumpMCFEState(
+    IN gckOS Os,
+    IN gceCORE Core
+    )
+{
+    gctUINT32 i, j, data = 0, array[8] = { 0 };
+    gceSTATUS status = gcvSTATUS_OK;
+
+    gcmkHEADER();
+
+    gcmkPRINT("**************************\n");
+    gcmkPRINT("*****   MCFE STATE   *****\n");
+    gcmkPRINT("**************************\n");
+
+    /* Fetch address of channels. */
+    gcmkPRINT("Channel fetch addresses:\n");
+    gcmkPRINT("     [00]        [01]        [02]        [03]\n");
+
+    for (i = 0; i < 4; i++)
+    {
+        gcmkONERROR(gckOS_WriteRegisterEx(Os, Core, 0x470, 0x3 + 2 * i));
+    }
+
+    for (i = 0; i < 16; i++)
+    {
+        for (j = 0; j < 4; j++)
+        {
+            gcmkONERROR(gckOS_WriteRegisterEx(Os, Core, 0x470, 0x2 + 2 * j));
+            gcmkONERROR(gckOS_ReadRegisterEx(Os, Core, 0x450, &array[j]));
+        }
+
+        gcmkPRINT("  0x%08X  0x%08X  0x%08X  0x%08X\n", array[0], array[1], array[2], array[3]);
+    }
+
+    /* Command data of channels. */
+    gcmkPRINT_N(0, "Channel command data:\n");
+    gcmkPRINT_N(0, "           [00]                    [01]                    [02]                    [03]\n");
+    gcmkPRINT_N(0, "     [Low        High]       [Low        High]       [Low        High]       [Low        High]\n");
+
+
+    for (i = 0; i < 4; i++)
+    {
+        gcmkONERROR(gckOS_WriteRegisterEx(Os, Core, 0x470, 0x11 + 4 * i));
+        gcmkONERROR(gckOS_WriteRegisterEx(Os, Core, 0x470, 0x11 + 4 * i + 2));
+    }
+
+    for (i = 0; i < 32; i++)
+    {
+        for (j = 0; j < 4; j++)
+        {
+            gcmkONERROR(gckOS_WriteRegisterEx(Os, Core, 0x470, 0x10 + 4 * j));
+            gcmkONERROR(gckOS_ReadRegisterEx(Os, Core, 0x450, &array[j * 2]));
+
+            gcmkONERROR(gckOS_WriteRegisterEx(Os, Core, 0x470, 0x10 + 4 * j + 2));
+            gcmkONERROR(gckOS_ReadRegisterEx(Os, Core, 0x450, &array[j * 2 + 1]));
+        }
+
+        gcmkPRINT_N(0, "  0x%08X  0x%08X  0x%08X  0x%08X  0x%08X  0x%08X  0x%08X  0x%08X\n",
+                    array[0], array[1], array[2], array[3], array[4], array[5], array[6], array[7]);
+    }
+
+    gcmkONERROR(gckOS_WriteRegisterEx(Os, Core, 0x470, 0x00));
+    gcmkONERROR(gckOS_ReadRegisterEx(Os, Core, 0x450, &data));
+    gcmkPRINT_N(0, "0x00: 0x%08X\n", data);
+
+    gcmkONERROR(gckOS_WriteRegisterEx(Os, Core, 0x470, 0x01));
+    gcmkONERROR(gckOS_ReadRegisterEx(Os, Core, 0x450, &data));
+    gcmkPRINT_N(0, "0x01: 0x%08X\n", data);
+
+    gcmkONERROR(gckOS_WriteRegisterEx(Os, Core, 0x470, 0x0A));
+    gcmkONERROR(gckOS_ReadRegisterEx(Os, Core, 0x450, &data));
+    gcmkPRINT_N(0, "WaitSemaphore: 0x%08X\n", data);
+
+    gcmkONERROR(gckOS_WriteRegisterEx(Os, Core, 0x470, 0x0B));
+    gcmkONERROR(gckOS_ReadRegisterEx(Os, Core, 0x450, &data));
+    gcmkPRINT_N(0, "WaitEventID(channel 0 and 1): 0x%08X\n", data);
+
+    gcmkONERROR(gckOS_WriteRegisterEx(Os, Core, 0x470, 0x0C));
+    gcmkONERROR(gckOS_ReadRegisterEx(Os, Core, 0x450, &data));
+    gcmkPRINT_N(0, "WaitEventID(channel 2 and 3): 0x%08X\n", data);
+
+    gcmkONERROR(gckOS_WriteRegisterEx(Os, Core, 0x470, 0x0D));
+    gcmkONERROR(gckOS_ReadRegisterEx(Os, Core, 0x450, &data));
+    gcmkPRINT_N(0, "DecodeState: 0x%08X\n", data);
+
+    gcmkONERROR(gckOS_WriteRegisterEx(Os, Core, 0x470, 0x0E));
+    gcmkONERROR(gckOS_ReadRegisterEx(Os, Core, 0x450, &data));
+    gcmkPRINT_N(0, "DebugSelect(0x0E): 0x%08X\n", data);
+
+    gcmkONERROR(gckOS_WriteRegisterEx(Os, Core, 0x470, 0x0F));
+    gcmkONERROR(gckOS_ReadRegisterEx(Os, Core, 0x450, &data));
+    gcmkPRINT_N(0, "DebugSelect(0x0F): 0x%08X\n", data);
+
+    for (i = 0; i < 9; i++)
+    {
+        gcmkONERROR(gckOS_WriteRegisterEx(Os, Core, 0x470, 0x20 + i));
+        gcmkONERROR(gckOS_ReadRegisterEx(Os, Core, 0x450, &data));
+        gcmkPRINT_N(0, "DebugSelect(0x%02X): 0x%08X\n", 0x20 + i, data);
+    }
+
+OnError:
+    gcmkFOOTER();
+
+    return status;
+}
+
 /*******************************************************************************
 **
 **  gckHARDWARE_DumpGPUState
@@ -15168,6 +15281,12 @@ gckHARDWARE_DumpGPUState(
 
             gckHARDWARE_DumpMMUException(Hardware);
         }
+    }
+
+    /* MCFE state. */
+    if (gckHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_MCFE))
+    {
+        gcmkVERIFY_OK(_DumpMCFEState(os, core));
     }
 
     /* Restore control. */
@@ -18651,7 +18770,7 @@ gckHARDWARE_QueryFrequency(
 
     gcmkHEADER_ARG("Hardware=0x%p", Hardware);
 
-    gcmkVERIFY_ARGUMENT(Hardware != NULL);
+    gcmkVERIFY_ARGUMENT(Hardware != gcvNULL);
 
     mcStart = shStart = 0;
     mcClk   = shClk   = 0;

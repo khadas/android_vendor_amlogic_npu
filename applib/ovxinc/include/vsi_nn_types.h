@@ -94,6 +94,10 @@ typedef enum _vsi_nn_type_e
 
 typedef uint32_t vsi_nn_size_t;
 
+typedef uint32_t vsi_nn_tensor_id_t;
+
+typedef uint32_t vsi_nn_node_id_t;
+
 typedef struct _vsi_nn_graph vsi_nn_graph_t;
 
 typedef struct _vsi_nn_node vsi_nn_node_t;

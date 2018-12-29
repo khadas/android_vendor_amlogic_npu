@@ -167,8 +167,6 @@ _FillInOptions(
     )
 {
     gctSTRING envctrl = gcvNULL;
-    gceMULTI_GPU_MODE mode;
-    gctUINT coreIndex;
 
     gcoOS_ZeroMemory(gcOptions, sizeof(gcOptions[0]) * gcvOPTION_COUNT);
     gcOptions[gcvOPTION_PREFER_ZCONVERT_BYPASS] = gcvTRUE;
@@ -245,7 +243,6 @@ _FillInOptions(
         }
     }
 
-    gcoHAL_QueryMultiGPUAffinityConfig(gcvHARDWARE_3D, &mode, &coreIndex);
 
     /* if VIV_MGPU_AFFINITY is COMBINED , VIV_OCL_USE_MULTI_DEVICE is ignore
         if VIV_MGPU_AFFINITY is INDEPENENT, single device if VIV_OCL_USE_MULTI_DEVICE is false else get mulit-device .
@@ -259,12 +256,13 @@ _FillInOptions(
         gcOptions[gcvOPTION_OCL_USE_MULTI_DEVICES] = gcvFALSE;
 
     }
-    else  if(envctrl[0] == '1')/* VIV_MGPU_AFFINITY is INDEPENENT */
+    else  if((gcoOS_StrCmp(envctrl, "1") == gcvSTATUS_OK  )
+             || (gcoOS_StrCmp(envctrl, "1:1") == gcvSTATUS_OK)
+             || (gcoOS_StrCmp(envctrl, "1:2") == gcvSTATUS_OK)
+             || (gcoOS_StrCmp(envctrl, "1:4") == gcvSTATUS_OK)
+             )/* mulit-device mode validation  in gcoCL_QueryDeviceCount */
     {
-        if(mode != gcvMULTI_GPU_MODE_COMBINED)
-        {
-            gcOptions[gcvOPTION_OCL_USE_MULTI_DEVICES] = gcvTRUE;
-        }
+        gcOptions[gcvOPTION_OCL_USE_MULTI_DEVICES] = gcvTRUE;
     }
 
 #if gcdUSE_VX
@@ -299,19 +297,20 @@ _FillInOptions(
     }
 
     envctrl = gcvNULL;
-    gcoOS_GetEnv(gcvNULL,"VIV_OVX_USE_MULTI_DEVICE", &envctrl);
+    gcoOS_GetEnv(gcvNULL,"VIV_OVX_USE_MULTI_DEVICE", &envctrl); /*mulit-device mode validation  in gcoVX_QueryDeviceCount*/
     if(envctrl == gcvNULL || envctrl[0] == '0')
     {
 
          gcOptions[gcvOPTION_OVX_USE_MULTI_DEVICES] = gcvFALSE;
 
     }
-    else  if(envctrl[0] == '1')/* VIV_MGPU_AFFINITY is INDEPENENT */
+    else  if( (gcoOS_StrCmp(envctrl, "1") == gcvSTATUS_OK)
+              || (gcoOS_StrCmp(envctrl, "1:1") == gcvSTATUS_OK)
+              || (gcoOS_StrCmp(envctrl, "1:2") == gcvSTATUS_OK)
+              || (gcoOS_StrCmp(envctrl, "1:4") == gcvSTATUS_OK)
+            )/* VIV_MGPU_AFFINITY is INDEPENENT */
     {
-        if(mode != gcvMULTI_GPU_MODE_COMBINED)
-        {
-            gcOptions[gcvOPTION_OVX_USE_MULTI_DEVICES] = gcvTRUE;
-        }
+         gcOptions[gcvOPTION_OVX_USE_MULTI_DEVICES] = gcvTRUE;
     }
 
 #endif

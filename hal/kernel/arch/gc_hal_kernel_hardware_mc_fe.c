@@ -858,7 +858,7 @@ gckMCFE_Execute(
 
     gcmkVERIFY_OK(gckVIDMEM_NODE_CleanCache(Hardware->kernel,
                                             ringBuf->ringBufVideoMem,
-                                            ringBuf->writePtr * 2 * 4,
+                                            0,
                                             desc,
                                             8));
 
