@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -249,6 +249,16 @@ typedef struct _gcsHARDWARE_CONFIG
 
     gceCHIP_FLAG                chipFlags;
 
+    /* hw features fields. */
+    gctUINT32                   chipFeatures;
+    gctUINT32                   chipMinorFeatures;
+    gctUINT32                   chipMinorFeatures1;
+    gctUINT32                   chipMinorFeatures2;
+    gctUINT32                   chipMinorFeatures3;
+    gctUINT32                   chipMinorFeatures4;
+    gctUINT32                   chipMinorFeatures5;
+    gctUINT32                   chipMinorFeatures6;
+
     /* Data extracted from specs bits. */
 #if gcdENABLE_3D
     /* gcChipSpecs. */
@@ -268,6 +278,7 @@ typedef struct _gcsHARDWARE_CONFIG
     gctUINT32                   clusterAliveMask; /* physical cluster mask really enabled, may not all clusters */
     gctUINT32                   uscCacheControllers;
     gctUINT32                   uscBanks;
+    const gctCHAR               *productName;
 #if gcdENABLE_3D
     gctUINT32                   vertexOutputBufferSize;
     /* gcChipSpecs2. */

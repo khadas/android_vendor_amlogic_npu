@@ -1,6 +1,6 @@
 ##############################################################################
 #
-#    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+#    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 #
 #    The material in this file is confidential and contains trade secrets
 #    of Vivante Corporation. This is proprietary information owned by
@@ -47,6 +47,10 @@ LOCAL_SRC_FILES += \
     gc_hal_user_shader.c \
     gc_hal_user_resource.c
 
+ifeq ($(USE_OPENCL),1)
+LOCAL_SRC_FILES += \
+    gc_hal_user_cl.c
+endif
 else
 endif
 

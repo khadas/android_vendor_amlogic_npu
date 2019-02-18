@@ -152,6 +152,8 @@ enum vx_kernel_libnnext_offset_e
 #define VX_KERNEL_NAME_ARGMAX_UINT8                        "com.vivantecorp.extension.argMaxVXCUint8"
 #define VX_KERNEL_NAME_ARGMAX_INT16                        "com.vivantecorp.extension.argMaxVXCInt16"
 #define VX_KERNEL_NAME_ARGMAX_UINT8_INT16                  "com.vivantecorp.extension.argMaxVXCUint8_Int16"
+#define VX_KERNEL_NAME_ARGMAX_U8_I16_WXHX256               "com.vivantecorp.extension.argMax_U8_I16_WxHx256"
+#define VX_KERNEL_NAME_ARGMAX_I8_I16_WXHX256               "com.vivantecorp.extension.argMax_I8_I16_WxHx256"
 #define VX_KERNEL_NAME_ALEXNET_GEMM                        "com.vivantecorp.extension.alexNet_gemmVXC"
 #define VX_KERNEL_NAME_IMG2COL_DILATED                     "com.vivantecorp.extension.img2col_dilatedVXC"
 #define VX_KERNEL_NAME_IMG2COL_DILATED_INT8                "com.vivantecorp.extension.img2col_dilated_int8VXC"
@@ -185,6 +187,8 @@ enum vx_kernel_libnnext_offset_e
 #define VX_KERNEL_NAME_GEMM_UINT8                          "com.vivantecorp.extension.gemm_block4x4_u8"
 #define VX_KERNEL_NAME_GEMM_FP16U8_Fp16                    "com.vivantecorp.extension.gemm_block4x4_fp16_u8_fp16"
 #define VX_KERNEL_NAME_GEMM_FP16U8_U8                      "com.vivantecorp.extension.gemm_block4x4_fp16_u8_u8"
+#define VX_KERNEL_NAME_GEMM_TRANSB_FP16U8TOFP16            "com.vivantecorp.extension.gemmTransBFp16U8toFp16"
+#define VX_KERNEL_NAME_GEMM_TRANSB_FP16U8TOU8              "com.vivantecorp.extension.gemmTransBFp16U8toU8"
 #define VX_KERNEL_NAME_LAYERNORM                           "com.vivantecorp.extension.vxcLayerNorm"
 #define VX_KERNEL_NAME_LAYERNORM_UINT8                     "com.vivantecorp.extension.vxcLayerNorm_u8"
 #define VX_KERNEL_NAME_LAYERNORM_FP16TOU8                  "com.vivantecorp.extension.vxcLayerNormFP16toU8"
@@ -262,6 +266,17 @@ enum vx_kernel_libnnext_ext_e
     VX_KERNEL_ENUM_SIGNALFRAME          = VX_KERNEL_BASE(VX_ID_DEFAULT, VX_LIBRARY_LIBNNEXT) + KERNEL_ENUM_SIGNALFRAME,
     // up to 0xFFF kernel enums can be created.
 };
+
+/* Assigned from Khronos, for custom */
+#define VX_LIBRARY_CUSTOM (0x4)
+enum vx_kernel_custom_id_e
+{
+    _VX_CLIENT_ID_START = VX_KERNEL_BASE( VX_ID_DEFAULT, VX_LIBRARY_CUSTOM ),
+#define DEF_OP( name )     VX_CLIENT_ID_##name,
+    #include "custom/custom_ops.def"
+#undef DEF_OP
+};
+#define VX_KERNEL_ID( name ) VX_CLIENT_ID_##name
 
 #ifndef gvxOBJ_CHECK
 #define gvxOBJ_CHECK(ref) \

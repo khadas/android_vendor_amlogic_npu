@@ -260,15 +260,19 @@ gceSTATUS _Reset(IN gcsPLATFORM * Platform, IN gceCORE GPU)
 
 	printk("====>>>>begin npu hardware reset!\n");
 	_RegWrite(RESET_LEVEL2, 0xffffefff);
+	/*==========power off=============*/
 	_RegWrite(HHI_NANOQ_MEM_PD_REG0, 0xffffffff);
 	_RegWrite(HHI_NANOQ_MEM_PD_REG1, 0xffffffff);
 	_RegRead(AO_RTI_GEN_PWR_ISO0,&readReg);
 	readReg = (readReg | 0x30000);
 	_RegWrite(AO_RTI_GEN_PWR_ISO0, readReg);
+	
 	_RegRead(AO_RTI_GEN_PWR_SLEEP0,&readReg);
 	readReg = (readReg | 0x30000);
 	_RegWrite(AO_RTI_GEN_PWR_SLEEP0, readReg);
-	mdelay(100);
+
+	mdelay(100);	
+	/*==========power on===============*/	
 	_RegRead(AO_RTI_GEN_PWR_SLEEP0,&readReg);
 	readReg = (readReg & 0xfffcffff);
 	_RegWrite(AO_RTI_GEN_PWR_SLEEP0, readReg);
@@ -280,10 +284,10 @@ gceSTATUS _Reset(IN gcsPLATFORM * Platform, IN gceCORE GPU)
 	set_clock(Platform->device);
 	mdelay(10);
 	_RegWrite(RESET_LEVEL2, 0xffffffff);
-	mdelay(20);
+	mdelay(20);	      
 	printk("====>>>>npu hardware reset end!\n");
 	hardwareResetNum++;
-	if (hardwareResetNum > 10000)
+	if(hardwareResetNum > 10000)
 	{
 		printk("hardwareResetNum is too large over 10000,just set zero\n");
 		hardwareResetNum = 0;

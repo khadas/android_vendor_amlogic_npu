@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -1119,7 +1119,8 @@ _DumpDataBuffer(
     {
         gctPOINTER data = gcvNULL;
         gctUINT32_PTR ptr;
-        gctSIZE_T count;
+        gctUINT8_PTR ptrByte;
+        gctSIZE_T count, tailByteCount;
 
         length = maxLength < (Size - offset) ? maxLength : (Size - offset);
 
@@ -1129,6 +1130,7 @@ _DumpDataBuffer(
         }
 
         count = length / 4;
+        tailByteCount = length % 4;
 
         ptr = (gctUINT32_PTR)Data;
 
@@ -1187,6 +1189,28 @@ _DumpDataBuffer(
             break;
         case 1:
             gcmkSPRINTF(buffer, gcmSIZEOF(buffer) - 1, "  0x%08X\n", ptr[0]);
+            gcmkDUMP_STRING(Os, buffer);
+            break;
+        }
+
+        ptrByte = (gctUINT8_PTR)ptr;
+        switch (tailByteCount)
+        {
+        case 3:
+            gcmkSPRINTF(buffer, gcmSIZEOF(buffer) - 1,
+                        "  0x00%02X%02X%02X\n",
+                        ptrByte[2], ptrByte[1], ptrByte[0]);
+            gcmkDUMP_STRING(Os, buffer);
+            break;
+        case 2:
+            gcmkSPRINTF(buffer, gcmSIZEOF(buffer) - 1,
+                        "  0x0000%02X%02X\n",
+                        ptrByte[1], ptrByte[0]);
+            gcmkDUMP_STRING(Os, buffer);
+            break;
+        case 1:
+            gcmkSPRINTF(buffer, gcmSIZEOF(buffer) - 1,
+                        "  0x000000%02X\n", ptrByte[0]);
             gcmkDUMP_STRING(Os, buffer);
             break;
         }

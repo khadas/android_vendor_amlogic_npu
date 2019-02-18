@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -1488,9 +1488,8 @@ gckGALDEVICE_Construct(
             else
             {
 #if USE_LINUX_PCIE
-                device->registerBases[i] = (gctPOINTER) pci_iomap(device->platform->device, device->bars[i],
-                    device->requestedRegisterMemSizes[i]);
-#else
+                gcmkPRINT("register should be mapped in platform layer");
+#endif
                 if (!request_mem_region(physical,
                         device->requestedRegisterMemSizes[i],
                         "galcore register region"))
@@ -1507,7 +1506,6 @@ gckGALDEVICE_Construct(
 
                 device->registerBases[i] = (gctPOINTER)ioremap_nocache(
                         physical, device->requestedRegisterMemSizes[i]);
-#endif
 
                 if (device->registerBases[i] == gcvNULL)
                 {
@@ -1924,14 +1922,9 @@ gckGALDEVICE_Destroy(
                 /* Unmap register memory. */
                 if (Device->requestedRegisterMemBases[i] != 0)
                 {
-#if USE_LINUX_PCIE
-                    pci_iounmap(Device->platform->device, Device->registerBases[i]);
-#else
-
                     iounmap(Device->registerBases[i]);
                     release_mem_region(Device->requestedRegisterMemBases[i],
                             Device->requestedRegisterMemSizes[i]);
-#endif
                 }
 
                 Device->registerBases[i] = gcvNULL;

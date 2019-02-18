@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -1865,20 +1865,6 @@ gckHARDWARE_FlushMcfeMMU(
     IN gctPOINTER Logical,
     IN OUT gctUINT32 * Bytes
     );
-
-#if gcdPROCESS_ADDRESS_SPACE
-/* Configure mmu configuration. */
-gceSTATUS
-gckHARDWARE_ConfigMMU(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN gctPOINTER MtlbLogical,
-    IN gctUINT32 Offset,
-    IN OUT gctSIZE_T * Bytes,
-    OUT gctSIZE_T * WaitLinkOffset,
-    OUT gctSIZE_T * WaitLinkBytes
-    );
-#endif
 
 /* Get idle register. */
 gceSTATUS

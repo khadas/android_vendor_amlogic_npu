@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -224,14 +224,6 @@ gckKERNEL_DeinitDatabase(
             gcmkVERIFY_OK(gckOS_DeleteMutex(Kernel->os, Database->handleDatabaseMutex));
             Database->handleDatabaseMutex = gcvNULL;
         }
-
-#if gcdPROCESS_ADDRESS_SPACE
-        if (Database->mmu)
-        {
-            gcmkONERROR(gckEVENT_DestroyMmu(Kernel->eventObj, Database->mmu, gcvKERNEL_PIXEL));
-            Database->mmu = gcvNULL;
-        }
-#endif
     }
 
     gcmkFOOTER_NO();
@@ -653,11 +645,6 @@ gckKERNEL_CreateProcessDB(
 
     gcmkASSERT(database->handleDatabaseMutex == gcvNULL);
     gcmkONERROR(gckOS_CreateMutex(Kernel->os, &database->handleDatabaseMutex));
-
-#if gcdPROCESS_ADDRESS_SPACE
-    gcmkASSERT(database->mmu == gcvNULL);
-    gcmkONERROR(gckMMU_Construct(Kernel, gcdMMU_SIZE, &database->mmu));
-#endif
 
 #if gcdSECURE_USER
     {
@@ -1565,30 +1552,6 @@ OnError:
     gcmkFOOTER();
     return status;
 }
-
-#if gcdPROCESS_ADDRESS_SPACE
-gceSTATUS
-gckKERNEL_GetProcessMMU(
-    IN gckKERNEL Kernel,
-    OUT gckMMU * Mmu
-    )
-{
-    gceSTATUS status;
-    gcsDATABASE_PTR database;
-    gctUINT32 processID;
-
-    gcmkONERROR(gckOS_GetProcessID(&processID));
-
-    gcmkONERROR(gckKERNEL_FindDatabase(Kernel, processID, gcvFALSE, &database));
-
-    *Mmu = database->mmu;
-
-    return gcvSTATUS_OK;
-
-OnError:
-    return status;
-}
-#endif
 
 #if gcdSECURE_USER
 /*******************************************************************************

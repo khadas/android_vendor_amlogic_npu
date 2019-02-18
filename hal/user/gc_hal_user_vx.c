@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -198,6 +198,7 @@ gcoVX_Initialize(vx_evis_no_inst_s *evisNoInst)
     }
 
     gcmONERROR(gcoVX_GetEvisNoInstFeatureCap(evisNoInst));
+
     /* Success. */
     gcmFOOTER_NO();
     return gcvSTATUS_OK;
@@ -565,7 +566,8 @@ gcoVX_InvokeKernel(
     info.workGroupSizeX     = twParameters.workGroupSizeX;
     info.workGroupSizeY     = twParameters.workGroupSizeY;
     info.barrierUsed        = Parameters->hasBarrier;
-    info.atomicUsed         = Parameters->hasAtomic;
+    info.memoryAccessFlag   = Parameters->hasAtomic ? (gceMA_FLAG_ATOMIC | gceMA_FLAG_EVIS_ATOMADD)
+                                                     : gceMA_FLAG_NONE;
     gcmONERROR(gcoVX_InvokeThreadWalker(&info));
     /* Success. */
     status = gcvSTATUS_OK;
@@ -786,7 +788,7 @@ gcoVX_InvokeKernelShader(
     IN size_t              LocalWorkSize[3],
     IN gctUINT             ValueOrder,
     IN gctBOOL             BarrierUsed,
-    IN gctBOOL             AtomUsed
+    IN gctUINT32           MemoryAccessFlag
     )
 {
     gcsTHREAD_WALKER_INFO   info;
@@ -824,16 +826,16 @@ gcoVX_InvokeKernelShader(
         info.workGroupCountZ = info.globalSizeZ / info.workGroupSizeZ;
     }
 
-    info.traverseOrder    = 0;  /* XYZ */
-    info.enableSwathX     = 0;
-    info.enableSwathY     = 0;
-    info.enableSwathZ     = 0;
-    info.swathSizeX       = 0;
-    info.swathSizeY       = 0;
-    info.swathSizeZ       = 0;
-    info.valueOrder       = ValueOrder;
-    info.barrierUsed      = BarrierUsed;
-    info.atomicUsed       = AtomUsed;
+    info.traverseOrder     = 0;  /* XYZ */
+    info.enableSwathX      = 0;
+    info.enableSwathY      = 0;
+    info.enableSwathZ      = 0;
+    info.swathSizeX        = 0;
+    info.swathSizeY        = 0;
+    info.swathSizeZ        = 0;
+    info.valueOrder        = ValueOrder;
+    info.barrierUsed       = BarrierUsed;
+    info.memoryAccessFlag  = MemoryAccessFlag;
 
     gcmONERROR(gcoVX_InvokeThreadWalker(&info));
 
@@ -1303,7 +1305,10 @@ gcoVX_GetHWConfigGpuCount(
 #if VIV_VX_FORCE_INDEPENDENT
     *GpuCount = 1;
 #else
-    gcoHAL_Query3DCoreCount(gcvNULL, GpuCount);
+     /* gcoHAL_Query3DcoreCount is dependent on tls->currentHardware. its' valid only in scope of vxVerify/vxProcess.
+      replace it with gcoVX_QueryDeviceCount for safe
+     */
+    gcoVX_QueryDeviceCount(gcvNULL, GpuCount);
 #endif
 
     return gcvSTATUS_OK;
@@ -1346,6 +1351,32 @@ gcoVX_CaptureState(
                    CaptureBuffer, InputSizeInByte, pOutputSizeInByte, Enabled, dropCommandEnabled);
     gcmASSERT(gcoVX_VerifyHardware());
     gcmONERROR(gcoHARDWAREVX_CaptureState(gcvNULL, CaptureBuffer, InputSizeInByte, pOutputSizeInByte, Enabled, dropCommandEnabled));
+
+OnError:
+    gcmFOOTER();
+    return status;
+}
+
+gceSTATUS
+gcoVX_CaptureInitState(
+    IN OUT gctPOINTER *CaptureBuffer,
+    IN gctUINT32 InputSizeInByte,
+    IN OUT gctUINT32_PTR OutputSizeInByte,
+    IN gctUINT32 deviceCount
+    )
+{
+    gcsTLS_PTR  tls = gcvNULL;
+    gceSTATUS status = gcvSTATUS_OK;
+    gctUINT32 i = 0;
+
+    gcmHEADER();
+    gcmONERROR(gcoOS_GetTLS( &tls));
+
+    for (i = 0; i < deviceCount; i++)
+    {
+        gcoHARDWAREVX_CaptureInitState(tls->engineVX->hardwares[i], CaptureBuffer[i],
+                                       InputSizeInByte, &OutputSizeInByte[i]);
+    }
 
 OnError:
     gcmFOOTER();
@@ -1558,7 +1589,7 @@ gceSTATUS gcoVX_GetEvisNoInstFeatureCap(
         EvisNoInst->noFilter = gcvTRUE;
     }
 
-    if (gcoHARDWARE_IsFeatureAvailable(gcvNULL, gcvFEATURE_EVIS_NO_BOXFILTER))
+    if (gcoHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_EVIS_NO_BOXFILTER))
     {
         EvisNoInst->noBoxFilter = gcvTRUE;
     }
@@ -1573,7 +1604,7 @@ gceSTATUS gcoVX_GetEvisNoInstFeatureCap(
         EvisNoInst->noSelectAdd = gcvTRUE;
     }
 
-    if (gcoHARDWARE_IsFeatureAvailable(gcvNULL, gcvFEATURE_EVIS_LERP_7OUTPUT))
+    if (gcoHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_EVIS_LERP_7OUTPUT))
     {
         EvisNoInst->lerp7Output  = gcvTRUE;
     }

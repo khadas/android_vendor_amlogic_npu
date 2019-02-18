@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -267,7 +267,15 @@ static int import_pfn_map(struct um_desc *um,
         if (pgd_none(*pgd) || pgd_bad(*pgd))
             goto err;
 
+#if (defined(CONFIG_CPU_CSKYV2) || defined(CONFIG_X86)) \
+    && LINUX_VERSION_CODE >= KERNEL_VERSION (4,12,0)
+        pud = pud_offset((p4d_t*)pgd, addr);
+#elif (defined(CONFIG_CPU_CSKYV2)) \
+    && LINUX_VERSION_CODE >= KERNEL_VERSION (4,11,0)
+        pud = pud_offset((p4d_t*)pgd, addr);
+#else
         pud = pud_offset(pgd, addr);
+#endif
         if (pud_none(*pud) || pud_bad(*pud))
             goto err;
 

@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -275,13 +275,8 @@ gcsPLATFORM_OPERATIONS;
 
 struct _gcsPLATFORM
 {
-#if USE_LINUX_PCIE
-    struct pci_dev         *device;
-    struct pci_driver      *driver;
-#else
     struct platform_device *device;
     struct platform_driver *driver;
-#endif
 
     const char *name;
     gcsPLATFORM_OPERATIONS* ops;
@@ -289,11 +284,7 @@ struct _gcsPLATFORM
     void*                   priv;
 };
 
-#if USE_LINUX_PCIE
-int gckPLATFORM_Init(struct pci_driver *pdrv, gcsPLATFORM **platform);
-#else
 int gckPLATFORM_Init(struct platform_driver *pdrv, gcsPLATFORM **platform);
-#endif
 int gckPLATFORM_Terminate(gcsPLATFORM *platform);
 
 #endif

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -581,6 +581,12 @@ typedef enum _gceMEMORY_ACCESS_FLAG
                                       gceMA_FLAG_IMG_WRITE  |
                                       gceMA_FLAG_ATOMIC,
     gceMA_FLAG_BARRIER              = 0x0020,
+    gceMA_FLAG_EVIS_ATOMADD         = 0x0040, /* evis atomadd can operate on 16B data in parallel,
+                                                * we need to tell driver to turn off workgroup packing
+                                                * if it is used so the HW will not merge different
+                                                * workgroup into one which can cause the different
+                                                * address be used for the evis_atom_add */
+/* must sync with SHADER_EDH_MEM_ACCESS_HINT and VIR_MemoryAccessFlag!!! */
 }
 gceMEMORY_ACCESS_FLAG;
 
@@ -1234,6 +1240,7 @@ typedef struct _gcOPTIMIZER_OPTION
     gctINT      _dumpStart;            /* shader id start to dump */
     gctINT      _dumpEnd;              /* shader id end to dump */
     gctINT      renumberInst;          /* re-number instruction when dumping IR */
+    gctINT      includeLib;            /* dump library shader too (library shader won't be dumped by default) */
 
     /* Code generation */
 
@@ -1597,12 +1604,14 @@ typedef struct _gcOPTIMIZER_OPTION
     */
     gctBOOL     enablePackRegister;
 
-    /* Enable write/read Shader info to/from file:
-
-        VC_OPTION=-LIBSHADERFILE:0|1
-
-    */
-    gctBOOL     enableLibShaderFile;
+    /* Operate shader files :
+     *
+     * VC_OPTION=-LIBSHADERFILE:0|1|2
+     *  0:  Unable to operate shader files
+     *  1:  Enable write/read Shader info to/from file
+     *  2:  Force rewrite shader info to file
+     */
+    gctINT     libShaderFile;
 
     /* whether driver use new VIR path for driver programming
      * passed in by driver
@@ -1714,7 +1723,7 @@ extern gcOPTIMIZER_OPTION theOptimizerOption;
 #define gcmOPT_PatchShaderStart()   (gcmGetOptimizerOption()->_patchShaderStart)
 #define gcmOPT_PatchShaderEnd()     (gcmGetOptimizerOption()->_patchShaderEnd)
 #define gcmOPT_PackRegister()       (gcmGetOptimizerOption()->enablePackRegister)
-#define gcmOPT_LibShaderFile()       (gcmGetOptimizerOption()->enableLibShaderFile)
+#define gcmOPT_LibShaderFile()       (gcmGetOptimizerOption()->libShaderFile)
 
 #define gcmOPT_SetOclPackedBasicType(val) do { (gcmGetOptimizerOption()->oclPackedBasicType = (val)); } while(0)
 

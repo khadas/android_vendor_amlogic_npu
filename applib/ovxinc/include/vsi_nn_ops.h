@@ -40,10 +40,16 @@ typedef uint32_t vsi_nn_op_t; enum
 #define DEF_OP( NAME, ... ) VSI_NN_OP_##NAME,
     #include "interface/ops.def"
 #undef DEF_OP
-
     VSI_NN_OP_NUM,
     VSI_NN_OP_NA = VSI_NN_OP_NUM,
-    VSI_NN_OP_CLIENT = VSI_NN_OP_NA + 1
+    VSI_NN_OP_CLIENT = VSI_NN_OP_NA + 1,
+
+    VSI_NN_OP_CUSTOM_START = 0x10000,
+#define DEF_OP( NAME, ... ) VSI_NN_OP_##NAME,
+    #include "custom/custom_ops.def"
+#undef DEF_OP
+    VSI_NN_OP_CUSTOM_END,
+    VSI_NN_OP_CUSTOM_NUM = VSI_NN_OP_CUSTOM_END - VSI_NN_OP_CUSTOM_START - 1
 };
 
 typedef vsi_status ( * vsi_nn_op_compute_t )

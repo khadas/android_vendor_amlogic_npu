@@ -24,8 +24,10 @@
 #ifndef _VSI_NN_PLATFORM_H
 #define _VSI_NN_PLATFORM_H
 
+#include <VX/viv_nn_compatibility.h>
 #include <VX/vx_khr_cnn.h>
 #include <VX/vx_helper.h>
+#include <VX/vx_ext_program.h>
 #include <VX/vx_compatibility.h>
 #include <VX/vx_api.h>
 

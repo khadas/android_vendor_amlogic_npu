@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -546,6 +546,12 @@ _WaitPendingMcfeSema(
 
     nextFreePos = (Command->freePendingPos + 1) % count;
 
+    if (nextFreePos == Command->nextPendingPos)
+    {
+        /* No pendings. */
+        gcmkONERROR(gcvSTATUS_NOT_FOUND);
+    }
+
     while (nextFreePos != Command->nextPendingPos)
     {
         /* Timeout is infinite in the first to at least free one slot. */
@@ -581,35 +587,67 @@ OnError:
     return status;
 }
 
+static gctUINT32
+_GetFreeMcfeSemaNum(
+    gckCOMMAND Command
+    )
+{
+    gctUINT32 num = 0;
+
+    if (Command->nextSemaId <= Command->freeSemaId)
+    {
+        num = Command->freeSemaId - Command->nextSemaId;
+    }
+    else
+    {
+        num = Command->totalSemaId - Command->nextSemaId + Command->freeSemaId;
+    }
+
+    return num;
+}
+
 /*
  * Get next semaphore id in semaphore ring.
+ *
+ * There are semaMinThreshhold semaphores are reserved for system operations,
+ * such as _SyncToSystemChannel etc.
+ * The rest semaphores are regular ones.
  */
 static gcmINLINE gceSTATUS
 _GetNextMcfeSemaId(
     gckCOMMAND Command,
+    gctBOOL regularSema,
     gctUINT32 * SemaId
     )
 {
-    gctUINT32 semaId;
+    gctUINT32 freeSemaNum = 0;
+
     gceSTATUS status = gcvSTATUS_OK;
-
-    semaId = Command->nextSemaId;
-
-    if (++Command->nextSemaId == Command->totalSemaId)
-    {
-        Command->nextSemaId = 0;
-    }
 
     /*
      * See the comments in struct definition.
      * wait when run out of semaphores.
      */
-    if (semaId == Command->freeSemaId)
+    freeSemaNum = _GetFreeMcfeSemaNum(Command);
+
+    if ((regularSema && (freeSemaNum <= Command->semaMinThreshhold)) ||
+        (!regularSema && (freeSemaNum == 0)))
     {
-        status = _WaitPendingMcfeSema(Command);
+        gcmkONERROR(_WaitPendingMcfeSema(Command));
     }
 
-    *SemaId = semaId;
+    gcmkASSERT(Command->nextSemaId != Command->freeSemaId);
+
+    /* Output the semaphore ID. */
+    *SemaId = Command->nextSemaId;
+
+    /* Advance to next. */
+    if (++Command->nextSemaId == Command->totalSemaId)
+    {
+        Command->nextSemaId = 0;
+    }
+
+OnError:
     return status;
 }
 
@@ -622,22 +660,26 @@ _GetNextPendingPos(
     gctUINT32 * Pos
     )
 {
-    gctUINT32 pos = Command->nextPendingPos;
     gceSTATUS status = gcvSTATUS_OK;
 
+    /* Wait when out of pending ring. */
+    if (Command->nextPendingPos == Command->freePendingPos)
+    {
+        /* Run out of pending semaphore tracking ring. */
+        gcmkONERROR(_WaitPendingMcfeSema(Command));
+    }
+
+    gcmkASSERT(Command->nextPendingPos != Command->freePendingPos);
+
+    *Pos = Command->nextPendingPos;
+
+    /* Advance to next. */
     if (++Command->nextPendingPos == gcmCOUNTOF(Command->pendingSema))
     {
         Command->nextPendingPos = 0;
     }
 
-    /* Wait when out of pending ring. */
-    if (pos == Command->freePendingPos)
-    {
-        /* Run out of pending semaphore tracking ring. */
-        status = _WaitPendingMcfeSema(Command);
-    }
-
-    *Pos = pos;
+OnError:
     return status;
 }
 
@@ -687,7 +729,7 @@ _SyncToSystemChannel(
             }
 
             /* Get a free semaphore id. */
-            gcmkONERROR(_GetNextMcfeSemaId(Command, &id));
+            gcmkONERROR(_GetNextMcfeSemaId(Command, gcvFALSE, &id));
             semaId[semaCount++] = (gctUINT8)id;
 
             gcmkONERROR(gckCOMMAND_Reserve(Command, reqBytes, (gctPOINTER *)&buffer, &bytes));
@@ -706,19 +748,23 @@ _SyncToSystemChannel(
     {
         gctUINT32 pos = 0;
         gckEVENT eventObj = kernel->eventObj;
+        gctUINT32 bufferLen = 0;
 
         /* Query WaitSemaphore command size. */
         gckMCFE_WaitSemaphore(hardware, gcvNULL, 0, &reqBytes);
         reqBytes *= semaCount;
 
-        gcmkONERROR(gckCOMMAND_Reserve(Command, reqBytes, (gctPOINTER *)&buffer, &bytes));
+        gcmkONERROR(gckCOMMAND_Reserve(Command, reqBytes, (gctPOINTER *)&buffer, &bufferLen));
 
         for (i = 0; i < semaCount; i++)
         {
+            bytes = bufferLen;
+
             /* Wait semaphores executed in fixed system channel. */
             gckMCFE_WaitSemaphore(hardware, buffer, semaId[i], &bytes);
 
-            buffer += bytes;
+            buffer    += bytes;
+            bufferLen -= bytes;
         }
 
         gcmkONERROR(gckCOMMAND_ExecuteMultiChannel(Command, 0, 0, reqBytes));
@@ -734,6 +780,12 @@ _SyncToSystemChannel(
             eventObj,
             Command->pendingSema[pos].signal,
             gcvKERNEL_PIXEL
+            ));
+
+        gcmkONERROR(gckEVENT_Submit(
+            eventObj,
+            gcvTRUE,
+            gcvFALSE
             ));
     }
 
@@ -764,7 +816,7 @@ _SyncFromSystemChannel(
     }
 
     /* Get a semaphore. */
-    gcmkONERROR(_GetNextMcfeSemaId(Command, &id));
+    gcmkONERROR(_GetNextMcfeSemaId(Command, gcvFALSE, &id));
 
     /* Send the semaphore in system channel. */
     gckMCFE_SendSemaphore(hardware, gcvNULL, 0, &reqBytes);
@@ -852,7 +904,7 @@ _CheckFlushMcfeMMU(
     reqBytes += bytes;
 
     /* Get a semaphore. */
-    gcmkONERROR(_GetNextMcfeSemaId(Command, &id));
+    gcmkONERROR(_GetNextMcfeSemaId(Command, gcvFALSE, &id));
 
     /* Request command buffer for system channel. */
     gcmkONERROR(gckCOMMAND_Reserve(
@@ -977,10 +1029,10 @@ _HandleMCFESemaphorePatch(
     gctINT32 index;
     gctUINT32 semaId;
     gceSTATUS status;
-    gctUINT32 bytes;
+    gctUINT32 bytes = 8;
     gctUINT32 buffer[2];
     gctUINT8_PTR location;
-    gcsHAL_PATCH_MCFE_SEMAPHORE * patch = Patch;
+    gcsHAL_PATCH_MCFE_SEMAPHORE * patch = (gcsHAL_PATCH_MCFE_SEMAPHORE *)Patch;
 
     gcmkHEADER_ARG("Command=%p location=0x%x semaHandle=%d",
                    Command, patch->location, patch->semaHandle);
@@ -989,7 +1041,14 @@ _HandleMCFESemaphorePatch(
 
     if (index < 0)
     {
-        gcmkONERROR(_GetNextMcfeSemaId(Command, &semaId));
+        status = _GetNextMcfeSemaId(Command, gcvTRUE, &semaId);
+
+        if (gcmIS_ERROR(status))
+        {
+            gcmkONERROR(_SyncToSystemChannel(Command, Command->dirtyChannel));
+            gcmkONERROR(_GetNextMcfeSemaId(Command, gcvTRUE, &semaId));
+        }
+
         Command->semaHandleMap[semaId] = patch->semaHandle;
     }
     else
@@ -1002,11 +1061,11 @@ _HandleMCFESemaphorePatch(
 
     if (patch->sendSema)
     {
-        gckMCFE_SendSemaphore(hardware, buffer, semaId, &bytes);
+        gcmkONERROR(gckMCFE_SendSemaphore(hardware, buffer, semaId, &bytes));
     }
     else
     {
-        gckMCFE_WaitSemaphore(hardware, buffer, semaId, &bytes);
+        gcmkONERROR(gckMCFE_WaitSemaphore(hardware, buffer, semaId, &bytes));
     }
 
     gcmkASSERT(bytes == 8);
@@ -1524,11 +1583,13 @@ gckCOMMAND_Construct(
     /* Query mcfe semaphore count. */
     if (FeType == gcvHW_FE_MULTI_CHANNEL)
     {
-        command->totalSemaId    = 128;
+        command->totalSemaId = 128;
 
         /* Empty sema id ring. */
         command->nextSemaId = 0;
         command->freeSemaId = command->totalSemaId - 1;
+
+        command->semaMinThreshhold = 16;
 
         /* Create signals. */
         for (i = 0; i < (gctINT)gcmCOUNTOF(command->pendingSema); i++)
@@ -1551,7 +1612,7 @@ gckCOMMAND_Construct(
             &pointer
             ));
 
-        command->semaHandleMap = pointer;
+        command->semaHandleMap = (gctUINT32 *)pointer;
 
         gcmkVERIFY_OK(gckOS_ZeroMemory(
             command->semaHandleMap,
@@ -2272,11 +2333,6 @@ _CommitWaitLinkOnce(
     gctBOOL    userCommandBufferLogicalMapped = gcvFALSE;
 #endif
 
-#if gcdPROCESS_ADDRESS_SPACE
-    gckMMU mmu;
-    gctUINT32 oldValue;
-#endif
-
 #if gcdDUMP_IN_KERNEL
     gctPOINTER contextDumpLogical = gcvNULL;
 # endif
@@ -2292,16 +2348,6 @@ _CommitWaitLinkOnce(
     gcmkVERIFY_OBJECT(Command, gcvOBJ_COMMAND);
 
     gcmkASSERT(Command->feType == gcvHW_FE_WAIT_LINK);
-
-#if gcdPROCESS_ADDRESS_SPACE
-    gcmkONERROR(gckKERNEL_GetProcessMMU(Command->kernel, &mmu));
-
-    gckOS_AtomicExchange(Command->os,
-                         mmu->pageTableDirty[Command->kernel->core],
-                         0,
-                         &oldValue);
-#else
-#endif
 
     /* Acquire the command queue. */
     gcmkONERROR(gckCOMMAND_EnterCommit(Command, gcvFALSE));

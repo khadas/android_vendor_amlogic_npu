@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -191,7 +191,7 @@ typedef enum _gceFEATURE
     gcvFEATURE_SUPERTILED_TEXTURE,
     gcvFEATURE_2D_NO_COLORBRUSH_INDEX8,
     gcvFEATURE_RS_YUV_TARGET,
-    gcvFEATURE_2D_FC_SOURCE,
+    gcvFEATURE_2D_FC_SOURCE,/* For tilestatus compression feature*/
     gcvFEATURE_2D_CC_NOAA_SOURCE,
     gcvFEATURE_PE_DITHER_FIX,
     gcvFEATURE_2D_YUV_SEPARATE_STRIDE,
@@ -586,7 +586,11 @@ typedef enum _gceFEATURE
     gcvFEATURE_HI_REORDER_FIX,
     gcvFEATURE_TP_COEF_COMPRESSION_ENHANCEMENT,
     gcvFEATURE_NN_DEPTHWISE_SUPPORT,
+    gcvFEATURE_IMAGE_NOT_PACKED_IN_SRAM_FIX,
+    gcvFEATURE_IDLE_BEFORE_FLUSH_COMPLETE_FIX,
+    gcvFEATURE_NO_FLUSH_USC_FIX,
     gcvFEATURE_VIP_DEC400,
+    gcvFEATURE_2D_FAST_CLEAR, /* For tilestatus Fast Clear feature*/
 
     /* Insert features above this comment only. */
     gcvFEATURE_COUNT                /* Not a feature. */

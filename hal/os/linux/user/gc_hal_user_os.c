@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -118,12 +118,6 @@ struct _gcoOS
 #endif
 
 #if VIVANTE_PROFILER_SYSTEM_MEMORY
-    gctUINT32               allocCount;
-    gctSIZE_T               allocSize;
-    gctSIZE_T               maxAllocSize;
-    gctUINT32               freeCount;
-    gctSIZE_T               freeSize;
-
 #if gcdGC355_MEM_PRINT
     /* For a single collection. */
     gctINT32                oneSize;
@@ -320,6 +314,11 @@ _DestroyOs(
             gcmONERROR(gcoHEAP_Destroy(heap));
         }
 
+#if VIVANTE_PROFILER_SYSTEM_MEMORY
+        /* End profiler. */
+        gcoOS_ProfileEnd(gcPLS.os, "system memory");
+#endif
+
         /* Close the handle to the kernel service. */
         if (gcPLS.os->device != -1)
         {
@@ -330,11 +329,6 @@ _DestroyOs(
             close(gcPLS.os->device);
             gcPLS.os->device = -1;
         }
-
-#if VIVANTE_PROFILER_SYSTEM_MEMORY && gcdGC355_MEM_PRINT
-        /* End profiler. */
-        gcoOS_ProfileEnd(gcPLS.os, gcvNULL);
-#endif
 
         /* Mark the gcoOS object as unknown. */
         gcPLS.os->object.type = gcvOBJ_UNKNOWN;
@@ -1279,6 +1273,10 @@ _ModuleDestructor(
 
 #if gcmIS_DEBUG(gcdDEBUG_STACK) && !defined(ANDROID)
     _RestoreSignalHandler();
+#endif
+
+#if VIVANTE_PROFILER_SYSTEM_MEMORY
+    gcoOS_DeInitMemoryProfile();
 #endif
 
     gcmFOOTER_NO();
@@ -2396,10 +2394,15 @@ gcoOS_AllocateMemory(
 
     /* Allocate the memory. */
 #if VIVANTE_PROFILER_SYSTEM_MEMORY
-    memory = malloc(Bytes + VP_MALLOC_OFFSET);
-#else
-    memory = malloc(Bytes);
+    if (gcPLS.bMemoryProfile)
+    {
+        memory = malloc(Bytes + VP_MALLOC_OFFSET);
+    }
+    else
 #endif
+    {
+        memory = malloc(Bytes);
+    }
 
     if (memory == gcvNULL)
     {
@@ -2408,18 +2411,12 @@ gcoOS_AllocateMemory(
     }
 
 #if VIVANTE_PROFILER_SYSTEM_MEMORY
+    if (gcPLS.bMemoryProfile)
     {
         gcoOS os = (gcPLS.os != gcvNULL) ? gcPLS.os : Os;
 
         if (os != gcvNULL)
         {
-            ++ (os->allocCount);
-            os->allocSize += Bytes;
-            if (os->allocSize > os->maxAllocSize)
-            {
-                os->maxAllocSize = os->allocSize;
-            }
-
 #if gcdGC355_MEM_PRINT
             if (os->oneRecording == 1)
             {
@@ -2428,14 +2425,30 @@ gcoOS_AllocateMemory(
 #endif
         }
 
+        if (gcPLS.profileLock)
+        {
+            gcmONERROR(gcoOS_AcquireMutex(os, gcPLS.profileLock, gcvINFINITE));
+            ++ (gcPLS.allocCount);
+            gcPLS.allocSize += Bytes;
+            gcPLS.currentSize += Bytes;
+
+            if (gcPLS.currentSize > gcPLS.maxAllocSize)
+            {
+                gcPLS.maxAllocSize = gcPLS.currentSize;
+            }
+            gcmONERROR(gcoOS_ReleaseMutex(os, gcPLS.profileLock));
+        }
+
         /* Return pointer to the memory allocation. */
         *(gctSIZE_T *) memory = Bytes;
         *Memory = (gctPOINTER) ((gctUINT8 *) memory + VP_MALLOC_OFFSET);
     }
-#else
-    /* Return pointer to the memory allocation. */
-    *Memory = memory;
+    else
 #endif
+    {
+        /* Return pointer to the memory allocation. */
+        *Memory = memory;
+    }
 
     /* Success. */
     gcmFOOTER_ARG("*Memory=0x%x", *Memory);
@@ -2478,29 +2491,38 @@ gcoOS_FreeMemory(
 
     /* Free the memory allocation. */
 #if VIVANTE_PROFILER_SYSTEM_MEMORY
+    if (gcPLS.bMemoryProfile)
     {
         gcoOS os = (gcPLS.os != gcvNULL) ? gcPLS.os : Os;
-        gctPOINTER memory;
-
-        memory = (gctUINT8 *) Memory - VP_MALLOC_OFFSET;
+        gctPOINTER p = (gctPOINTER) ((gctUINT8 *) Memory - VP_MALLOC_OFFSET);
+        gctSIZE_T size = *((gctSIZE_T *)p);
+        free(p);
 
         if (os != gcvNULL)
         {
 #if gcdGC355_MEM_PRINT
             if (os->oneRecording == 1)
             {
-                os->oneSize -= (gctINT32)(*(gctSIZE_T *) memory);
+                os->oneSize -= (gctINT32)size;
             }
 #endif
-            os->allocSize -= *(gctSIZE_T *) memory;
-            os->freeSize += *(gctSIZE_T *) memory;
-            free(memory);
-            ++ (os->freeCount);
+        }
+
+        if (gcPLS.profileLock)
+        {
+            gcmVERIFY_OK(gcoOS_AcquireMutex(os, gcPLS.profileLock, gcvINFINITE));
+
+            gcPLS.freeSize += size;
+            ++ (gcPLS.freeCount);
+            gcPLS.currentSize -= size;
+            gcmVERIFY_OK(gcoOS_ReleaseMutex(os, gcPLS.profileLock));
         }
     }
-#else
-    free(Memory);
+    else
 #endif
+    {
+        free(Memory);
+    }
 
     /* Success. */
     gcmFOOTER_NO();
@@ -3403,7 +3425,7 @@ gcoOS_LockFile(
 
     err = flock(fileno((FILE *)File), flags);
 
-    if (err)
+    if (err == -1)
     {
         if (errno == EWOULDBLOCK)
         {
@@ -5160,12 +5182,6 @@ gcoOS_ProfileStart(
     IN gcoOS Os
     )
 {
-    gcPLS.os->allocCount   = 0;
-    gcPLS.os->allocSize    = 0;
-    gcPLS.os->maxAllocSize = 0;
-    gcPLS.os->freeCount    = 0;
-    gcPLS.os->freeSize     = 0;
-
 #if gcdGC355_MEM_PRINT
     gcPLS.os->oneRecording = 0;
     gcPLS.os->oneSize      = 0;
@@ -5180,13 +5196,35 @@ gcoOS_ProfileEnd(
     IN gctCONST_STRING Title
     )
 {
-    gcmPRINT("10) System memory - current: %u \n", gcPLS.os->allocSize);
-    gcmPRINT("11) System memory - maximum: %u \n", gcPLS.os->maxAllocSize);
-    gcmPRINT("12) System memory - total: %u \n", (gcPLS.os->allocSize + gcPLS.os->freeSize));
-    gcmPRINT("13) System memory - allocation count: %u \n", gcPLS.os->allocCount);
-    gcmPRINT("14) System memory - deallocation count: %u \n", gcPLS.os->freeCount);
+    gceSTATUS status = gcvSTATUS_OK;
+    if (gcPLS.bMemoryProfile && gcPLS.os)
+    {
+        /* cache video memory infomation to PLS when Destroy OS */
+        gcsHAL_INTERFACE iface;
 
-    return gcvSTATUS_OK;
+        gcoOS_ZeroMemory(&iface, sizeof(iface));
+
+        iface.command = gcvHAL_DATABASE;
+        iface.u.Database.processID = gcmPTR2INT32(gcoOS_GetCurrentProcessID());
+        iface.u.Database.validProcessID = gcvTRUE;
+
+        /* Call kernel service. */
+        gcmONERROR(gcoOS_DeviceControl(
+            gcvNULL,
+            IOCTL_GCHAL_INTERFACE,
+            &iface, gcmSIZEOF(iface),
+            &iface, gcmSIZEOF(iface)
+            ));
+
+        gcPLS.video_currentSize     = iface.u.Database.vidMem.counters.bytes      + iface.u.Database.nonPaged.counters.bytes;
+        gcPLS.video_maxAllocSize    = iface.u.Database.vidMem.counters.maxBytes   + iface.u.Database.nonPaged.counters.maxBytes;
+        gcPLS.video_allocSize       = iface.u.Database.vidMem.counters.totalBytes + iface.u.Database.nonPaged.counters.totalBytes;
+        gcPLS.video_allocCount      = iface.u.Database.vidMem.counters.allocCount + iface.u.Database.nonPaged.counters.allocCount;
+        gcPLS.video_freeCount       = iface.u.Database.vidMem.counters.freeCount  + iface.u.Database.nonPaged.counters.freeCount;
+    }
+
+OnError:
+    return status;
 }
 
 /*******************************************************************************
@@ -7278,3 +7316,131 @@ gcoOS_QuerySystemInfo(
     return gcvSTATUS_OK;
 }
 
+/*** memory profile ***/
+#if VIVANTE_PROFILER_SYSTEM_MEMORY
+
+gceSTATUS gcoOS_GetMemoryProfileInfo(size_t                      size,
+                                     struct _memory_profile_info *info)
+{
+    gceSTATUS status = gcvSTATUS_OK;
+    if (size != gcmSIZEOF(struct _memory_profile_info))
+    {
+        gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
+    }
+    if (gcPLS.bMemoryProfile && gcPLS.profileLock)
+    {
+        struct _memory_profile_info mem_info = { {0}, {0} };
+
+        if (gcPLS.os) { /* video memory */
+            gcsHAL_INTERFACE iface;
+
+            gcoOS_ZeroMemory(&iface, gcmSIZEOF(iface));
+
+            iface.command = gcvHAL_DATABASE;
+            iface.u.Database.processID = gcmPTR2INT32(gcoOS_GetCurrentProcessID());
+            iface.u.Database.validProcessID = gcvTRUE;
+
+            /* Call kernel service. */
+            gcmONERROR(gcoOS_DeviceControl(
+                gcvNULL,
+                IOCTL_GCHAL_INTERFACE,
+                &iface, gcmSIZEOF(iface),
+                &iface, gcmSIZEOF(iface)
+                ));
+
+            mem_info.gpu_memory.currentSize           = iface.u.Database.vidMem.counters.bytes      + iface.u.Database.nonPaged.counters.bytes;
+            mem_info.gpu_memory.peakSize              = iface.u.Database.vidMem.counters.maxBytes   + iface.u.Database.nonPaged.counters.maxBytes;
+            mem_info.gpu_memory.total_allocate        = iface.u.Database.vidMem.counters.totalBytes + iface.u.Database.nonPaged.counters.totalBytes;
+            mem_info.gpu_memory.total_free            = 0;
+            mem_info.gpu_memory.total_allocateCount   = iface.u.Database.vidMem.counters.allocCount + iface.u.Database.nonPaged.counters.allocCount;
+            mem_info.gpu_memory.total_freeCount       = iface.u.Database.vidMem.counters.freeCount  + iface.u.Database.nonPaged.counters.freeCount;
+        }
+        else
+        {
+            mem_info.gpu_memory.currentSize           = gcPLS.video_currentSize;
+            mem_info.gpu_memory.peakSize              = gcPLS.video_maxAllocSize;
+            mem_info.gpu_memory.total_allocate        = gcPLS.video_allocSize;
+            mem_info.gpu_memory.total_allocateCount   = gcPLS.video_allocCount;
+            mem_info.gpu_memory.total_free            = gcPLS.video_freeSize;
+            mem_info.gpu_memory.total_freeCount       = gcPLS.video_freeCount;
+        }
+
+        /* os memory */
+        gcmONERROR(gcoOS_AcquireMutex(gcPLS.os, gcPLS.profileLock, gcvINFINITE));
+
+        mem_info.system_memory.peakSize             = gcPLS.maxAllocSize;
+        mem_info.system_memory.total_allocate       = gcPLS.allocSize;
+        mem_info.system_memory.total_free           = gcPLS.freeSize;
+        mem_info.system_memory.currentSize          = gcPLS.currentSize;
+        mem_info.system_memory.total_allocateCount  = gcPLS.allocCount;
+        mem_info.system_memory.total_freeCount      = gcPLS.freeCount;
+
+        gcmONERROR(gcoOS_ReleaseMutex(gcPLS.os, gcPLS.profileLock));
+
+        gcoOS_MemCopy(info, &mem_info, gcmSIZEOF(mem_info));
+        return gcvSTATUS_OK;
+    }
+OnError:
+    return status;
+}
+
+gceSTATUS gcoOS_DumpMemoryProfile(void)
+{
+    if (gcPLS.bMemoryProfile)
+    {
+        struct _memory_profile_info info;
+        gcmVERIFY_OK(gcoOS_GetMemoryProfileInfo(gcmSIZEOF(info), &info));
+
+        gcmPRINT("*************** Memory Profile Info Dump ****************\n");
+        gcmPRINT("system memory:\n");
+        gcmPRINT("  current allocation      : %lld\n", (long long)info.system_memory.currentSize);
+        gcmPRINT("  maximum allocation      : %lld\n", (long long)info.system_memory.peakSize);
+        gcmPRINT("  total allocation        : %lld\n", (long long)info.system_memory.total_allocate);
+        gcmPRINT("  total free              : %lld\n", (long long)info.system_memory.total_free);
+        gcmPRINT("  allocation count        : %u\n",              info.system_memory.total_allocateCount);
+        gcmPRINT("  free count              : %u\n",              info.system_memory.total_freeCount);
+        gcmPRINT("\n");
+        gcmPRINT("gpu memory:\n");
+        gcmPRINT("  current allocation      : %lld\n", (long long)info.gpu_memory.currentSize);
+        gcmPRINT("  maximum allocation      : %lld\n", (long long)info.gpu_memory.peakSize);
+        gcmPRINT("  total allocation        : %lld\n", (long long)info.gpu_memory.total_allocate);
+        gcmPRINT("  allocation count        : %u\n",              info.gpu_memory.total_allocateCount);
+        gcmPRINT("  free count              : %u\n",              info.gpu_memory.total_freeCount);
+        gcmPRINT("************ end of Memory Profile Info Dump ************\n");
+    }
+    return gcvSTATUS_OK;
+}
+
+gceSTATUS gcoOS_InitMemoryProfile(void)
+{
+    gctSTRING str          = gcvNULL;
+    gcoOS_GetEnv(gcPLS.os, "VIV_MEMORY_PROFILE", &str);
+    gcmVERIFY_OK(gcoOS_CreateMutex(gcPLS.os, &gcPLS.profileLock));
+    if (str != gcvNULL && 0 != atoi(str))
+    {
+        gcPLS.bMemoryProfile = gcvTRUE;
+    }
+
+    return gcvSTATUS_OK;
+}
+
+gceSTATUS gcoOS_DeInitMemoryProfile(void)
+{
+    gcmVERIFY_OK(gcoOS_DumpMemoryProfile());
+    gcPLS.bMemoryProfile = gcvFALSE;
+    gcmVERIFY_OK(gcoOS_DeleteMutex(gcPLS.os, gcPLS.profileLock));
+    gcPLS.profileLock = gcvNULL;
+
+    return gcvSTATUS_OK;
+}
+
+#endif
+
+static void __attribute__((constructor)) _ModuleConstructor_(void);
+static void _ModuleConstructor_(void)
+{
+
+#if VIVANTE_PROFILER_SYSTEM_MEMORY
+    gcoOS_InitMemoryProfile();
+#endif
+}

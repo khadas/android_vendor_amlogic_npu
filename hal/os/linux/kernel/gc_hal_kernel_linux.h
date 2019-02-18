@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -128,16 +128,37 @@
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION (4, 1, 0)
 #ifdef gcdIRQ_SHARED
-#       define gcdIRQF_FLAG   (IRQF_SHARED)
+#       define gcdIRQF_FLAG   (IRQF_SHARED | IRQF_TRIGGER_HIGH)
 #   else
-#       define gcdIRQF_FLAG   (0)
+#       define gcdIRQF_FLAG   (IRQF_TRIGGER_HIGH)
 #   endif
 #else
 #ifdef gcdIRQ_SHARED
-#       define gcdIRQF_FLAG   (IRQF_DISABLED | IRQF_SHARED)
+#       define gcdIRQF_FLAG   (IRQF_DISABLED | IRQF_SHARED | IRQF_TRIGGER_HIGH)
 #   else
-#       define gcdIRQF_FLAG   (IRQF_DISABLED)
+#       define gcdIRQF_FLAG   (IRQF_DISABLED | IRQF_TRIGGER_HIGH)
 #   endif
+#endif
+
+/* gcdLINUX_SYNC_FILE and CONFIG_SYNC_FILE. */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
+#  define dma_fence                         fence
+#  define dma_fence_array                   fence_array
+#  define dma_fence_ops                     fence_ops
+
+#  define dma_fence_default_wait            fence_default_wait
+
+#  define dma_fence_signal(f)               fence_signal(f)
+#  define dma_fence_signal_locked(f)        fence_signal_locked(f)
+#  define dma_fence_get(f)                  fence_get(f)
+#  define dma_fence_put(f)                  fence_put(f)
+#  define dma_fence_is_array(f)             fence_is_array(f)
+#  define dma_fence_is_signaled(f)          fence_is_signaled(f)
+#  define to_dma_fence_array(f)             to_fence_array(f)
+#  define dma_fence_wait_timeout(f, n, t)   fence_wait_timeout((f), (n), (t))
+#  define dma_fence_init(f, o, l, t, s)     fence_init((f), (o), (l), (t), (s))
+#  define dma_fence_context_alloc(s)        fence_context_alloc(s)
+
 #endif
 
 extern struct device *galcore_device;
@@ -268,7 +289,7 @@ typedef struct _gcsSIGNAL
     /* Parent timeline. */
     struct sync_timeline * timeline;
 #  else
-    struct fence *fence;
+    struct dma_fence *fence;
 #  endif
 #endif
 }

@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -69,12 +69,6 @@
 MODULE_DESCRIPTION("Vivante Graphics Driver");
 MODULE_LICENSE("Dual MIT/GPL");
 
-/* Disable MSI for internal FPGA build except PPC */
-#if gcdFPGA_BUILD && !defined(CONFIG_PPC)
-#define USE_MSI     0
-#else
-#define USE_MSI     1
-#endif
 
 static struct class* gpuClass;
 
@@ -979,15 +973,11 @@ static void drv_exit(void)
 
 struct device *galcore_device;
 
-#if USE_LINUX_PCIE
-int gpu_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
-#else /* USE_LINUX_PCIE */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
 int gpu_probe(struct platform_device *pdev)
 #else
 int __devinit gpu_probe(struct platform_device *pdev)
 #endif
-#endif /* USE_LINUX_PCIE */
 {
     int ret = -ENODEV;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 24)
@@ -1001,29 +991,9 @@ int __devinit gpu_probe(struct platform_device *pdev)
     platform->device = pdev;
     galcore_device = &pdev->dev;
 
-#if USE_LINUX_PCIE
-    if (pci_enable_device(pdev)) {
-        printk(KERN_ERR "galcore: pci_enable_device() failed.\n");
-    }
-
-    if (pci_set_dma_mask(pdev, dma_mask)) {
-        printk(KERN_ERR "galcore: Failed to set DMA mask.\n");
-    }
-
-    pci_set_master(pdev);
-
-    if (pci_request_regions(pdev, "galcore")) {
-        printk(KERN_ERR "galcore: Failed to get ownership of BAR region.\n");
-    }
-
-#if USE_MSI
-    if (pci_enable_msi(pdev)) {
-        printk(KERN_ERR "galcore: Failed to enable MSI.\n");
-    }
-#  endif
-#else
     galcore_device->dma_mask = &dma_mask;
-#endif
+
+    galcore_device->coherent_dma_mask = dma_mask;
 
     if (platform->ops->getPower)
     {
@@ -1050,11 +1020,7 @@ int __devinit gpu_probe(struct platform_device *pdev)
 
     if (!ret)
     {
-#if USE_LINUX_PCIE
-        pci_set_drvdata(pdev, galDevice);
-#else
         platform_set_drvdata(pdev, galDevice);
-#endif
     }
 
     if (ret < 0)
@@ -1070,15 +1036,11 @@ int __devinit gpu_probe(struct platform_device *pdev)
     return ret;
 }
 
-#if USE_LINUX_PCIE
-void gpu_remove(struct pci_dev *pdev)
-#else /* USE_LINUX_PCIE */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
 int gpu_remove(struct platform_device *pdev)
 #else
 int __devexit gpu_remove(struct platform_device *pdev)
 #endif
-#endif /* USE_LINUX_PCIE */
 {
     gcmkHEADER();
 
@@ -1089,20 +1051,8 @@ int __devexit gpu_remove(struct platform_device *pdev)
         platform->ops->putPower(platform);
     }
 
-#if USE_LINUX_PCIE
-    pci_set_drvdata(pdev, NULL);
-#if USE_MSI
-    pci_disable_msi(pdev);
-#endif
-    pci_clear_master(pdev);
-    pci_release_regions(pdev);
-    pci_disable_device(pdev);
-    gcmkFOOTER_NO();
-    return;
-#else
     gcmkFOOTER_NO();
     return 0;
-#endif
 }
 
 static int gpu_suspend(struct platform_device *dev, pm_message_t state)
@@ -1228,30 +1178,6 @@ static const struct dev_pm_ops gpu_pm_ops = {
 };
 #endif
 
-#if USE_LINUX_PCIE
-static const struct pci_device_id vivpci_ids[] = {
-  {
-    .class = 0x000000,
-    .class_mask = 0x000000,
-    .vendor = 0x10ee,
-    .device = 0x7012,
-    .subvendor = PCI_ANY_ID,
-    .subdevice = PCI_ANY_ID,
-    .driver_data = 0
-  }, { /* End: all zeroes */ }
-};
-
-MODULE_DEVICE_TABLE(pci, vivpci_ids);
-
-static struct pci_driver gpu_driver = {
-    .name = DEVICE_NAME,
-    .id_table = vivpci_ids,
-    .probe = gpu_probe,
-    .remove = gpu_remove
-};
-
-#else /* USE_LINUX_PCIE */
-
 static struct platform_driver gpu_driver = {
     .probe      = gpu_probe,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
@@ -1271,7 +1197,6 @@ static struct platform_driver gpu_driver = {
 #endif
     }
 };
-#endif /* USE_LINUX_PCIE */
 
 #if gcdENABLE_DRM
 #if USE_LINUX_PCIE
@@ -1300,12 +1225,7 @@ static int __init gpu_init(void)
         return -ENODEV;
     }
 
-#if USE_LINUX_PCIE
-    ret = pci_register_driver(&gpu_driver);
-
-#else /* USE_LINUX_PCIE */
     ret = platform_driver_register(&gpu_driver);
-#endif /* USE_LINUX_PCIE */
 
     if (ret)
     {
@@ -1321,11 +1241,7 @@ static int __init gpu_init(void)
 
 static void __exit gpu_exit(void)
 {
-#if USE_LINUX_PCIE
-    pci_unregister_driver(&gpu_driver);
-#else
     platform_driver_unregister(&gpu_driver);
-#endif /* USE_LINUX_PCIE */
 
     gckPLATFORM_Terminate(platform);
     platform = NULL;

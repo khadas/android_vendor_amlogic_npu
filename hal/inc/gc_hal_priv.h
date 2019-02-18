@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -233,6 +233,23 @@ typedef struct _gcsPLS
 
     /* Global fenceID to record each fence object */
     gcsATOM_PTR                 globalFenceID;
+
+    /* flag for memory profile */
+    gctBOOL                 bMemoryProfile;
+    gctPOINTER              profileLock;
+    gctUINT32               allocCount;
+    gctUINT64               allocSize;
+    gctUINT64               maxAllocSize;
+    gctUINT32               freeCount;
+    gctUINT64               freeSize;
+    gctUINT64               currentSize;
+
+    gctUINT32               video_allocCount;
+    gctUINT64               video_allocSize;
+    gctUINT64               video_maxAllocSize;
+    gctUINT32               video_freeCount;
+    gctUINT64               video_freeSize;
+    gctUINT64               video_currentSize;
 }
 gcsPLS;
 

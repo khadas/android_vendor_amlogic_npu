@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -578,24 +578,20 @@ gcoCL_QueryDeviceCount(
     OUT gctUINT32 * GPUCountPerDevice
     );
 
-gceSTATUS
-gcoCL_SelectDevice(
-    IN gctUINT32    DeviceId
-    );
 
- gceSTATUS
-    gcoCL_CreateHW(
+gceSTATUS
+gcoCL_CreateHW(
     IN gctUINT32    DeviceId,
     OUT gcoHARDWARE * Hardware
     );
 
 gceSTATUS
-    gcoCL_DestroyHW(
+gcoCL_DestroyHW(
     gcoHARDWARE  Hardware
     );
 
 gceSTATUS
-    gcoCL_GetHWConfigGpuCount(
+gcoCL_GetHWConfigGpuCount(
      gctUINT32 * GpuCount
     );
 /*******************************************************************************
@@ -746,18 +742,12 @@ gcoCL_InvokeKernel(
     IN size_t       LocalWorkSize[3],
     IN gctUINT      ValueOrder,
     IN gctBOOL      BarrierUsed,
-    IN gctBOOL      AtomicUsed
+    IN gctUINT32    MemoryAccessFlag
     );
 
 gceSTATUS
 gcoCL_InvokeThreadWalker(
     IN gcsTHREAD_WALKER_INFO_PTR Info
-    );
-
-gceSTATUS
-gcoCL_MultiGPUSync(
-    IN gctUINT32 GPUCount,
-    IN gctUINT_PTR ChipIDs
     );
 
 gceSTATUS

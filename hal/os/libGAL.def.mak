@@ -1,6 +1,6 @@
 ##############################################################################
 #
-#    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+#    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 #
 #    The material in this file is confidential and contains trade secrets
 #    of Vivante Corporation. This is proprietary information owned by
@@ -146,6 +146,8 @@ EXPORTS
     gcsHASH_MD5Init
     gcsHASH_MD5Update
     gcsHASH_MD5Final
+
+    gcoOS_GetMemoryProfileInfo
 
 
 !IF "$(VIVANTE_ENABLE_3D)_$(VIVANTE_ENABLE_VG)" != "0_0"
@@ -776,6 +778,7 @@ EXPORTS
     gcoVX_VerifyHardware
     gcoVX_GetEvisNoInstFeatureCap
     gcoVX_QueryDeviceCount
+	gcoVX_CaptureInitState
 
 
 !IF "$(VSIMULATOR_DEBUG)" == "1"

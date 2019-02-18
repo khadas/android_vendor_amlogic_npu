@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -189,7 +189,7 @@ gcoVX_InvokeKernelShader(
     IN size_t              LocalWorkSize[3],
     IN gctUINT             ValueOrder,
     IN gctBOOL             BarrierUsed,
-    IN gctBOOL             AtomUsed
+    IN gctUINT32           MemoryAccessFlag
     );
 
 gceSTATUS
@@ -302,6 +302,14 @@ gcoVX_CaptureState(
     IN OUT gctUINT32 *OutputSizeInByte,
     IN gctBOOL Enabled,
     IN gctBOOL dropCommandEnabled
+    );
+
+gceSTATUS
+gcoVX_CaptureInitState(
+    IN OUT gctPOINTER *CaptureBuffer,
+    IN gctUINT32 InputSizeInByte,
+    IN OUT gctUINT32_PTR OutputSizeInByte,
+    IN gctUINT32 deviceCount
     );
 
 gceSTATUS

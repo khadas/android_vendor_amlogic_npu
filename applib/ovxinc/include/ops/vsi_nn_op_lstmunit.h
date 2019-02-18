@@ -43,6 +43,7 @@ typedef struct _vsi_nn_lstmunit_lcl_data_t
     vsi_nn_tensor_t *scratch_tensor;
 
     vsi_nn_tensor_attr_t scratch_attr;
+    vsi_nn_tensor_t *forget_bias_tensor;
 } vsi_nn_lstmunit_lcl_data_t;
 
 typedef struct _vsi_nn_lstmunit_param_t
@@ -52,6 +53,7 @@ typedef struct _vsi_nn_lstmunit_param_t
     float cell_clip;
     float proj_clip;
     vsi_nn_lstmunit_activation_e activation;
+    float forget_bias;
 } vsi_nn_lstmunit_param;
 
 #endif

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -149,7 +149,7 @@ typedef enum _gceFEATURE
     gcvFEATURE_SUPERTILED_TEXTURE,
     gcvFEATURE_2D_NO_COLORBRUSH_INDEX8,
     gcvFEATURE_RS_YUV_TARGET,
-    gcvFEATURE_2D_FC_SOURCE,
+    gcvFEATURE_2D_FC_SOURCE,/* For tilestatus compression feature*/
     gcvFEATURE_2D_CC_NOAA_SOURCE,
     gcvFEATURE_PE_DITHER_FIX,
     gcvFEATURE_2D_YUV_SEPARATE_STRIDE,
@@ -544,7 +544,11 @@ typedef enum _gceFEATURE
     gcvFEATURE_HI_REORDER_FIX,
     gcvFEATURE_TP_COEF_COMPRESSION_ENHANCEMENT,
     gcvFEATURE_NN_DEPTHWISE_SUPPORT,
+    gcvFEATURE_IMAGE_NOT_PACKED_IN_SRAM_FIX,
+    gcvFEATURE_IDLE_BEFORE_FLUSH_COMPLETE_FIX,
+    gcvFEATURE_NO_FLUSH_USC_FIX,
     gcvFEATURE_VIP_DEC400,
+    gcvFEATURE_2D_FAST_CLEAR, /* For tilestatus Fast Clear feature*/
 
     /* Insert features above this comment only. */
     gcvFEATURE_COUNT                /* Not a feature. */

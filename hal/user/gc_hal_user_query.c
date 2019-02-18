@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -1335,13 +1335,12 @@ gcoHAL_QueryMultiGPUAffinityConfig(
     static gceMULTI_GPU_MODE mode = gcvMULTI_GPU_MODE_COMBINED;
     static gctUINT32 coreIndex = 0;
 
+    gcmASSERT(Mode && CoreIndex);
+
     if (Type != gcvHARDWARE_3D && Type != gcvHARDWARE_3D2D)
     {
-        if (Mode)
-        {
-            mode =
-            *Mode = gcvMULTI_GPU_MODE_COMBINED;
-        }
+        mode = *Mode = gcvMULTI_GPU_MODE_COMBINED;
+        *CoreIndex = 0 ;
 
         return gcvSTATUS_OK;
     }
@@ -1362,11 +1361,9 @@ gcoHAL_QueryMultiGPUAffinityConfig(
     if (affinity == gcvNULL)
     {
         /* No configure specified, use default. */
-        if (Mode)
-        {
-            mode =
-            *Mode = gcvMULTI_GPU_MODE_COMBINED;
-        }
+
+        mode = *Mode = gcvMULTI_GPU_MODE_COMBINED;
+        *CoreIndex = 0 ;
 
         return gcvSTATUS_OK;
     }
@@ -1380,11 +1377,9 @@ gcoHAL_QueryMultiGPUAffinityConfig(
 
     if (affinity[0] == '0')
     {
-        if (Mode)
-        {
-            mode =
-            *Mode = gcvMULTI_GPU_MODE_COMBINED;
-        }
+
+        mode = *Mode = gcvMULTI_GPU_MODE_COMBINED;
+        *CoreIndex = 0 ;
 
         return gcvSTATUS_OK;
     }
@@ -1399,17 +1394,8 @@ gcoHAL_QueryMultiGPUAffinityConfig(
             return gcvSTATUS_INVALID_ARGUMENT;
         }
 
-        if (Mode)
-        {
-            mode =
-            *Mode = gcvMULTI_GPU_MODE_INDEPENDENT;
-        }
-
-        if (CoreIndex)
-        {
-            coreIndex =
-            *CoreIndex = affinity[2] - '0';
-        }
+        mode = *Mode = gcvMULTI_GPU_MODE_INDEPENDENT;
+        coreIndex = *CoreIndex = affinity[2] - '0';
     }
 
     return gcvSTATUS_OK;

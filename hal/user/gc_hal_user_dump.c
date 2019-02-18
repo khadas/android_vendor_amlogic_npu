@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -156,7 +156,7 @@ gcoOS_DumpBuffer(
 {
     gctUINT32_PTR ptr = (gctUINT32_PTR) Logical + (Offset >> 2);
     gctUINT32 phys    = Physical + (Offset & ~3);
-    gctSIZE_T bytes   = gcmALIGN(Bytes + (Offset & 3), 4);
+    gctSIZE_T bytes   = Bytes;
 
 #if gcdDUMP_IN_KERNEL
     gcsHAL_INTERFACE ioctl;
@@ -176,6 +176,9 @@ gcoOS_DumpBuffer(
         "command",
         "async",
     };
+
+    gctUINT8_PTR ptrByte = gcvNULL;
+    gctSIZE_T dwordCount, tailByteCount;
 
     gcmSTATIC_ASSERT(gcvDUMP_BUFFER_ASYNC_COMMAND == gcmCOUNTOF(tagString) - 1,
                      "tagString array does not match buffer types");
@@ -218,18 +221,43 @@ gcoOS_DumpBuffer(
         bytes -= 16;
     }
 
-    switch (bytes)
+    dwordCount    = bytes / 4;
+    tailByteCount = bytes % 4;
+
+    switch (dwordCount)
     {
-    case 12:
+    case 3:
         gcmDUMP(Os, "  0x%08X 0x%08X 0x%08X", ptr[0], ptr[1], ptr[2]);
         break;
 
-    case 8:
+    case 2:
         gcmDUMP(Os, "  0x%08X 0x%08X", ptr[0], ptr[1]);
         break;
 
-    case 4:
+    case 1:
         gcmDUMP(Os, "  0x%08X", ptr[0]);
+        break;
+
+    default:
+        break;
+    }
+
+    ptrByte = (gctUINT8_PTR)ptr;
+    switch (tailByteCount)
+    {
+    case 3:
+        gcmDUMP(Os, "  0x00%02X%02X%02X", ptrByte[2], ptrByte[1], ptrByte[0]);
+        break;
+
+    case 2:
+        gcmDUMP(Os, "  0x0000%02X%02X", ptrByte[1], ptrByte[0]);
+        break;
+
+    case 1:
+        gcmDUMP(Os, "  0x000000%02X", ptrByte[0]);
+        break;
+
+    default:
         break;
     }
 
@@ -291,7 +319,7 @@ gcoOS_DumpApi(
     ...
     )
 {
-    char buffer[256];
+    char buffer[512];
     gctUINT offset = 0;
     gctARGUMENTS args;
 

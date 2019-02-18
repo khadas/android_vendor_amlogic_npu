@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -692,17 +692,6 @@ This define enables the use of VM for gckCommand and fence buffers.
 #endif
 
 /*
-    gcdPROCESS_ADDRESS_SPACE
-
-        When non-zero, every process which attaches to galcore has its own GPU
-        address space, size of which is gcdPROCESS_ADDRESS_SPACE_SIZE.
-*/
-#ifndef gcdPROCESS_ADDRESS_SPACE
-#   define gcdPROCESS_ADDRESS_SPACE             0
-#   define gcdPROCESS_ADDRESS_SPACE_SIZE        0x80000000
-#endif
-
-/*
     gcdSHARED_PAGETABLE
 
         When non-zero, multiple GPUs in one chip with same MMU use
@@ -1327,7 +1316,7 @@ VIV:gcdUSE_MMU_EXCEPTION
         This define enables the profiling data for system memory allocated by driver
 */
 #ifndef VIVANTE_PROFILER_SYSTEM_MEMORY
-#   define VIVANTE_PROFILER_SYSTEM_MEMORY        0
+#   define VIVANTE_PROFILER_SYSTEM_MEMORY        1
 #   define VP_MALLOC_OFFSET                     (16)
 
 #endif

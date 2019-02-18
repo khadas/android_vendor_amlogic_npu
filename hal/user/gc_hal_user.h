@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -2797,7 +2797,7 @@ typedef enum _gceVX_KERNEL
 
     gcvVX_KERNEL_SCHARR_3x3,
     gcvVX_KERNEL_ELEMENTWISE_NORM,
-    gcvVX_KERNEL_NONMAXSUPPRESSION,
+    gcvVX_KERNEL_NONMAXSUPPRESSION_CANNY,
     gcvVX_KERNEL_EUCLIDEAN_NONMAXSUPPRESSION,
     gcvVX_KERNEL_EDGE_TRACE,
     gcvVX_KERNEL_IMAGE_LISTER,
@@ -2927,11 +2927,10 @@ vx_nn_config;
 
 typedef struct _vx_drv_option
 {
-#define TP_FUNC_MAX 16
     gctUINT enableTP;
     gctUINT enableMultiTP;
-    gctUINT flagTPFunc[TP_FUNC_MAX];
-    gctUINT typeTPFunc[TP_FUNC_MAX];
+    gctUINT8_PTR flagTPFunc;
+    gctUINT_PTR  typeTPFunc;
     gctUINT enableSRAM;
     gctUINT enableSramStreamMode;
     gctUINT enableCNNPerf;
@@ -2987,9 +2986,15 @@ typedef struct _vx_drv_option
     gctUINT enableGraphWAR7;
     gctUINT enableGraphMerge;
     gctUINT enableGraphDump;
+    gctUINT enableTransformNMConv;
     gctUINT enableGraphConvertAvgPool2Conv;
     gctUINT enableGraphOptimizationToTest;
     gctUINT enableGraphConvertBatchFC2NNConv;
+    gctUINT enableGraphConvertTensorAdd;
+    gctUINT enableGraphConvertConv2Fc;
+    gctUINT enableGraphSwaplayer;
+    gctUINT enableGraphReshapelayer;
+    gctUINT enableGraphConcalayer;
     gctUINT freqInMHZ;
     gctUINT axiClockFreqInMHZ;
     gctUINT maxSocOTNumber;
@@ -2999,6 +3004,7 @@ typedef struct _vx_drv_option
     gctUINT enableVectorPrune;
     gctUINT enableYUV2RGBScaler;
     gctUINT enableVIPDEC400;
+    gctUINT enableCacheGraphBinary;
 }
 vx_drv_option;
 
@@ -3030,6 +3036,7 @@ typedef union _vx_nn_cmd_info_union
         gctUINT32 outImageTileYSize;
         gctUINT32 outImageAddress;
         gctUINT32 outImageXstride;
+        gctUINT32 outImageYstride;
         gctUINT32 outImageCircularBufSize;
         gctUINT32 outImageCircularBufEndAddrPlus1;
 
@@ -3076,6 +3083,9 @@ typedef union _vx_nn_cmd_info_union
         gctUINT8  outImageCacheEvictPolicy;
         gctUINT32 noFlush;
         gctUINT8  hwDepthWise;
+        gctUINT8  noZOffset;
+        gctUINT8  perChannelPostMul;
+        gctUINT8  pRelu;
     }
     vx_nn_general_cmd_info;
 
@@ -3482,6 +3492,14 @@ gcoHARDWAREVX_CaptureState(
     IN gctBOOL dropCommandEnabled
     );
 
+gceSTATUS
+gcoHARDWAREVX_CaptureInitState(
+    IN gcoHARDWARE Hardware,
+    IN OUT gctPOINTER CaptureBuffer,
+    IN gctUINT32 InputSizeInByte,
+    IN OUT gctUINT32 *OutputSizeInByte
+    );
+
 #endif
 
 gceSTATUS
@@ -3679,6 +3697,14 @@ gcoBUFFER_Capture(
     IN OUT gctUINT32 *pOutputSizeInByte,
     IN gctBOOL Enabled,
     IN gctBOOL dropCommandEnabled
+    );
+
+gceSTATUS
+gcoBUFFER_CaptureInitState(
+    IN gcoBUFFER Buffer,
+    IN OUT gctUINT8 *CaptureBuffer,
+    IN gctUINT32 InputSizeInByte,
+    IN OUT gctUINT32 *pOutputSizeInByte
     );
 
 gceSTATUS

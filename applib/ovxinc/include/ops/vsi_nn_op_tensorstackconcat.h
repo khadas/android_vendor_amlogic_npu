@@ -26,8 +26,17 @@
 
 #include "vsi_nn_types.h"
 
+#define _VSI_NN_STACKCONCAT_LOCAL_TENSOR_NUM 3
+
+typedef struct _vsi_nn_stackconcat_lcl_data
+{
+    vx_tensor   local_tensor[_VSI_NN_STACKCONCAT_LOCAL_TENSOR_NUM];
+} vsi_nn_stackconcat_lcl_data;
+
 typedef struct _vsi_nn_tensorstackconcat_param
 {
+    /* local data must be the first. */
+    vsi_nn_stackconcat_lcl_data local;
     int32_t index;
     vx_scalar indexs;
 } vsi_nn_tensorstackconcat_param;

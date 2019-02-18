@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -109,11 +109,12 @@ BEGIN_EXTERN_C()
 
 /* bump up version to 1.26 for adding output's shader mode on 09/28/2018 */
 /* bump up version to 1.27 for modify _viv_atan2_float() to comform to CL spec on 11/20/2018 */
+/* bump up version to 1.28 for using HALTI5 trig functions for all cases (not just conformance) on 12/3/2018 */
 
 /* current version */
-#define gcdSL_SHADER_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 27)
+#define gcdSL_SHADER_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 28)
 
-#define gcdSL_PROGRAM_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 27)
+#define gcdSL_PROGRAM_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 28)
 
 typedef union _gcsValue
 {
@@ -1186,6 +1187,7 @@ typedef enum _gceUNIFORM_FLAGS
     gcvUNIFORM_KIND_GENERAL_PATCH               = 20,
     gcvUNIFORM_KIND_IMAGE_EXTRA_LAYER           = 21,
     gcvUNIFORM_KIND_TEMP_REG_SPILL_ADDRESS      = 22,
+    gcvUNIFORM_KIND_GLOBAL_WORK_SCALE           = 23,
 
     /* Use this to check if this flag is a special uniform kind. */
     gcvUNIFORM_FLAG_SPECIAL_KIND_MASK           = 0x1F,
@@ -1235,6 +1237,7 @@ gceUNIFORM_FLAGS;
                                      (k) == gcvUNIFORM_KIND_GLOBAL_OFFSET             || \
                                      (k) == gcvUNIFORM_KIND_WORK_DIM                  || \
                                      (k) == gcvUNIFORM_KIND_PRINTF_ADDRESS            || \
+                                     (k) == gcvUNIFORM_KIND_GLOBAL_WORK_SCALE         || \
                                      (k) == gcvUNIFORM_KIND_WORKITEM_PRINTF_BUFFER_SIZE)
 
 #define isUniformKindKernelArg(k)   ((k) == gcvUNIFORM_KIND_KERNEL_ARG                || \
@@ -1292,6 +1295,7 @@ gceUNIFORM_FLAGS;
 #define isUniformPrintfAddress(u)            (GetUniformKind(u) == gcvUNIFORM_KIND_PRINTF_ADDRESS)
 #define isUniformWorkItemPrintfBufferSize(u) (GetUniformKind(u) == gcvUNIFORM_KIND_WORKITEM_PRINTF_BUFFER_SIZE)
 #define isUniformTempRegSpillAddress(u)      (GetUniformKind(u) == gcvUNIFORM_KIND_TEMP_REG_SPILL_ADDRESS)
+#define isUniformGlobalWorkScale(u)          (GetUniformKind(u) == gcvUNIFORM_KIND_GLOBAL_WORK_SCALE)
 
 #define hasUniformKernelArgKind(u)          (isUniformKernelArg(u)  ||       \
                                              isUniformKernelArgLocal(u) ||   \
@@ -4148,6 +4152,7 @@ typedef enum _gcSHADER_FLAGS
     gcSHADER_FLAG_CONSTANT_MEMORY_REFERENCED= 0x800000, /* constant memory reference in the shader (library) through linking. */
     gcSHADER_FLAG_HAS_DEFINE_MAIN_FUNC      = 0x1000000, /* Whether the shader defines a main function, for GL shader only. */
     gcSHADER_FLAG_ENABLE_MULTI_GPU          = 0x2000000, /* whether enable multi-GPU. */
+    gcSHADER_FLAG_HAS_VIV_GCSL_DRIVER_IMAGE = 0x4000000, /* the shader has OCL option `-cl-viv-gcsl-driver-image */
 } gcSHADER_FLAGS;
 
 #define gcShaderIsOldHeader(Shader)             (((Shader)->flags & gcSHADER_FLAG_OLDHEADER) != 0)
@@ -4167,6 +4172,7 @@ typedef enum _gcSHADER_FLAGS
 #define gcShaderHasInt64Patch(Shader)           (((Shader)->flags & gcSHADER_FLAG_HAS_INT64_PATCH) != 0)
 #define gcShaderHasImageQuery(Shader)           (((Shader)->flags & gcSHADER_FLAG_HAS_IMAGE_QUERY) != 0)
 #define gcShaderHasVivVxExtension(Shader)       (((Shader)->flags & gcSHADER_FLAG_HAS_VIV_VX_EXTENSION) != 0)
+#define gcShaderHasVivGcslDriverImage(Shader)   (((Shader)->flags & gcSHADER_FLAG_HAS_VIV_GCSL_DRIVER_IMAGE) != 0)
 #define gcShaderUseLocalMem(Shader)             (((Shader)->flags & gcSHADER_FLAG_USE_LOCAL_MEM) != 0)
 #define gcShaderVPTwoSideEnable(Shader)         (((Shader)->flags & gcSHADER_FLAG_VP_TWO_SIDE_ENABLE) != 0)
 #define gcShaderClampOutputColor(Shader)        (((Shader)->flags & gcSHADER_FLAG_CLAMP_OUTPUT_COLOR) != 0)
@@ -4207,6 +4213,8 @@ typedef enum _gcSHADER_FLAGS
 #define gcShaderClrHasImageQuery(Shader)        do { (Shader)->flags &= ~gcSHADER_FLAG_HAS_IMAGE_QUERY; } while (0)
 #define gcShaderSetHasVivVxExtension(Shader)    do { (Shader)->flags |= gcSHADER_FLAG_HAS_VIV_VX_EXTENSION; } while (0)
 #define gcShaderClrHasVivVxExtension(Shader)    do { (Shader)->flags &= ~gcSHADER_FLAG_HAS_VIV_VX_EXTENSION; } while (0)
+#define gcShaderSetHasVivGcslDriverImage(Shader)    do { (Shader)->flags |= gcSHADER_FLAG_HAS_VIV_GCSL_DRIVER_IMAGE; } while (0)
+#define gcShaderClrHasVivGcslDriverImage(Shader)    do { (Shader)->flags &= ~gcSHADER_FLAG_HAS_VIV_GCSL_DRIVER_IMAGE; } while (0)
 #define gcShaderSetVPTwoSideEnable(Shader)      do { (Shader)->flags |= gcSHADER_FLAG_VP_TWO_SIDE_ENABLE; } while (0)
 #define gcShaderClrVPTwoSideEnable(Shader)      do { (Shader)->flags &= ~gcSHADER_FLAG_VP_TWO_SIDE_ENABLE; } while (0)
 #define gcShaderSetClampOutputColor(Shader)     do { (Shader)->flags |= gcSHADER_FLAG_CLAMP_OUTPUT_COLOR; } while (0)

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -2492,6 +2492,9 @@ _FillInFeatureTable(
     Features[gcvFEATURE_HI_REORDER_FIX] = database->HI_REORDER_FIX;
     Features[gcvFEATURE_TP_COEF_COMPRESSION_ENHANCEMENT] = database->TP_COEF_COMPRESSION_ENHANCEMENT;
     Features[gcvFEATURE_NN_DEPTHWISE_SUPPORT] = database->NN_DEPTHWISE_SUPPORT;
+    Features[gcvFEATURE_IMAGE_NOT_PACKED_IN_SRAM_FIX] = database->IMAGE_NOT_PACKED_IN_SRAM_FIX;
+    Features[gcvFEATURE_IDLE_BEFORE_FLUSH_COMPLETE_FIX] = database->IDLE_BEFORE_FLUSH_COMPLETE_FIX;
+    Features[gcvFEATURE_NO_FLUSH_USC_FIX] = database->NO_FLUSH_USC_FIX;
     Features[gcvFEATURE_VIP_DEC400] = database->VIP_DEC400;
 
 
@@ -2701,6 +2704,7 @@ _FillInConfigTable(
     Config->sRAMSizes[gcvSRAM_EXTERNAL0] = featureDatabase->AXI_SRAM_SIZE * 1024;
     Config->uscCacheControllers          = featureDatabase->USC_CACHE_CONTROLLERS;
     Config->uscBanks                     = featureDatabase->USC_BANKS;
+    Config->productName                  = featureDatabase->productName;
 
     gcmASSERT((Config->uscPagesMaxInKbyte == 0) /* hardwares w/o USC */
         || (Config->uscPagesMaxInKbyte == Config->localStorageSizeInKbyte));
@@ -2774,29 +2778,30 @@ if (smallBatch){    Config->vsConstBase  = 0xD000;
 
 #if gcdENABLE_3D && gcdUSE_VX
     /* real run environment. */
-    Config->nnConfig.fixedFeature.nnMadPerCore         = featureDatabase->NNMadPerCore;
-    Config->nnConfig.fixedFeature.nnCoreCount          = featureDatabase->NNCoreCount;
-    Config->nnConfig.fixedFeature.nnCoreCountInt8      = featureDatabase->NNCoreCount_INT8;
-    Config->nnConfig.fixedFeature.nnCoreCountInt16     = featureDatabase->NNCoreCount_INT16;
-    Config->nnConfig.fixedFeature.nnCoreCountFloat16   = featureDatabase->NNCoreCount_FLOAT16;
-    Config->nnConfig.fixedFeature.nnInputBufferDepth   = featureDatabase->NNInputBufferDepth;
-    Config->nnConfig.fixedFeature.nnAccumBufferDepth   = featureDatabase->NNAccumBufferDepth;
-    Config->nnConfig.fixedFeature.tpCoreCount          = featureDatabase->TPEngine_CoreCount;
-    Config->nnConfig.fixedFeature.tpliteCoreCount      = featureDatabase->TPLite_CoreCount;
-    Config->nnConfig.fixedFeature.tpPwlLUTCount        = featureDatabase->TPEngine_PwlLUTCount;
-    Config->nnConfig.fixedFeature.tpPwlLUTSize         = featureDatabase->TPEngine_PwlLUTSize;
-    Config->nnConfig.fixedFeature.vip7Version          = featureDatabase->VIP_V7;
-    Config->nnConfig.fixedFeature.nnInImageOffsetBits  = featureDatabase->NN_INIMAGE_OFFSET_BITS;
-    Config->nnConfig.fixedFeature.tpReorderInImageSize = featureDatabase->TP_REORDER_INIMAGE_SIZE;
-    Config->nnConfig.fixedFeature.nnFP16XYDPX          = featureDatabase->NNFP16_XYDP_X;
-    Config->nnConfig.fixedFeature.nnFP16XYDPY          = featureDatabase->NNFP16_XYDP_Y;
-    Config->nnConfig.fixedFeature.nnFP16ZDP            = featureDatabase->NNFP16_ZDP;
-    Config->nnConfig.fixedFeature.zrlBits              = featureDatabase->ZRL_8BIT ? 8 : (featureDatabase->ZRL_7BIT ? 7 : 5);
-    Config->nnConfig.fixedFeature.uscCacheControllers  = featureDatabase->USC_CACHE_CONTROLLERS;
-    Config->nnConfig.fixedFeature.uscBanks             = featureDatabase->USC_BANKS;
-    Config->nnConfig.fixedFeature.nnLanesPerOutCycle   = featureDatabase->NN_LANES_PER_OUT_CYCLE;
-    Config->nnConfig.fixedFeature.maxOTNumber          = featureDatabase->MAX_OT_NUMBER;
-    Config->nnConfig.fixedFeature.vipsramWidthInByte   = featureDatabase->VIP_SRAM_WIDTH_INBYTE;
+    Config->nnConfig.fixedFeature.vipCoreCount                   = featureDatabase->CoreCount;
+    Config->nnConfig.fixedFeature.nnMadPerCore                   = featureDatabase->NNMadPerCore;
+    Config->nnConfig.fixedFeature.nnCoreCount                    = featureDatabase->NNCoreCount;
+    Config->nnConfig.fixedFeature.nnCoreCountInt8                = featureDatabase->NNCoreCount_INT8;
+    Config->nnConfig.fixedFeature.nnCoreCountInt16               = featureDatabase->NNCoreCount_INT16;
+    Config->nnConfig.fixedFeature.nnCoreCountFloat16             = featureDatabase->NNCoreCount_FLOAT16;
+    Config->nnConfig.fixedFeature.nnInputBufferDepth             = featureDatabase->NNInputBufferDepth;
+    Config->nnConfig.fixedFeature.nnAccumBufferDepth             = featureDatabase->NNAccumBufferDepth;
+    Config->nnConfig.fixedFeature.tpCoreCount                    = featureDatabase->TPEngine_CoreCount;
+    Config->nnConfig.fixedFeature.tpliteCoreCount                = featureDatabase->TPLite_CoreCount;
+    Config->nnConfig.fixedFeature.tpPwlLUTCount                  = featureDatabase->TPEngine_PwlLUTCount;
+    Config->nnConfig.fixedFeature.tpPwlLUTSize                   = featureDatabase->TPEngine_PwlLUTSize;
+    Config->nnConfig.fixedFeature.vip7Version                    = featureDatabase->VIP_V7;
+    Config->nnConfig.fixedFeature.nnInImageOffsetBits            = featureDatabase->NN_INIMAGE_OFFSET_BITS;
+    Config->nnConfig.fixedFeature.tpReorderInImageSize           = featureDatabase->TP_REORDER_INIMAGE_SIZE;
+    Config->nnConfig.fixedFeature.nnFP16XYDPX                    = featureDatabase->NNFP16_XYDP_X;
+    Config->nnConfig.fixedFeature.nnFP16XYDPY                    = featureDatabase->NNFP16_XYDP_Y;
+    Config->nnConfig.fixedFeature.nnFP16ZDP                      = featureDatabase->NNFP16_ZDP;
+    Config->nnConfig.fixedFeature.zrlBits                        = featureDatabase->ZRL_8BIT ? 8 : (featureDatabase->ZRL_7BIT ? 7 : 5);
+    Config->nnConfig.fixedFeature.uscCacheControllers            = featureDatabase->USC_CACHE_CONTROLLERS;
+    Config->nnConfig.fixedFeature.uscBanks                       = featureDatabase->USC_BANKS;
+    Config->nnConfig.fixedFeature.nnLanesPerOutCycle             = featureDatabase->NN_LANES_PER_OUT_CYCLE;
+    Config->nnConfig.fixedFeature.maxOTNumber                    = featureDatabase->MAX_OT_NUMBER;
+    Config->nnConfig.fixedFeature.equivalentVipsramWidthInByte   = featureDatabase->EQUIVALENT_VIP_SRAM_WIDTH_INBYTE;
 
     Config->nnConfig.customizedFeature.vipSRAMSizeInKB = featureDatabase->VIP_SRAM_SIZE;
     Config->nnConfig.customizedFeature.axiSRAMSizeInKB = featureDatabase->AXI_SRAM_SIZE;
@@ -2835,6 +2840,16 @@ static gceSTATUS
     config->customerID             = iface.u.QueryChipIdentity.customerID;
     config->ecoID                  = iface.u.QueryChipIdentity.ecoID;
     config->chipFlags              = iface.u.QueryChipIdentity.chipFlags;
+
+    /*hw chip features*/
+    config->chipFeatures           = iface.u.QueryChipIdentity.chipFeatures;
+    config->chipMinorFeatures      = iface.u.QueryChipIdentity.chipMinorFeatures;
+    config->chipMinorFeatures1     = iface.u.QueryChipIdentity.chipMinorFeatures1;
+    config->chipMinorFeatures2     = iface.u.QueryChipIdentity.chipMinorFeatures2;
+    config->chipMinorFeatures3     = iface.u.QueryChipIdentity.chipMinorFeatures3;
+    config->chipMinorFeatures4     = iface.u.QueryChipIdentity.chipMinorFeatures4;
+    config->chipMinorFeatures5     = iface.u.QueryChipIdentity.chipMinorFeatures5;
+    config->chipMinorFeatures6     = iface.u.QueryChipIdentity.chipMinorFeatures6;
 
 
     iface.ignoreTLS = gcvFALSE;
@@ -9858,13 +9873,21 @@ gcoHARDWARE_FreeMcfeSemaphore(
 {
     gceSTATUS status;
     gctUINT32 n, i;
-    gctUINT32 pos = SemaHandle - 1;
+    gctUINT32 pos;
 
     gcmHEADER_ARG("Hardware=%p, SemaHandle=%u", Hardware, SemaHandle);
 
     gcmGETHARDWARE(Hardware);
 
     gcmASSERT(Hardware->mcfeSemaBitmap != gcvNULL);
+
+    if (SemaHandle < 1)
+    {
+        /* SemaHandle 0 is reserved. */
+        gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
+    }
+
+    pos = SemaHandle - 1;
 
     n = (pos >> 5);
     i = (pos & 31);
@@ -18291,7 +18314,6 @@ gcoHARDWARE_FlushPipe(
 
     gcmGETHARDWARE(Hardware);
 
-#if gcdENABLE_3D
     if (Hardware->features[gcvFEATURE_MCFE])
     {
         gctUINT32 channelId = 0;
@@ -18324,7 +18346,6 @@ gcoHARDWARE_FlushPipe(
         gcmFOOTER_NO();
         return gcvSTATUS_OK;
     }
-#endif
 
     if (Hardware->currentPipe == 0x1)
     {
@@ -33939,6 +33960,14 @@ gcoHARDWARE_GetProductName(
 
     do
     {
+
+        /* if database has pre-defined product name, use it */
+        if (Hardware->config->productName[0] != '\0')
+        {
+            gcoOS_StrCatSafe(chipNameBase, 32, Hardware->config->productName);
+            break;
+        }
+
         if (Hardware->features[gcvFEATURE_HAS_PRODUCTID])
         {
             gctUINT32 productID = Hardware->config->productID;

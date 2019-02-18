@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -263,42 +263,6 @@ _MonitorTimerFunction(
     }
 
     gcmkVERIFY_OK(gckOS_StartTimer(kernel->os, kernel->monitorTimer, advance));
-}
-#endif
-
-#if gcdPROCESS_ADDRESS_SPACE
-gceSTATUS
-_MapCommandBuffer(
-    IN gckKERNEL Kernel
-    )
-{
-    gceSTATUS status;
-    gctUINT32 i;
-    gctPHYS_ADDR_T physical;
-    gctUINT32 address;
-    gckMMU mmu;
-
-    gcmkONERROR(gckKERNEL_GetProcessMMU(Kernel, &mmu));
-
-    for (i = 0; i < gcdCOMMAND_QUEUES; i++)
-    {
-        gcmkONERROR(gckOS_GetPhysicalAddress(
-            Kernel->os,
-            Kernel->command->queues[i].logical,
-            &physical
-            ));
-
-        gcmkVERIFY_OK(gckOS_CPUPhysicalToGPUPhysical(Kernel->os, physical, &physical));
-
-        gcmkSAFECASTPHYSADDRT(address, physical);
-
-        gcmkONERROR(gckMMU_FlatMapping(mmu, address, 1));
-    }
-
-    return gcvSTATUS_OK;
-
-OnError:
-    return status;
 }
 #endif
 
@@ -575,7 +539,25 @@ gckKERNEL_Construct(
             }
         }
 
-        gcmkVERIFY_OK(gckMMU_AttachHardware(kernel->mmu, kernel->hardware));
+        gcmkONERROR(
+            gckMMU_SetupPerHardware(kernel->mmu, kernel->hardware));
+
+        if (kernel->hardware->mmuVersion && !kernel->mmu->dynamicAreaSetuped)
+        {
+            gcmkONERROR(
+                gckMMU_SetupDynamicSpace(kernel->mmu));
+
+            kernel->mmu->dynamicAreaSetuped = gcvTRUE;
+        }
+
+        /* Flush MTLB table. */
+        gcmkONERROR(gckVIDMEM_NODE_CleanCache(
+            kernel,
+            kernel->mmu->mtlbVideoMem,
+            0,
+            kernel->mmu->mtlbLogical,
+            kernel->mmu->mtlbSize
+            ));
 #endif
 
         kernel->contiguousBaseAddress = kernel->mmu->contiguousBaseAddress;
@@ -2097,7 +2079,6 @@ _Commit(
 
         /* Determine the objects. */
         kernel = Device->map[HwType].kernels[subCommit->coreId];
-
         if (Engine == gcvENGINE_BLT)
         {
             command  = kernel->asyncCommand;
@@ -3434,11 +3415,6 @@ gckKERNEL_AttachProcessEx(
             /* Create the process database. */
             gcmkONERROR(gckKERNEL_CreateProcessDB(Kernel, PID));
         }
-
-#if gcdPROCESS_ADDRESS_SPACE
-        /* Map kernel command buffer in the process's own MMU. */
-        gcmkONERROR(_MapCommandBuffer(Kernel));
-#endif
     }
     else
     {

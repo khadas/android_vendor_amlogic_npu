@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -216,6 +216,29 @@ typedef struct _gcsHAL_QUERY_CHIP_IDENTITY
     /* Chip date. */
     gctUINT32                   chipDate;
 
+    /* Supported feature fields. */
+    gctUINT32                   chipFeatures;
+
+    /* Supported minor feature fields. */
+    gctUINT32                   chipMinorFeatures;
+
+    /* Supported minor feature 1 fields. */
+    gctUINT32                   chipMinorFeatures1;
+
+    /* Supported minor feature 2 fields. */
+    gctUINT32                   chipMinorFeatures2;
+
+    /* Supported minor feature 3 fields. */
+    gctUINT32                   chipMinorFeatures3;
+
+    /* Supported minor feature 4 fields. */
+    gctUINT32                   chipMinorFeatures4;
+
+    /* Supported minor feature 5 fields. */
+    gctUINT32                   chipMinorFeatures5;
+
+    /* Supported minor feature 6 fields. */
+    gctUINT32                   chipMinorFeatures6;
 
     /* Number of streams supported. */
     gctUINT32                   streamCount;

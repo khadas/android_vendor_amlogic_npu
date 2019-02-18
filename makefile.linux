@@ -1,6 +1,6 @@
 ##############################################################################
 #
-#    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+#    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 #
 #    The material in this file is confidential and contains trade secrets
 #    of Vivante Corporation. This is proprietary information owned by
@@ -174,9 +174,11 @@ ifeq ($(VIVANTE_ENABLE_3D),1)
 ifeq ($(USE_OPENVX),1)
 # libOpenVX
 LIB_VX              := $(AQROOT)/driver/khronos/libOpenVX
-LIB_LIST            += $(LIB_VX)
+LIB_OVXLIB          := $(AQROOT)/acuity-ovxlib-dev
+LIB_LIST            += $(LIB_VX) $(LIB_OVXLIB)
 
 $(LIB_VX):          $(LIB_GAL) $(LIB_CLC)
+$(LIB_OVXLIB):		$(LIB_VX)
 
 .PHONY: ovx_drv
 ovx_drv:            $(LIB_VX)

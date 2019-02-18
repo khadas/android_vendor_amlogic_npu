@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -1211,39 +1211,6 @@ OnError:
     return status;
 }
 
-#if gcdPROCESS_ADDRESS_SPACE
-gceSTATUS
-gckEVENT_DestroyMmu(
-    IN gckEVENT Event,
-    IN gckMMU Mmu,
-    IN gceKERNEL_WHERE FromWhere
-    )
-{
-    gceSTATUS status;
-    gcsHAL_INTERFACE iface;
-
-    gcmkHEADER_ARG("Event=0x%x FromWhere=%d", Event, FromWhere);
-
-    /* Verify the arguments. */
-    gcmkVERIFY_OBJECT(Event, gcvOBJ_EVENT);
-
-    iface.command = gcvHAL_DESTROY_MMU;
-    iface.u.DestroyMmu.mmu = gcmPTR_TO_UINT64(Mmu);
-
-    /* Append it to the queue. */
-    gcmkONERROR(gckEVENT_AddList(Event, &iface, FromWhere, gcvFALSE, gcvTRUE));
-
-    /* Success. */
-    gcmkFOOTER_NO();
-    return gcvSTATUS_OK;
-
-OnError:
-    /* Return the status. */
-    gcmkFOOTER();
-    return status;
-}
-#endif
-
 /*******************************************************************************
 **
 **  gckEVENT_Submit
@@ -2063,14 +2030,6 @@ gckEVENT_Notify(
                 }
 #endif
 
-#if gcdPROCESS_ADDRESS_SPACE
-                gcmkVERIFY_OK(gckVIDMEM_NODE_Unlock(
-                    Event->kernel,
-                    nodeObject,
-                    record->processID
-                    ));
-#endif
-
                 /* Deref node. */
                 status = gckVIDMEM_NODE_Dereference(Event->kernel, nodeObject);
                 break;
@@ -2156,12 +2115,6 @@ gckEVENT_Notify(
                     break;
                 }
                 break;
-
-#if gcdPROCESS_ADDRESS_SPACE
-            case gcvHAL_DESTROY_MMU:
-                status = gckMMU_Destroy(gcmUINT64_TO_PTR(record->info.u.DestroyMmu.mmu));
-                break;
-#endif
 
             case gcvHAL_COMMIT_DONE:
                 break;

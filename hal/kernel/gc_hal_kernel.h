@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -358,10 +358,6 @@ typedef struct _gcsDATABASE
 
     gctPOINTER                          handleDatabase;
     gctPOINTER                          handleDatabaseMutex;
-
-#if gcdPROCESS_ADDRESS_SPACE
-    gckMMU                              mmu;
-#endif
 }
 gcsDATABASE;
 
@@ -460,12 +456,6 @@ gckKERNEL_FindHandleDatbase(
     );
 
 gceSTATUS
-gckKERNEL_GetProcessMMU(
-    IN gckKERNEL Kernel,
-    OUT gckMMU * Mmu
-    );
-
-gceSTATUS
 gckMMU_FlatMapping(
     IN gckMMU Mmu,
     IN gctUINT32 Physical,
@@ -487,9 +477,14 @@ gckMMU_FreePagesEx(
     );
 
 gceSTATUS
-gckMMU_AttachHardware(
+gckMMU_SetupPerHardware(
     IN gckMMU Mmu,
     IN gckHARDWARE Hardware
+    );
+
+gceSTATUS
+gckMMU_SetupDynamicSpace(
+    IN gckMMU Mmu
     );
 
 void
@@ -867,6 +862,8 @@ struct _gckCOMMAND
     gctUINT32                   nextSemaId;
     gctUINT32                   freeSemaId;
 
+    gctUINT32                   semaMinThreshhold;
+
     /* pending semaphore id tracking ring. */
     struct
     {
@@ -907,10 +904,6 @@ struct _gckCOMMAND
     gctBOOL                     hintArrayAllocated;
     gctUINT                     hintArraySize;
     gctUINT32_PTR               hintArray;
-#endif
-
-#if gcdPROCESS_ADDRESS_SPACE
-    gckMMU                      currentMmu;
 #endif
 
 #if gcdRECORD_COMMAND
@@ -1140,27 +1133,6 @@ gckEVENT_FreeProcess(
     IN gctUINT32 ProcessID
     );
 
-typedef struct _gcsLOCK_INFO * gcsLOCK_INFO_PTR;
-typedef struct _gcsLOCK_INFO
-{
-    gctUINT32                   GPUAddresses[gcdMAX_GPU_COUNT];
-    gctPOINTER                  pageTables[gcdMAX_GPU_COUNT];
-    gctUINT32                   lockeds[gcdMAX_GPU_COUNT];
-    gckKERNEL                   lockKernels[gcdMAX_GPU_COUNT];
-    gckMMU                      lockMmus[gcdMAX_GPU_COUNT];
-}
-gcsLOCK_INFO;
-
-typedef struct _gcsGPU_MAP * gcsGPU_MAP_PTR;
-typedef struct _gcsGPU_MAP
-{
-    gctINT                      pid;
-    gcsLOCK_INFO                lockInfo;
-    gcsGPU_MAP_PTR              prev;
-    gcsGPU_MAP_PTR              next;
-}
-gcsGPU_MAP;
-
 /* gcuVIDMEM_NODE structure. */
 typedef union _gcuVIDMEM_NODE
 {
@@ -1233,12 +1205,12 @@ typedef union _gcuVIDMEM_NODE
         gctSIZE_T               pageCount;
 
         /* Used only when node is not contiguous */
-        gctPOINTER              pageTables[gcdMAX_GPU_COUNT];
+        gctPOINTER              pageTables[gcvHARDWARE_NUM_TYPES];
         /* Actual physical address */
-        gctUINT32               addresses[gcdMAX_GPU_COUNT];
+        gctUINT32               addresses[gcvHARDWARE_NUM_TYPES];
 
         /* Locked counter. */
-        gctINT32                lockeds[gcdMAX_GPU_COUNT];
+        gctINT32                lockeds[gcvHARDWARE_NUM_TYPES];
 
         gceVIDMEM_TYPE          type;
 
@@ -1307,16 +1279,6 @@ typedef struct _gcsVIDMEM_NODE
 
     /* dma_buf */
     gctPOINTER                  dmabuf;
-
-#if gcdPROCESS_ADDRESS_SPACE
-    /* Head of mapping list. */
-    gcsGPU_MAP_PTR              mapHead;
-
-    /* Tail of mapping list. */
-    gcsGPU_MAP_PTR              mapTail;
-
-    gctPOINTER                  mapMutex;
-#endif
 
     /* Video memory allocation type. */
     gceVIDMEM_TYPE              type;
@@ -1654,15 +1616,6 @@ gckVIDMEM_NODE_Find(
     OUT gctUINT32 * Offset
     );
 
-#if gcdPROCESS_ADDRESS_SPACE
-gceSTATUS
-gckEVENT_DestroyMmu(
-    IN gckEVENT Event,
-    IN gckMMU Mmu,
-    IN gceKERNEL_WHERE FromWhere
-    );
-#endif
-
 typedef struct _gcsADDRESS_AREA * gcsADDRESS_AREA_PTR;
 typedef struct _gcsADDRESS_AREA
 {
@@ -1711,11 +1664,6 @@ struct _gckMMU
     gctPOINTER                  staticSTLB;
     gctBOOL                     enabled;
 
-#if gcdPROCESS_ADDRESS_SPACE
-    gctPOINTER                  pageTableDirty[gcdMAX_GPU_COUNT];
-    gctPOINTER                  stlbs;
-#endif
-
     gctSIZE_T                   safePageSize;
     gckVIDMEM_NODE              safePageVideoMem;
     gctPOINTER                  safePageLogical;
@@ -1738,6 +1686,8 @@ struct _gckMMU
 
     gcsADDRESS_AREA             dynamicArea;
     gcsADDRESS_AREA             secureArea;
+
+    gctBOOL                     dynamicAreaSetuped;
 
     gctUINT32                   contiguousBaseAddress;
     gctUINT32                   externalBaseAddress;

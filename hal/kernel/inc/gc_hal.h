@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -1907,20 +1907,6 @@ gckHARDWARE_FlushMcfeMMU(
     IN gctPOINTER Logical,
     IN OUT gctUINT32 * Bytes
     );
-
-#if gcdPROCESS_ADDRESS_SPACE
-/* Configure mmu configuration. */
-gceSTATUS
-gckHARDWARE_ConfigMMU(
-    IN gckHARDWARE Hardware,
-    IN gctPOINTER Logical,
-    IN gctPOINTER MtlbLogical,
-    IN gctUINT32 Offset,
-    IN OUT gctSIZE_T * Bytes,
-    OUT gctSIZE_T * WaitLinkOffset,
-    OUT gctSIZE_T * WaitLinkBytes
-    );
-#endif
 
 /* Get idle register. */
 gceSTATUS

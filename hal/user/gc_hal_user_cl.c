@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -1614,20 +1614,6 @@ gcoCL_QueryDeviceCount(
     return gcvSTATUS_OK;
 }
 
-gceSTATUS
-gcoCL_SelectDevice(
-    IN gctUINT32    DeviceId
-    )
-{
-    gceSTATUS status = gcvSTATUS_OK;
-
-    gcmHEADER_ARG("DeviceId=%d", DeviceId);
-
-    status = gcoHAL_SetCoreIndex(gcvNULL, DeviceId);
-
-    gcmFOOTER();
-    return status;
-}
 
 /*
  Example 2, a client wants to use 3D GPU0 and 3D GPU1 separately, it should do like this:
@@ -2095,7 +2081,7 @@ gcoCL_InvokeKernel(
     IN size_t              LocalWorkSize[3],
     IN gctUINT             ValueOrder,
     IN gctBOOL             BarrierUsed,
-    IN gctBOOL             AtomicUsed
+    IN gctUINT32           MemoryAccessFlag
     )
 {
     gcsTHREAD_WALKER_INFO   info;
@@ -2140,23 +2126,13 @@ gcoCL_InvokeKernel(
     info.swathSizeZ       = 0;
     info.valueOrder       = ValueOrder;
     info.barrierUsed      = BarrierUsed;
-    info.atomicUsed       = AtomicUsed;
+    info.memoryAccessFlag = MemoryAccessFlag;
 
     gcmONERROR(gcoCL_InvokeThreadWalker(&info));
 
 OnError:
     gcmFOOTER_ARG("%d", status);
     return status;
-}
-
-gceSTATUS
-gcoCL_MultiGPUSync(
-    IN gctUINT32 GPUCount,
-    IN gctUINT_PTR ChipIDs
-    )
-{
-    /* TODO: need refine later */
-    return gcoHARDWARE_MultiGPUSyncV2(gcvNULL, GPUCount, ChipIDs, gcvNULL);
 }
 
 gceSTATUS

@@ -1,33 +1,24 @@
 /*
- * Copyright (c) 2012-2016 The Khronos Group Inc.
+
+ * Copyright (c) 2012-2017 The Khronos Group Inc.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and/or associated documentation files (the
- * "Materials"), to deal in the Materials without restriction, including
- * without limitation the rights to use, copy, modify, merge, publish,
- * distribute, sublicense, and/or sell copies of the Materials, and to
- * permit persons to whom the Materials are furnished to do so, subject to
- * the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Materials.
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
- * MODIFICATIONS TO THIS FILE MAY MEAN IT NO LONGER ACCURATELY REFLECTS
- * KHRONOS STANDARDS. THE UNMODIFIED, NORMATIVE VERSIONS OF KHRONOS
- * SPECIFICATIONS AND HEADER INFORMATION ARE LOCATED AT
- *    https://www.khronos.org/registry/
- *
- * THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
- * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
- * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
- * MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #ifndef VX_1_0_1_NAMING_COMPATIBILITY
 #define VX_1_0_1_NAMING_COMPATIBILITY
+
+#define VX_TYPE_SCALAR_MAX         (VX_TYPE_BOOL + 1)
 
 #define vx_border_mode_e           vx_border_e
 #define vx_border_mode_policy_e    vx_border_policy_e
@@ -41,6 +32,10 @@
 #define VX_BORDER_MODE_REPLICATE    VX_BORDER_REPLICATE
 #define VX_BORDER_MODE_UNSUPPORTED_POLICY_DEFAULT_TO_UNDEFINED  VX_BORDER_POLICY_DEFAULT_TO_UNDEFINED
 #define VX_BORDER_MODE_UNSUPPORTED_POLICY_RETURN_ERROR          VX_BORDER_POLICY_RETURN_ERROR
+
+#define VX_REF_ATTRIBUTE_COUNT VX_REFERENCE_COUNT
+#define VX_REF_ATTRIBUTE_TYPE  VX_REFERENCE_TYPE
+#define VX_REF_ATTRIBUTE_NAME  VX_REFERENCE_NAME
 
 #define VX_CONTEXT_ATTRIBUTE_VENDOR_ID                          VX_CONTEXT_VENDOR_ID
 #define VX_CONTEXT_ATTRIBUTE_VERSION                            VX_CONTEXT_VERSION
@@ -59,6 +54,7 @@
 #define VX_KERNEL_ATTRIBUTE_NAME            VX_KERNEL_NAME
 #define VX_KERNEL_ATTRIBUTE_ENUM            VX_KERNEL_ENUM
 #define VX_KERNEL_ATTRIBUTE_LOCAL_DATA_SIZE VX_KERNEL_LOCAL_DATA_SIZE
+#define VX_KERNEL_ATTRIBUTE_LOCAL_DATA_PTR  (VX_ATTRIBUTE_BASE(VX_ID_KHRONOS, VX_TYPE_KERNEL) + 0x4)
 
 #define VX_NODE_ATTRIBUTE_STATUS            VX_NODE_STATUS
 #define VX_NODE_ATTRIBUTE_PERFORMANCE       VX_NODE_PERFORMANCE
@@ -132,12 +128,45 @@
 #define VX_ARRAY_ATTRIBUTE_CAPACITY         VX_ARRAY_CAPACITY
 #define VX_ARRAY_ATTRIBUTE_ITEMSIZE         VX_ARRAY_ITEMSIZE
 
+#define VX_DELAY_ATTRIBUTE_TYPE             VX_DELAY_TYPE
+#define VX_DELAY_ATTRIBUTE_SLOTS            VX_DELAY_SLOTS
+
 #define VX_INTERPOLATION_TYPE_AREA                  VX_INTERPOLATION_AREA
 #define VX_INTERPOLATION_TYPE_BILINEAR              VX_INTERPOLATION_BILINEAR
 #define VX_INTERPOLATION_TYPE_NEAREST_NEIGHBOR      VX_INTERPOLATION_NEAREST_NEIGHBOR
 
+#define VX_IMAGE_SIZE (VX_ATTRIBUTE_BASE(VX_ID_KHRONOS, VX_TYPE_IMAGE) + 0x6)
+
 #define VX_META_FORMAT_ATTRIBUTE_DELTA_RECTANGLE  (VX_ATTRIBUTE_BASE(VX_ID_KHRONOS, VX_TYPE_META_FORMAT) + 0x0)
 #define VX_HINT_SERIALIZE (VX_ENUM_BASE(VX_ID_KHRONOS, VX_ENUM_HINT) + 0x0)
+
+#define vx_import_type_e        vx_memory_type_e
+#define VX_ENUM_IMPORT_MEM      VX_ENUM_MEMORY_TYPE
+#define VX_IMPORT_TYPE_NONE     VX_MEMORY_TYPE_NONE
+#define VX_IMPORT_TYPE_HOST     VX_MEMORY_TYPE_HOST
+
+#define VX_TYPE_OBJECT_MAX      (VX_TYPE_WEIGHTS_BIASES_PARAMETER_BASE + 1) /*TODO: check it for OpenVX 1.2*/
+#define VX_TYPE_STRUCT_MAX      VX_TYPE_KHRONOS_STRUCT_MAX
+
+#define VX_KERNEL_INVALID (VX_KERNEL_BASE(VX_ID_KHRONOS, VX_LIBRARY_KHR_BASE) + 0x0)
+
+#define VX_THRESHOLD_THRESHOLD_VALUE (VX_ATTRIBUTE_BASE(VX_ID_KHRONOS, VX_TYPE_THRESHOLD) + 0x1)
+#define VX_THRESHOLD_THRESHOLD_LOWER (VX_ATTRIBUTE_BASE(VX_ID_KHRONOS, VX_TYPE_THRESHOLD) + 0x2)
+#define VX_THRESHOLD_THRESHOLD_UPPER (VX_ATTRIBUTE_BASE(VX_ID_KHRONOS, VX_TYPE_THRESHOLD) + 0x3)
+#define VX_THRESHOLD_TRUE_VALUE (VX_ATTRIBUTE_BASE(VX_ID_KHRONOS, VX_TYPE_THRESHOLD) + 0x4)
+#define VX_THRESHOLD_FALSE_VALUE (VX_ATTRIBUTE_BASE(VX_ID_KHRONOS, VX_TYPE_THRESHOLD) + 0x5)
+#define VX_THRESHOLD_DATA_TYPE (VX_ATTRIBUTE_BASE(VX_ID_KHRONOS, VX_TYPE_THRESHOLD) + 0x6)
+
+typedef vx_status(VX_CALLBACK *vx_kernel_input_validate_f)(vx_node node, vx_uint32 index);
+
+typedef vx_status(VX_CALLBACK *vx_kernel_output_validate_f)(vx_node node, vx_uint32 index, vx_meta_format meta);
+
+typedef struct _vx_delta_rectangle_t {
+    vx_int32 delta_start_x; /*!< \brief The change in the start x. */
+    vx_int32 delta_start_y; /*!< \brief The change in the start y. */
+    vx_int32 delta_end_x;   /*!< \brief The change in the end x. */
+    vx_int32 delta_end_y;   /*!< \brief The change in the end y. */
+} vx_delta_rectangle_t;
 
 #ifdef __cplusplus
 extern "C" {
@@ -152,6 +181,10 @@ VX_API_ENTRY vx_kernel VX_API_CALL vxAddKernel(vx_context context,
                              vx_kernel_output_validate_f output,
                              vx_kernel_initialize_f init,
                              vx_kernel_deinitialize_f deinit);
+
+VX_API_ENTRY vx_size VX_API_CALL vxComputeImagePatchSize(vx_image image,
+                                       const vx_rectangle_t *rect,
+                                       vx_uint32 plane_index);
 
 VX_API_ENTRY vx_status VX_API_CALL vxAccessImagePatch(vx_image image,
                                     const vx_rectangle_t *rect,
@@ -189,6 +222,12 @@ VX_API_ENTRY vx_status VX_API_CALL vxWriteConvolutionCoefficients(vx_convolution
 VX_API_ENTRY vx_status VX_API_CALL vxReadScalarValue(vx_scalar ref, void *ptr);
 
 VX_API_ENTRY vx_status VX_API_CALL vxWriteScalarValue(vx_scalar ref, const void *ptr);
+
+VX_API_ENTRY vx_status VX_API_CALL vxSetRemapPoint(vx_remap table, vx_uint32 dst_x, vx_uint32 dst_y, vx_float32 src_x,vx_float32 src_y);
+
+VX_API_ENTRY vx_status VX_API_CALL vxGetRemapPoint(vx_remap table, vx_uint32 dst_x, vx_uint32 dst_y, vx_float32 *src_x, vx_float32 *src_y);
+
+VX_API_ENTRY vx_threshold VX_API_CALL vxCreateThreshold(vx_context c, vx_enum thresh_type, vx_enum data_type);
 
 #ifdef __cplusplus
 }

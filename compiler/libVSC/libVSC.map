@@ -399,6 +399,7 @@
     vscImageWriteNeedLibFuncForHWCfg;
     vscSetDriverVIRPath;
     vscGetTemporaryDir;
+    vscSetIsLibraryShader;
 
     vscPMP_Intialize;
     vscPMP_Finalize;

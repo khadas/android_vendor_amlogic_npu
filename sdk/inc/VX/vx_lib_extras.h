@@ -1,29 +1,18 @@
 /*
- * Copyright (c) 2012-2016 The Khronos Group Inc.
+
+ * Copyright (c) 2012-2017 The Khronos Group Inc.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and/or associated documentation files (the
- * "Materials"), to deal in the Materials without restriction, including
- * without limitation the rights to use, copy, modify, merge, publish,
- * distribute, sublicense, and/or sell copies of the Materials, and to
- * permit persons to whom the Materials are furnished to do so, subject to
- * the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Materials.
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
- * MODIFICATIONS TO THIS FILE MAY MEAN IT NO LONGER ACCURATELY REFLECTS
- * KHRONOS STANDARDS. THE UNMODIFIED, NORMATIVE VERSIONS OF KHRONOS
- * SPECIFICATIONS AND HEADER INFORMATION ARE LOCATED AT
- *    https://www.khronos.org/registry/
- *
- * THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
- * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
- * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
- * MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #ifndef _VX_EXT_EXTRAS_H_
@@ -34,9 +23,6 @@
  *
  * \defgroup group_extras_ext Khronos Extras Extension.
  * \brief A Set of Kernels which extend OpenVX.
- *
- * \defgroup group_vision_function_nonmaxsuppression Kernel: Non-Maxima Suppression
- * \brief Suppresses Non-maximum values in a 3x3 block around the pixel.
  *
  * \defgroup group_vision_function_laplacian_image Kernel: Laplacian Filter
  * \brief Computes a Laplacian filter over a window of the input image.
@@ -73,20 +59,20 @@
 /*! \brief The Khronos Extras Library
  * \ingroup group_extras_ext
  */
-#define VX_LIBRARY_KHR_EXTRAS (0x2)
+#define VX_LIBRARY_KHR_EXTRAS (0xFE)
 
 /*! \brief The Khronos Extras Kernels.
  * \ingroup group_extras_ext
  */
 enum vx_kernel_extras_ext_e {
-    /*! \brief The Non-Maximum Supression Kernel.
+    /*! \brief The Non-Maximum Supression Kernel for Canny.
      * \note Use "org.khronos.extra.nonmaximasuppression" to \ref vxGetKernelByName.
      * \param [in] vx_image The magnitude image in VX_DF_IMAGE_U8.
      * \param [in] vx_image The phase image in VX_DF_IMAGE_U8.
      * \param [out] vx_image The edge image in VX_DF_IMAGE_U8.
      * \ingroup group_vision_function_nonmaxsuppression
      */
-    VX_KERNEL_EXTRAS_NONMAXSUPPRESSION = VX_KERNEL_BASE(VX_ID_KHRONOS, VX_LIBRARY_KHR_EXTRAS) + 0x0,
+    VX_KERNEL_EXTRAS_NONMAXSUPPRESSION_CANNY = VX_KERNEL_BASE(VX_ID_KHRONOS, VX_LIBRARY_KHR_EXTRAS) + 0x0,
 
     /*! \brief The laplacian filter kernel.
      * \note Use "org.khronos.extras.laplacian3x3" to \ref vxGetKernelByName.
@@ -171,21 +157,21 @@ enum _vx_extra_df_image {
 extern "C" {
 #endif
 
-/*! \brief [Graph] Creates a Laplacian Filter Node.
+/*! \brief [Graph] Creates a Non Max Suppress Node.
  * \param [in] graph The handle to the graph.
  * \param [in] input The input image in VX_DF_IMAGE_U8 format.
  * \param [out] output The output image in VX_DF_IMAGE_U8 format.
  * \ingroup group_vision_function_laplacian_image
  */
-vx_node vxNonMaxSuppressionNode(vx_graph graph, vx_image mag, vx_image phase, vx_image edge);
+vx_node vxNonMaxSuppressionCannyNode(vx_graph graph, vx_image mag, vx_image phase, vx_image edge);
 
-/*! \brief [Immediate] Creates a Laplacian Filter Node.
+/*! \brief [Immediate] Creates a Non Max Suppress Node.
  * \param [in] graph The handle to the graph.
  * \param [in] input The input image in VX_DF_IMAGE_U8 format.
  * \param [out] output The output image in VX_DF_IMAGE_U8 format.
  * \ingroup group_vision_function_laplacian_image
  */
-vx_status vxuNonMaxSuppression(vx_context context, vx_image mag, vx_image phase, vx_image edge);
+vx_status vxuNonMaxSuppressionCanny(vx_context context, vx_image mag, vx_image phase, vx_image edge);
 
 /*! \brief [Graph] Creates a Laplacian Filter Node.
  * \param [in] graph The handle to the graph.
@@ -235,6 +221,7 @@ vx_status vxuHarrisScore(vx_context context, vx_image gx,
                          vx_scalar sensitivity,
                          vx_scalar grad_size,
                          vx_scalar block_size,
+                         vx_scalar shift,
                          vx_image score);
 
 vx_node vxEuclideanNonMaxHarrisNode(vx_graph graph,

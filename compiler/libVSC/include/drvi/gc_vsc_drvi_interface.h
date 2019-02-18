@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -43,8 +43,14 @@
 /* 0.0.1.20 add imageFetch/texelBufferToImage, Nov. 2, 2018 */
 /* 0.0.1.21 save the UBO symbol ID for the baseAddress, Nov. 8, 2018 */
 /* 0.0.1.22 modify _viv_atan2_float() to comform to CL spec on 11/20/2018 */
-#define gcdVIR_SHADER_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 22)
-#define gcdVIR_PROGRAM_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 22)
+/* 0.0.1.23 using HALTI5 trig functions for all cases (not just conformance) on 12/3/2018 */
+/* 0.0.1.24 save the kernel function name ID on 12/24/2018 */
+/* 0.0.1.25 add image_query_size lib functions for samplerMS on 01/02/2019 */
+/* 0.0.1.26 remove some enumerations for VIR_ShaderFlags on 01/02/2019 */
+/* 0.0.1.27 Add VIR_ModifierOrder in VIR_Operand on 01/03/2019 */
+/* 0.0.1.28 Add magicNumber on shaderIOBuffer 01/08/2019 */
+#define gcdVIR_SHADER_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 28)
+#define gcdVIR_PROGRAM_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 28)
 
 #if !defined(gcdTARGETHOST_BIGENDIAN)
 #define gcdTARGETHOST_BIGENDIAN 0  /* default host little endian, to change the
@@ -1289,6 +1295,8 @@ gcSHADER_ReadBufferFromFile(
 void vscSetDriverVIRPath(gctBOOL bUseVIRPath);
 
 gceSTATUS vscGetTemporaryDir(OUT gctSTRING gcTmpDir);
+
+void vscSetIsLibraryShader(SHADER_HANDLE hShader, gctBOOL bIsLibraryShader);
 
 END_EXTERN_C();
 

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -1598,7 +1598,7 @@ typedef struct _gcsTHREAD_WALKER_INFO
 
     gctUINT32   threadAllocation;
     gctBOOL     barrierUsed;
-    gctBOOL     atomicUsed;
+    gctUINT32   memoryAccessFlag; /* same as gceMEMORY_ACCESS_FLAG */
     gctBOOL     indirect;
     gctUINT32   groupNumberUniformIdx;
     gctUINT32   baseAddress;

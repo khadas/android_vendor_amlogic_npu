@@ -25,7 +25,7 @@
 #ifndef _VSI_NN_OP_REDUCE_H
 #define _VSI_NN_OP_REDUCE_H
 
-#include <VX/vx_khr_cnn.h>
+#include "vsi_nn_platform.h"
 
 typedef vx_uint32 vsi_nn_reduce_t; enum
 {

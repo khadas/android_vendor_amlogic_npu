@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2018 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -2988,5 +2988,38 @@ gceSTATUS gcoBUFFER_IsCaptureEnabled(
     return status;
 }
 
+gceSTATUS
+gcoBUFFER_CaptureInitState(
+    IN gcoBUFFER Buffer,
+    IN OUT gctUINT8 *CaptureBuffer,
+    IN gctUINT32 InputSizeInByte,
+    IN OUT gctUINT32 *pOutputSizeInByte
+    )
+{
+    gceSTATUS status = gcvSTATUS_OK;
+    gcoCMDBUF commandBuffer = gcvNULL;
+    gctUINT8 *src = gcvNULL, *dst = gcvNULL;
+    gctUINT32 commandSize = 0;
+    gctUINT32 captureCommandOffset = 0;
+
+    gcmHEADER_ARG("Buffer=%p CaptureBuffer=0x%x InputSizeInByte=%d"
+                  "pOutputSizeInByte=0x%x", Buffer, CaptureBuffer, InputSizeInByte, pOutputSizeInByte);
+
+    commandBuffer = Buffer->commandBufferTail;
+    gcmASSERT(commandBuffer);
+
+    captureCommandOffset = Buffer->info.reservedHead;
+    commandSize = commandBuffer->offset - captureCommandOffset;
+
+    src = (gctUINT8_PTR)gcmUINT64_TO_PTR(commandBuffer->logical) + captureCommandOffset;
+    dst = (gctUINT8_PTR)CaptureBuffer;
+
+    gcoOS_MemCopy(dst, src, commandSize);
+
+    *pOutputSizeInByte = commandSize;
+
+    gcmFOOTER();
+    return status;
+}
 
 #endif  /* gcdENABLE_3D */

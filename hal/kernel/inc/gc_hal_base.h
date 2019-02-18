@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2018 Vivante Corporation
+*    Copyright (c) 2014 - 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2018 Vivante Corporation
+*    Copyright (C) 2014 - 2019 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -108,6 +108,7 @@ typedef struct _gcsUSER_MEMORY_DESC *   gcsUSER_MEMORY_DESC_PTR;
 /* Immuatable features from database */
 typedef struct _gcsNN_FIXED_FEATURE
 {
+    gctUINT  vipCoreCount;
     gctUINT  nnCoreCount;           /* total nn core count */
     gctUINT  nnCoreCountInt8;       /* total nn core count supporting int8 */
     gctUINT  nnCoreCountInt16;      /* total nn core count supporting int16 */
@@ -132,7 +133,7 @@ typedef struct _gcsNN_FIXED_FEATURE
     gctUINT  uscBanks;
     gctUINT  nnLanesPerOutCycle;
     gctUINT  maxOTNumber;
-    gctUINT  vipsramWidthInByte;
+    gctUINT  equivalentVipsramWidthInByte;
 } gcsNN_FIXED_FEATURE;
 
 /* Features can be customized from outside */
@@ -185,6 +186,7 @@ typedef struct _gcsNN_UNIFIED_FEATURE
     gctUINT  convOutFifoDepthFix : 1;
     gctUINT  smallBatchEnable : 1;
     gctUINT  axiSramOnlySWTiling : 1;
+    gctUINT  imageNotPackedInSram : 1;
 } gcsNN_UNIFIED_FEATURE;
 
 /* Features are derived from above ones */
@@ -257,6 +259,20 @@ gcsSystemInfo;
     gcvNULL, /* CL FE compiler lock*/ \
     gcvPATCH_NOTINIT,/* global patchID     */ \
     gcvNULL, /* global fenceID*/ \
+    gcvFALSE, /* memory profile flag */ \
+    gcvNULL, /* profileLock;        */ \
+    0, /* allocCount;         */ \
+    0, /* allocSize;          */ \
+    0, /* maxAllocSize;       */ \
+    0, /* freeCount;          */ \
+    0, /* freeSize;           */ \
+    0, /* currentSize;        */ \
+    0, /* video_allocCount;   */ \
+    0, /* video_allocSize;    */ \
+    0, /* video_maxAllocSize; */ \
+    0, /* video_freeCount;    */ \
+    0, /* video_freeSize;     */ \
+    0, /* video_currentSize;  */ \
 }
 
 /******************************************************************************\
@@ -5868,6 +5884,31 @@ gcoHAL_GetUserDebugOption(
     } \
 } \
 
+#if VIVANTE_PROFILER_SYSTEM_MEMORY
+typedef struct _memory_profile_info
+{
+    struct
+    {
+        gctUINT64     currentSize;
+        gctUINT64     peakSize;
+        gctUINT64     total_allocate;
+        gctUINT64     total_free;
+        gctUINT32     total_allocateCount;
+        gctUINT32     total_freeCount;
+    } system_memory, gpu_memory;
+} memory_profile_info;
+
+
+gceSTATUS
+gcoOS_GetMemoryProfileInfo(
+    size_t                      size,
+    struct _memory_profile_info *info
+    );
+
+gceSTATUS gcoOS_DumpMemoryProfile(void);
+gceSTATUS gcoOS_InitMemoryProfile(void);
+gceSTATUS gcoOS_DeInitMemoryProfile(void);
+#endif
 
 #ifdef __cplusplus
 }

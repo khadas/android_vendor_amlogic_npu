@@ -71,6 +71,11 @@
 #include "ops/vsi_nn_op_tensorstackconcat.h"
 #include "ops/vsi_nn_op_strided_slice.h"
 #include "ops/vsi_nn_op_signalframe.h"
+#include "ops/vsi_nn_op_argmax.h"
+#include "ops/vsi_nn_op_svdf.h"
+
+/* custom node head define define */
+#include "custom/vsi_nn_custom_node_type.h"
 
 typedef union _vsi_nn_nn_param
 {
@@ -123,7 +128,13 @@ typedef union _vsi_nn_nn_param
     vsi_nn_softmax_param            softmax;
     vsi_nn_strided_slice_param      strided_slice;
     vsi_nn_signalframe_param        signalframe;
+    vsi_nn_svdf_param               svdf;
     uint8_t                         client_param[128];
+
+    /* custom node data struct define */
+#define DEF_NODE_TYPE( NAME ) vsi_nn_##NAME##_param NAME;
+    #include "custom/custom_node_type.def"
+#undef DEF_NODE_TYPE
 } vsi_nn_nn_param_t;
 
 typedef struct _vsi_nn_vx_param
