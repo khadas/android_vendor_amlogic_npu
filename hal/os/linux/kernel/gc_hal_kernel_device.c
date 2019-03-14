@@ -640,7 +640,7 @@ gc_version_show(struct seq_file *m, void *data)
     gckGALDEVICE device = node->device;
     gcsPLATFORM * platform = device->platform;
 
-    seq_printf(m, "%s built at %s\n",  gcvVERSION_STRING, HOST);
+    /*seq_printf(m, "%s built at %s\n",  gcvVERSION_STRING, HOST);*/
 
     if (platform->name)
     {

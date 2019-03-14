@@ -133,10 +133,10 @@ gceSTATUS _AdjustParam(IN gcsPLATFORM *Platform,OUT gcsMODULE_PARAMETERS *Args)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res) 
 	{
-		//printk("reg resource 0,start:%ld,end:%ld",(unsigned long)res->start,(unsigned long)res->end);
+		/*printk("reg resource 0,start:%ld,end:%ld",(unsigned long)res->start,(unsigned long)res->end);*/
 		Args->registerBases[0] = (gctPHYS_ADDR_T)res->start;
 		Args->registerSizes[0] = (gctSIZE_T)(res->end - res->start+1);
-		printk("read from dts,regbase:0x%llx,size:0x%lx\n",Args->registerBases[0],Args->registerSizes[0]);
+		/*printk("read from dts,regbase:0x%llx,size:0x%lx\n",Args->registerBases[0],Args->registerSizes[0]);*/
 	} 
 	else 
 	{
@@ -148,14 +148,14 @@ gceSTATUS _AdjustParam(IN gcsPLATFORM *Platform,OUT gcsMODULE_PARAMETERS *Args)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (res) 
 	{
-		//printk("reg resource 1,start:%ld,end:%ld",(unsigned long)res->start,(unsigned long)res->end);
+		/*printk("reg resource 1,start:%ld,end:%ld",(unsigned long)res->start,(unsigned long)res->end);*/
 		Args->sRAMBases[0][0] = 0xFFFFFFFF;
 		Args->sRAMBases[0][1] = (gctPHYS_ADDR_T)res->start;
 		Args->sRAMBases[0][2] = 0xFFFFFFFF;
 		Args->contiguousBase = 0;
 		Args->contiguousSize = (gctSIZE_T)(res->end - res->start+1);
-		printk("read from dts,srambase:0x%llx,contiguousize:0x%lx\n",Args->sRAMBases[0][1],Args->contiguousSize);
-		/*if(Args->contiguousSize > 0)
+		/*printk("read from dts,srambase:0x%llx,contiguousize:0x%lx\n",Args->sRAMBases[0][1],Args->contiguousSize);
+		if(Args->contiguousSize > 0)
 		{
 			ret = _DmaAlloc(pdev,Args->contiguousSize,&dma_start);
 			if(ret == gcvSTATUS_OK)
