@@ -56,7 +56,11 @@ namespace ovx_driver {
 // on the CPU.  An actual driver would not do that.
 class OvxDevice : public IDevice {
 public:
-    OvxDevice(const char* name) : mName(name) {mContext = vxCreateContext();}
+    OvxDevice(const char* name) : mName(name) {
+#ifndef MULTI_CONTEXT
+        mContext = vxCreateContext();
+#endif
+    }
     ~OvxDevice() override {
         if (mContext != nullptr)
         {

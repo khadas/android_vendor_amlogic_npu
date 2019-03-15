@@ -2067,7 +2067,7 @@ vx_status OvxExecutor::getGraph(const std::vector<VxRunTimePoolInfo>* poolInfos)
 
 int OvxExecutor::initalize(vx_context context, const Model* model, std::vector<VxRunTimePoolInfo>* poolInfos)
 {
-
+    vx_status status = VX_SUCCESS;
     if (mModel == nullptr)
         mModel = model;
     else
@@ -2075,19 +2075,27 @@ int OvxExecutor::initalize(vx_context context, const Model* model, std::vector<V
 
     if (context != nullptr)
     {
-
         mContext = context;
-
+#ifdef MULTI_CONTEXT
+    }
+    else
+    {
+        mContext = vxCreateContext();
+    }
+#endif
         getGraph(poolInfos);
 
-        if(vxVerifyGraph(mGraph) != VX_SUCCESS)
+        status = vxVerifyGraph(mGraph);
+        if(status != VX_SUCCESS)
         {
-            LOG(ERROR)<<"verify graph fail";
+            LOG(ERROR)<<"verify graph fail: " << status;
             nnAssert(0);
         }
+#ifndef MULTI_CONTEXT
     }
     else
         LOG(ERROR) << "mContext is not null!";
+#endif
 
     return ANEURALNETWORKS_NO_ERROR;
 }
@@ -2227,7 +2235,13 @@ bool OvxExecutor::deinitializeRunTimeInfo() {
         vxReleaseGraph(&mGraph);
         mGraph = nullptr;
     }
-
+#ifdef MULTI_CONTEXT
+    if (mContext)
+    {
+        vxReleaseContext(&mContext);
+        mContext = nullptr;
+    }
+#endif
 
     return true;
 }
