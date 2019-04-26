@@ -74,6 +74,7 @@
 #define HHI_NANOQ_MEM_PD_REG0 (HHI_BASE_ADDR+(0x43<<2))
 #define HHI_NANOQ_MEM_PD_REG1 (HHI_BASE_ADDR+(0x44<<2))
 
+
 #define RESET_LEVEL2          0xffd01088
 
 #define MAX_NANOQ_FREQ        800000000
@@ -199,6 +200,32 @@ int _RegRead(unsigned int reg,unsigned int *readval)
 	iounmap(vaddr);
 	return 0;
 }
+
+int get_nna_status(struct platform_device *dev)
+{
+	unsigned int readReg=0;
+	struct platform_device *pdev = dev;
+	struct resource *res;
+	unsigned int nn_efuse_reg;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "NN_EFUSE");
+	if (res)
+	{
+		nn_efuse_reg = (unsigned long)res->start;
+		_RegRead(nn_efuse_reg,&readReg);
+		readReg = (readReg & 0x20);
+		if (readReg == 0)
+			return 0;
+		else
+			return 1;
+	}
+	else
+	{
+		return 0;
+	}
+
+}
+
 //us
 void delay(unsigned int time)
 {

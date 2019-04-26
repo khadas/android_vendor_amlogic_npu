@@ -986,8 +986,14 @@ int __devinit gpu_probe(struct platform_device *pdev)
     static u64 dma_mask = DMA_40BIT_MASK;
 #endif
 
+
     gcmkHEADER();
 
+    if (get_nna_status(pdev) == 1)
+    {
+        printk("nn is disable,should not do probe continue\n");
+        return ret;
+    }
     platform->device = pdev;
     galcore_device = &pdev->dev;
 
