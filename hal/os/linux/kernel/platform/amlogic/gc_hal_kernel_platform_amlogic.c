@@ -205,15 +205,14 @@ int get_nna_status(struct platform_device *dev)
 {
 	unsigned int readReg=0;
 	struct platform_device *pdev = dev;
-	struct resource *res;
-	unsigned int nn_efuse_reg;
+	u32  nn_ef[2];
+	int ret;
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "NN_EFUSE");
-	if (res)
+	ret = of_property_read_u32_array(pdev->dev.of_node,"nn_efuse", &nn_ef[0], 2);
+	if (ret == 0)
 	{
-		nn_efuse_reg = (unsigned long)res->start;
-		_RegRead(nn_efuse_reg,&readReg);
-		readReg = (readReg & 0x20);
+		_RegRead(nn_ef[0],&readReg);
+		readReg = (readReg & nn_ef[1]);
 		if (readReg == 0)
 			return 0;
 		else
@@ -223,9 +222,7 @@ int get_nna_status(struct platform_device *dev)
 	{
 		return 0;
 	}
-
 }
-
 //us
 void delay(unsigned int time)
 {
