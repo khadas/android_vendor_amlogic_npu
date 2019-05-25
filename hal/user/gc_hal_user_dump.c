@@ -177,8 +177,7 @@ gcoOS_DumpBuffer(
         "async",
     };
 
-    gctUINT8_PTR ptrByte = gcvNULL;
-    gctSIZE_T dwordCount, tailByteCount;
+    gctUINT8_PTR bytePtr = gcvNULL;
 
     gcmSTATIC_ASSERT(gcvDUMP_BUFFER_ASYNC_COMMAND == gcmCOUNTOF(tagString) - 1,
                      "tagString array does not match buffer types");
@@ -221,40 +220,78 @@ gcoOS_DumpBuffer(
         bytes -= 16;
     }
 
-    dwordCount    = bytes / 4;
-    tailByteCount = bytes % 4;
-
-    switch (dwordCount)
+    switch (bytes)
     {
-    case 3:
+    case 15:
+        bytePtr = (gctUINT8 *)&ptr[3];
+        gcmDUMP(Os, "  0x%08X 0x%08X 0x%08X 0x00%02X%02X%02X", ptr[0], ptr[1], ptr[2], bytePtr[2], bytePtr[1], bytePtr[0]);
+        break;
+
+    case 14:
+        bytePtr = (gctUINT8 *)&ptr[3];
+        gcmDUMP(Os, "  0x%08X 0x%08X 0x%08X 0x0000%02X%02X", ptr[0], ptr[1], ptr[2], bytePtr[1], bytePtr[0]);
+        break;
+
+    case 13:
+        bytePtr = (gctUINT8 *)&ptr[3];
+        gcmDUMP(Os, "  0x%08X 0x%08X 0x%08X 0x000000%02X", ptr[0], ptr[1], ptr[2], bytePtr[0]);
+        break;
+
+    case 12:
         gcmDUMP(Os, "  0x%08X 0x%08X 0x%08X", ptr[0], ptr[1], ptr[2]);
         break;
 
-    case 2:
+    case 11:
+        bytePtr = (gctUINT8 *)&ptr[2];
+        gcmDUMP(Os, "  0x%08X 0x%08X 0x00%02X%02X%02X", ptr[0], ptr[1], bytePtr[2], bytePtr[1], bytePtr[0]);
+        break;
+
+    case 10:
+        bytePtr = (gctUINT8 *)&ptr[2];
+        gcmDUMP(Os, "  0x%08X 0x%08X 0x0000%02X%02X", ptr[0], ptr[1], bytePtr[1], bytePtr[0]);
+        break;
+
+    case 9:
+        bytePtr = (gctUINT8 *)&ptr[2];
+        gcmDUMP(Os, "  0x%08X 0x%08X 0x000000%02X", ptr[0], ptr[1], bytePtr[0]);
+        break;
+
+    case 8:
         gcmDUMP(Os, "  0x%08X 0x%08X", ptr[0], ptr[1]);
         break;
 
-    case 1:
+    case 7:
+        bytePtr = (gctUINT8 *)&ptr[1];
+        gcmDUMP(Os, "  0x%08X 0x00%02X%02X%02X", ptr[0], bytePtr[2], bytePtr[1], bytePtr[0]);
+        break;
+
+    case 6:
+        bytePtr = (gctUINT8 *)&ptr[1];
+        gcmDUMP(Os, "  0x%08X 0x0000%02X%02X", ptr[0], bytePtr[1], bytePtr[0]);
+        break;
+
+    case 5:
+        bytePtr = (gctUINT8 *)&ptr[1];
+        gcmDUMP(Os, "  0x%08X 0x000000%02X", ptr[0], bytePtr[0]);
+        break;
+
+    case 4:
         gcmDUMP(Os, "  0x%08X", ptr[0]);
         break;
 
-    default:
-        break;
-    }
-
-    ptrByte = (gctUINT8_PTR)ptr;
-    switch (tailByteCount)
-    {
     case 3:
-        gcmDUMP(Os, "  0x00%02X%02X%02X", ptrByte[2], ptrByte[1], ptrByte[0]);
+        bytePtr = (gctUINT8 *)&ptr[0];
+        gcmDUMP(Os, "  0x00%02X%02X%02X", bytePtr[2], bytePtr[1], bytePtr[0]);
         break;
 
     case 2:
-        gcmDUMP(Os, "  0x0000%02X%02X", ptrByte[1], ptrByte[0]);
+        bytePtr = (gctUINT8 *)&ptr[0];
+        gcmDUMP(Os, "  0x0000%02X%02X", bytePtr[1], bytePtr[0]);
         break;
 
     case 1:
-        gcmDUMP(Os, "  0x000000%02X", ptrByte[0]);
+        bytePtr = (gctUINT8 *)&ptr[0];
+        gcmDUMP(Os, "  0x000000%02X", bytePtr[0]);
         break;
 
     default:
@@ -557,7 +594,7 @@ typedef struct _gcsDumpMemInfoNode
 {
     gctUINT32                   gpuAddress;
     gctPOINTER                  logical;
-    gctUINT32                   physical;
+    gctUINT64                   physical;
     gctUINT32                   size;
     struct _gcsDumpMemInfoNode *prev;
     struct _gcsDumpMemInfoNode *next;
@@ -565,7 +602,7 @@ typedef struct _gcsDumpMemInfoNode
 gcsDumpMemInfoNode;
 
 static gcsDumpMemInfoNode dumpMemInfoList = {
-    0, gcvNULL, gcvINVALID_ADDRESS, 0, &dumpMemInfoList, &dumpMemInfoList,
+    0, gcvNULL, gcvINVALID_PHYSICAL_ADDRESS, 0, &dumpMemInfoList, &dumpMemInfoList,
 };
 
 gctPOINTER dumpMemInfoListMutex = gcvNULL;
@@ -717,7 +754,7 @@ gceSTATUS
 gcfAddMemoryInfo(
     IN gctUINT32 GPUAddress,
     IN gctPOINTER Logical,
-    IN gctUINT32 Physical,
+    IN gctUINT64 Physical,
     IN gctUINT32 Size
     )
 {
@@ -818,7 +855,7 @@ gceSTATUS
 gcfAddMemoryInfo(
     IN gctUINT32 GPUAddress,
     IN gctPOINTER Logical,
-    IN gctUINT32 Physical,
+    IN gctUINT64 Physical,
     IN gctUINT32 Size
     )
 {

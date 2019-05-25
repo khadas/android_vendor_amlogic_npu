@@ -486,7 +486,7 @@ _CopySpilitIndex(
     gctBOOL indexLocked;
 
     gcmHEADER_ARG("Index=0x%x IndexMemory=0x%x Offset=%u IndexType=%d "
-                  "PrimitiveType=%u Buffer=0x%x SpilitCount=%zu",
+                  "PrimitiveType=%u Buffer=0x%x SpilitCount=%u",
                   Index, IndexMemory, Offset, IndexType,
                   gcmOPT_VALUE(PrimitiveType), gcmOPT_VALUE(Buffer), gcmOPT_VALUE(SpilitCount));
 

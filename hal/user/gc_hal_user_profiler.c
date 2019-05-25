@@ -713,10 +713,13 @@ _WriteCounters(
                 }
                 /* simplify the messages for vx demo */
                 /* 0.00000095367 = 1 / 1024 / 1024*/
-                gcmPRINT("READ_BANDWIDTH  (MByte): %f\n", counters->counters_part2.hi_total_read_8B_count * 8 * 0.00000095367);
-                gcmPRINT("WRITE_BANDWIDTH (MByte): %f\n", counters->counters_part2.hi_total_write_8B_count * 8 * 0.00000095367);
-                gcmPRINT("READOCB_BANDWIDTH  (MByte): %f\n", counters->counters_part2.hi_total_readOCB_16B_count * 16 * 0.00000095367);
-                gcmPRINT("WRITEOCB_BANDWIDTH (MByte): %f\n", counters->counters_part2.hi_total_writeOCB_16B_count * 16 * 0.00000095367);
+                gcmPRINT("TOTAL_READ_BANDWIDTH  (MByte): %f\n", counters->counters_part2.hi_total_read_8B_count * 8 * 0.00000095367);
+                gcmPRINT("TOTAL_WRITE_BANDWIDTH (MByte): %f\n", counters->counters_part2.hi_total_write_8B_count * 8 * 0.00000095367);
+                gcmPRINT("AXI_READ_BANDWIDTH  (MByte): %f\n", counters->counters_part2.hi_total_readOCB_16B_count * 16 * 0.00000095367);
+                gcmPRINT("AXI_WRITE_BANDWIDTH (MByte): %f\n", counters->counters_part2.hi_total_writeOCB_16B_count * 16 * 0.00000095367);
+                gcmPRINT("DDR_READ_BANDWIDTH (MByte): %f\n", counters->counters_part2.hi_total_read_8B_count * 8 * 0.00000095367 - counters->counters_part2.hi_total_readOCB_16B_count * 16 * 0.00000095367);
+                gcmPRINT("DDR_WRITE_BANDWIDTH (MByte): %f\n", counters->counters_part2.hi_total_write_8B_count * 8 * 0.00000095367 - counters->counters_part2.hi_total_writeOCB_16B_count * 16 * 0.00000095367);
+
                 gcmPRINT("GPUTOTALCYCLES: %u\n", gcmGETCOUNTER(counters_part2.hi_total_cycle_count));
                 gcmPRINT("GPUIDLECYCLES: %u\n", gcmGETCOUNTER(counters_part2.hi_total_idle_cycle_count));
             }

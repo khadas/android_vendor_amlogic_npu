@@ -2069,7 +2069,7 @@ gcoHARDWARE_BindIndex(
     gceSTATUS status = gcvSTATUS_OK;
 
     gcmHEADER_ARG("Hardware=0x%x Address=0x%x"
-                  "EndAdress=0x%x IndexType=%d Bytes=%zu",
+                  "EndAdress=0x%x IndexType=%d Bytes=%u",
                   Hardware, Address, EndAddress, IndexType, Bytes);
 
 

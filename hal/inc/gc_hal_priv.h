@@ -144,6 +144,7 @@ typedef enum _gcePATCH_ID
     gcvPATCH_GLU4, /* gfx4.0 glu.*/
     gcvPATCH_MRVELBM20,
     gcvPATCH_OPENCV_ATOMIC,
+    gcvPATCH_OVX_CTS,
 
     gcvPATCH_COUNT
 } gcePATCH_ID;

@@ -60,7 +60,7 @@ gcLoadShaders(
 {
     gceSTATUS status;
 
-    gcmHEADER_ARG("Hal=0x%x StateBufferSize=%zu StateBuffer=0x%x Hints=0x%x",
+    gcmHEADER_ARG("Hal=0x%x StateBufferSize=%u StateBuffer=0x%x Hints=0x%x",
         Hal, ProgramState.stateBufferSize, ProgramState.stateBuffer, ProgramState.hints);
 
     /* Call down to the hardware object. */
@@ -129,8 +129,8 @@ gcoSHADER_ProgramUniformEx(
     gceSTATUS status;
     gctUINT32 columns, rows, arrays, matrixStride, arrayStride;
 
-    gcmHEADER_ARG("Hal=0x%x, Address=%u Columns=%zu Rows=%zu Arrays=%zu IsRowMajor=%d "
-                  "MatrixStride=%zu ArrayStride=%zu Values=%p Convert=%d Type=%d",
+    gcmHEADER_ARG("Hal=0x%x, Address=%u Columns=%u Rows=%u Arrays=%u IsRowMajor=%d "
+                  "MatrixStride=%u ArrayStride=%u Values=%p Convert=%d Type=%d",
                   Hal, Address, Columns, Rows, Arrays, IsRowMajor,
                   MatrixStride, ArrayStride, Values, Convert, Type);
 
@@ -165,8 +165,8 @@ gcoSHADER_BindUniform(
     gceSTATUS status;
     gctUINT32 columns, rows, arrays, matrixStride, arrayStride;
 
-    gcmHEADER_ARG("Hal=0x%x, Address=%u Physical=%d Columns=%zu Rows=%zu Arrays=%zu "
-                  "IsRowMajor=%d MatrixStride=%zu ArrayStride=%zu Values=%p Convert=%d Type=%d",
+    gcmHEADER_ARG("Hal=0x%x, Address=%u Physical=%d Columns=%u Rows=%u Arrays=%u "
+                  "IsRowMajor=%d MatrixStride=%u ArrayStride=%u Values=%p Convert=%d Type=%d",
                   Hal, Address, Physical, Columns, Rows, Arrays, IsRowMajor,
                   MatrixStride, ArrayStride, Values, Convert, Type);
 
@@ -204,8 +204,8 @@ gcoSHADER_BindUniformCombinedMode(
     gceSTATUS status;
     gctUINT32 columns, rows, arrays, matrixStride, arrayStride;
     gctUINT32 gpuCount = 1;
-    gcmHEADER_ARG("Hal=0x%x, Address=%u Physical=%d Columns=%zu Rows=%zu Arrays=%zu "
-                  "IsRowMajor=%d MatrixStride=%zu ArrayStride=%zu Values=%p Convert=%d Type=%d",
+    gcmHEADER_ARG("Hal=0x%x, Address=%u Physical=%d Columns=%u Rows=%u Arrays=%u "
+                  "IsRowMajor=%d MatrixStride=%u ArrayStride=%u Values=%p Convert=%d Type=%d",
                   Hal, Address, Physical, Columns, Rows, Arrays, IsRowMajor,
                   MatrixStride, ArrayStride, Values, Convert, Type);
 
@@ -264,7 +264,7 @@ gcoSHADER_AllocateVidMem(
     gctPOINTER          pointer;
     gctPOINTER          logical = gcvNULL;
 
-    gcmHEADER_ARG("context=%p type=%d ta%s size=%zu align=%u opaqueNode=%p"
+    gcmHEADER_ARG("context=%p type=%d ta%s size=%u align=%u opaqueNode=%p"
                   "memory=%p physical=%p initialData=%p zeroMemory=%d",
                   context, type, tag, size, align, opaqueNode,
                   memory, physical, initialData, zeroMemory);

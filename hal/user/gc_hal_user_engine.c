@@ -3713,7 +3713,7 @@ gco3D_DrawPrimitives(
     gceSTATUS status;
     gctINT startVertex;
 
-    gcmHEADER_ARG("Engine=0x%x Type=%d StartVertex=%zu PrimitiveCount=%lu",
+    gcmHEADER_ARG("Engine=0x%x Type=%d StartVertex=%u PrimitiveCount=%lu",
                   Engine, Type, StartVertex, PrimitiveCount);
 
     /* Verify the arguments. */
@@ -4056,7 +4056,7 @@ gco3D_DrawPrimitivesCount(
 {
     gceSTATUS status;
 
-    gcmHEADER_ARG("Engine=0x%x Type=%d StartVertex=%zu PrimitiveCount=%lu",
+    gcmHEADER_ARG("Engine=0x%x Type=%d StartVertex=%u PrimitiveCount=%lu",
                   Engine, Type, *StartVertex, PrimitiveCount);
 
     /* Verify the arguments. */
@@ -4194,7 +4194,7 @@ gco3D_DrawIndexedPrimitives(
     gceSTATUS status;
     gctUINT baseVertex, startIndex;
 
-    gcmHEADER_ARG("Engine=0x%x Type=%d BaseVertex=%d StartIndex=%zu "
+    gcmHEADER_ARG("Engine=0x%x Type=%d BaseVertex=%d StartIndex=%u "
                   "PrimitiveCount=%lu",
                   Engine, Type, BaseVertex, StartIndex, PrimitiveCount);
 

@@ -6583,7 +6583,7 @@ gcoHARDWARE_QueryTileStatus(
     gceSTATUS status = gcvSTATUS_OK;
     gctBOOL is2BitPerTile;
 
-    gcmHEADER_ARG("Hardware=%p Surface=%p Bytes=%zu Size=%p "
+    gcmHEADER_ARG("Hardware=%p Surface=%p Bytes=%u Size=%p "
                   "Alignment=%p Filler=%p",
                   Hardware, Surface, Bytes, Size, Alignment, Filler);
 
@@ -7075,7 +7075,7 @@ gcoHARDWARE_IsFlatMapped(
     {
         if ((Address >= Hardware->flatMappingRanges[i].start) &&
             (Address < Hardware->flatMappingRanges[i].end) &&
-            (Address != ~0U))
+            (Address != ~0ULL))
         {
             status = gcvSTATUS_TRUE;
             break;
@@ -7269,7 +7269,7 @@ gcoHARDWARE_QuerySRAM(
     if ((Type >= gcvSRAM_INTERNAL) && (Type < gcvSRAM_COUNT))
     {
         if (Base)
-            *Base = Hardware->options.sRAMBaseAddress[Type];
+            *Base = Hardware->options.sRAMBaseAddresses[Type];
 
         if (Size)
             *Size = Hardware->config->sRAMSizes[Type];
@@ -7306,6 +7306,56 @@ gcoHARDWARE_QueryNNConfig(
 
 OnError:
     gcmFOOTER();
+    return status;
+}
+
+/*******************************************************************************
+**
+**  gcoHARDWARE_QueryHwChipInfo
+**
+**  Query hw chip information.
+**
+**  INPUT:
+**
+**      gcoHARDWARE Hardware
+**          Pointer to an gcoHARDWARE object.
+**
+**  OUTPUT:
+**
+**      gctUINT * customerID
+**          Pointer to customerID.
+**
+**      gctUINT * ecoID
+**          Pointer to ecoID.
+*/
+gceSTATUS
+gcoHARDWARE_QueryHwChipInfo(
+    IN  gcoHARDWARE  Hardware,
+    OUT gctUINT32   *customerID,
+    OUT gctUINT32   *ecoID
+    )
+{
+    gceSTATUS status = gcvSTATUS_OK;
+
+    gcmHEADER_ARG("Hardware=0x%x", Hardware);
+
+    gcmGETHARDWARE(Hardware);
+
+    if (customerID)
+    {
+        *customerID = Hardware->config->customerID;
+    }
+
+    if (ecoID)
+    {
+        *ecoID = Hardware->config->ecoID;
+    }
+
+OnError:
+    /* Success. */
+    gcmFOOTER_ARG("customerID=%u ecoID=%u ",
+                  gcmOPT_VALUE(customerID), gcmOPT_VALUE(ecoID));
+
     return status;
 }
 #endif

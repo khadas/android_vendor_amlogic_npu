@@ -761,6 +761,7 @@ EXPORTS
     gcoVX_ProgrammCrossEngine
     gcoVX_SetNNImage
     gcoVX_GetNNConfig
+	gcoVX_QueryHWChipInfo
     gcoVX_FlushCache
     gcoVX_AllocateMemoryEx
     gcoVX_FreeMemoryEx

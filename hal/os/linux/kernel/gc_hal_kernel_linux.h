@@ -316,23 +316,6 @@ gckOS_FreeAllocators(
     gckOS Os
     );
 
-/* Reserved memory. */
-gceSTATUS
-gckOS_RequestReservedMemory(
-    gckOS Os,
-    unsigned long Start,
-    unsigned long Size,
-    const char * Name,
-    gctBOOL Requested,
-    void ** MemoryHandle
-    );
-
-void
-gckOS_ReleaseReservedMemory(
-    gckOS Os,
-    void * MemoryHandle
-    );
-
 gceSTATUS
 _ConvertLogical2Physical(
     IN gckOS Os,

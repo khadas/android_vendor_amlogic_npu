@@ -22,9 +22,12 @@
 #include <algorithm>
 #include <vector>
 
+#include <pthread.h>
+
 #include <VX/vx.h>
 #include <VX/vx_api.h>
 #include <VX/vx_khr_cnn.h>
+#include <sys/time.h>
 #ifdef VX_VERSION_1_2
 #include <VX/viv_nn_compatibility.h>
 #endif
@@ -34,6 +37,7 @@
         }\
 }
 
+#define HIGH_PRECISION_COMPUTE 1
 #define RUNTIME_TENSOR(runtimeInfo) ((vx_tensor)( (runtimeInfo).ref))
 
 namespace android {
@@ -141,7 +145,7 @@ public:
     int run(const Model& model, const Request& request,
         const std::vector<VxRunTimePoolInfo>& requestPoolInfos);
 
-    int initalize(vx_context context, const Model* model, std::vector<VxRunTimePoolInfo>* poolInfos);
+    int initalize(vx_context* context, pthread_mutex_t* mutex, const Model* model, std::vector<VxRunTimePoolInfo>* poolInfos);
 
     bool deinitializeRunTimeInfo();
 
@@ -163,9 +167,18 @@ private:
     vx_tensor creatVirtualTensorByParam(vx_graph graph, vx_uint32 dimNum, vx_uint32 *dims, OperandType type, vx_float32 scale = 1.0f, int32_t zp = 0);
     vx_tensor creatVirtualTensorFromRTF(vx_graph graph, const VxRunTimeReferenceInfo &info);
 
-    vx_context mContext = nullptr;
+    vx_tensor creatTensorByParam(vx_context context, vx_uint32 dimNum, vx_uint32 *dims, OperandType type, vx_float32 scale, int32_t zp);
+
+    void initalizeEnv();
+    vx_status convertScalar2Tensor(VxRunTimeReferenceInfo* info);
+
+    vx_context* mContext = nullptr;
+
+    vx_context mPreContext = nullptr;
 
     vx_graph mGraph = nullptr;
+
+    pthread_mutex_t* mMutex = nullptr;
 
     bool initializeRunTimeInfo(const std::vector<VxRunTimePoolInfo>& requestPoolInfos);
 
@@ -174,6 +187,8 @@ private:
     const Request* mRequest = nullptr;
 
     std::vector<VxOperationInfo> mOperationInfos;
+
+    vx_bool preformaceDebug = vx_false_e;
 
 };
 
@@ -214,25 +229,12 @@ inline int vxcGetTypeSize(vx_enum format)
     return 4;
 }
 
-std::vector<vx_uint32> getStrideFromDims(vx_enum format, vx_uint32* dims, vx_int32 dim_count)
-{
-    if (format == 0)return std::vector<vx_uint32> (0,0);
-
-    std::vector<vx_uint32> strides;
-
-    strides.resize(dim_count);
-
-    vx_uint32 & stride = strides[0];
-
-    stride = vxcGetTypeSize(format);
-    for (int i = 1; i < dim_count; i++)
-    {
-        strides[i] = dims[i-1] * strides[i-1];
-    }
-
-
-    return strides;
+inline double getTime(){
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (double)tv.tv_sec + (double)tv.tv_usec * 1.e-6;
 }
+
 inline void convertShapeToDims(const Shape& shape, std::vector<uint32_t>* _dims) {
     Dims<4> dims;
     for (int i = 0; i<4; i++) {
@@ -280,112 +282,7 @@ T getScalarData(const VxRunTimeReferenceInfo& info) {
 #define F16_MANTISSA_SHIFT (23 - F16_EXPONENT_SHIFT)
 #define F16_MAX_EXPONENT (F16_EXPONENT_BITS << F16_EXPONENT_SHIFT)
 
-vx_float32 Fp16toFp32(const vx_uint16 in)
-{
-    vx_int32 t1;
-    vx_int32 t2;
-    vx_int32 t3;
-    vx_float32 out;
-
-    t1 = in & 0x7fff;                       // Non-sign bits
-    t2 = in & 0x8000;                       // Sign bit
-    t3 = in & 0x7c00;                       // Exponent
-
-    t1 <<= 13;                              // Align mantissa on MSB
-    t2 <<= 16;                              // Shift sign bit into position
-
-    t1 += 0x38000000;                       // Adjust bias
-
-    t1 = (t3 == 0 ? 0 : t1);                // Denormals-as-zero
-
-    t1 |= t2;                               // Re-insert sign bit
-
-    *((uint32_t*)&out) = t1;
-
-    return out;
-}
-
-vx_int16 F32toF16(vx_float32 val)
-{
-    vx_uint32 f32 = (*(vx_uint32 *) &val);
-    vx_int16 f16 = 0;
-    /* Decode IEEE 754 little-endian 32-bit floating-point value */
-    int sign = (f32 >> 16) & 0x8000;
-    /* Map exponent to the range [-127,128] */
-    int exponent = ((f32 >> 23) & 0xff) - 127;
-    int mantissa = f32 & 0x007fffff;
-    if (exponent == 128)
-    { /* Infinity or NaN */
-        if (mantissa)
-        {
-            /* Flush NaN to 0. */
-            f16 = (vx_int16)sign;
-        }
-        else
-        {
-            /* Clamp to HALF_MAX/HALF_MIN. */
-            f16 = (vx_int16)(sign | ((F16_EXPONENT_BITS - 1) << F16_EXPONENT_SHIFT) | F16_MANTISSA_BITS);
-        }
-    }
-    else if (exponent > 15)
-    { /* Overflow - clamp to HALF_MAX/HALF_MIN. */
-        f16 = (vx_int16)(sign | ((F16_EXPONENT_BITS - 1) << F16_EXPONENT_SHIFT) | F16_MANTISSA_BITS);
-    }
-    else if (exponent > -15)
-    { /* Representable value */
-        /* RTNE */
-        int roundingBit = (mantissa >> (F16_MANTISSA_SHIFT - 1)) & 0x1;
-        int stickyBits = mantissa & 0xFFF;
-        exponent += F16_EXPONENT_BIAS;
-        mantissa >>= F16_MANTISSA_SHIFT;
-        if (roundingBit)
-        {
-            if (stickyBits || (mantissa & 0x1))
-            {
-                mantissa++;
-                if (mantissa > F16_MANTISSA_BITS)
-                {
-                    exponent++;
-                    if (exponent > 30)
-                    {
-                        /* Clamp to HALF_MAX/HALF_MIN. */
-                        exponent--;
-                        mantissa--;
-                    }
-                    else
-                    {
-                        mantissa &= F16_MANTISSA_BITS;
-                    }
-                }
-            }
-        }
-        f16 = (vx_int16)(sign | exponent << F16_EXPONENT_SHIFT | mantissa);
-    }
-    else
-    {
-        f16 = (vx_int16)sign;
-    }
-    return f16;
-}
-
-std::vector<vx_uint32> convertDims(std::vector<vx_uint32> nhwc)
-{
-    if (nhwc.size() == 4)
-    {
-        std::vector<vx_uint32> whcn;
-
-        whcn.push_back(nhwc.at(2));
-        whcn.push_back(nhwc.at(1));
-        whcn.push_back(nhwc.at(3));
-        whcn.push_back(nhwc.at(0));
-
-        return whcn;
-    }
-    else
-        return nhwc;
-}
-
-vx_enum getOvxActivationType(FusedActivationFunctionType type)
+inline vx_enum getOvxActivationType(FusedActivationFunctionType type)
 {
     vx_enum ovx_type[] = {
         VX_CONVOLUTIONAL_NETWORK_ACTIVATION_NONE,  /* kNone */
@@ -397,73 +294,12 @@ vx_enum getOvxActivationType(FusedActivationFunctionType type)
     return ovx_type[(vx_uint32)type];
 }
 
-vx_bool isTensor(VxRunTimeReferenceInfo &info)
+inline vx_bool isTensor(VxRunTimeReferenceInfo &info)
 {
     if(info.type ==  OperandType::TENSOR_QUANT8_ASYMM || info.type ==  OperandType::TENSOR_FLOAT32 || info.type ==  OperandType::TENSOR_INT32)
         return vx_true_e;
 
     return vx_false_e;
-}
-
-vx_status convertScalar2Tensor(VxRunTimeReferenceInfo* info)
-{
-    vx_context context = vxGetContext(info->ref);
-    vx_tensor tensor = nullptr;
-
-    if(isTensor(*info))
-        return VX_SUCCESS;
-
-    vx_enum dataType = VX_TYPE_INT32;
-    switch(info->type){
-        case OperandType::FLOAT32:
-            dataType = VX_TYPE_FLOAT32;
-            break;
-        case OperandType::INT32:
-            dataType = VX_TYPE_INT32;
-            break;
-        case OperandType::UINT32:
-            dataType = VX_TYPE_UINT32;
-            break;
-        default:
-            break;
-        }
-
-    vx_enum quant_format = (dataType == VX_TYPE_FLOAT32) ? VX_QUANT_DYNAMIC_FIXED_POINT : VX_QUANT_AFFINE_SCALE;
-    vx_uint32 size[1] = { 1 }, stride[1] = { info->length };
-    vx_tensor_create_params_t param;
-    memset((void *)&param, 0, sizeof(param));
-
-    param.sizes = size;
-    param.num_of_dims = 1;
-    param.data_format = dataType;
-    param.quant_format = quant_format;
-    if(quant_format == VX_QUANT_AFFINE_SCALE)
-    {
-        param.quant_data.affine.scale = 1.0f;
-        param.quant_data.affine.zeroPoint = 0;
-    }
-
-    tensor = vxCreateTensor2(context, &param, sizeof(vx_tensor_create_params_t));
-    if (tensor == NULL)
-    {
-        LOG(ERROR) << "vxCreateTensor failure! at line " << __LINE__;
-    }
-    vx_tensor_addressing addr = vxCreateTensorAddressing(context, size, stride, 1);
-    vxCopyTensorPatch(tensor, NULL, addr, info->buffer, VX_WRITE_ONLY, 0);
-    vxReleaseTensorAddressing(&addr);
-
-    vx_enum precision = VX_TENSOR_PRECISION_HIGH;
-    vx_enum life_time = VX_TENSOR_LIFE_TIME_STATIC;
-    vxSetTensorAttribute(tensor, VX_TENSOR_PRECISION, &precision, sizeof(vx_enum));
-    vxSetTensorAttribute(tensor, VX_TENSOR_LIFETIME, &life_time, sizeof(vx_enum));
-
-    if (info->ref)
-        vxReleaseScalar((vx_scalar*)&info->ref);
-
-    info->ref = (vx_reference)tensor;
-
-
-    return VX_SUCCESS;
 }
 
 }  /* anonymous namespace */

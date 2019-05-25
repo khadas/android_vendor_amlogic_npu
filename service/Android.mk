@@ -46,6 +46,8 @@ LOCAL_STATIC_LIBRARIES += libneuralnetworks_common
 
 LOCAL_CFLAGS += -Wno-error=unused-variable -Wno-error=unused-function -Wno-error=unused-parameter -Wno-error=return-type
 
+LOCAL_CFLAGS += -DMULTI_CONTEXT
+
 LOCAL_MODULE      := android.hardware.neuralnetworks@1.1-service-ovx-driver
 
 else

@@ -2414,7 +2414,7 @@ gcoHAL_AllocateVideoMemory(
     struct _gcsHAL_ALLOCATE_LINEAR_VIDEO_MEMORY * alvm
         = (struct _gcsHAL_ALLOCATE_LINEAR_VIDEO_MEMORY *) &iface.u;
 
-    gcmHEADER_ARG("Node=%p, Bytes=%zu, Alignement=%d, Type=%d, Flag=%d, Pool=%d",
+    gcmHEADER_ARG("Node=%p, Bytes=%u, Alignement=%d, Type=%d, Flag=%d, Pool=%d",
                   Node, *Bytes, Alignment, Type, Flag, Pool);
 
     iface.command   = gcvHAL_ALLOCATE_LINEAR_VIDEO_MEMORY;

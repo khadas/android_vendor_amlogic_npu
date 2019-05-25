@@ -81,7 +81,7 @@ Return<ErrorStatus> OvxDevice::prepareModel_1_1(
 
     // TODO: make asynchronous later
     sp<OvxPreparedModel> preparedModel = new OvxPreparedModel(model);
-    if (!preparedModel->initialize(mContext)) {
+    if (!preparedModel->initialize(&mContext, &mMutex)) {
        callback->notify(ErrorStatus::INVALID_ARGUMENT, nullptr);
        return ErrorStatus::INVALID_ARGUMENT;
     }
@@ -128,12 +128,11 @@ int OvxDevice::run() {
     return 1;
 }
 
-bool OvxPreparedModel::initialize(vx_context context) {
-
-    setRunTimePoolInfosFromHidlMemories(&mPoolInfos, mModel.pools);
+bool OvxPreparedModel::initialize(vx_context* context, pthread_mutex_t* mutex) {
 
     mExecutor = new OvxExecutor();
-    mExecutor->initalize(context, &mModel, &mPoolInfos);
+
+    mExecutor->initalize(context, mutex, &mModel, &mPoolInfos);
 
     return true;
 }

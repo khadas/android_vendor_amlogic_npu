@@ -4549,7 +4549,7 @@ gcoSTREAM_CPUCacheOperation_Range(
 {
     gceSTATUS status = gcvSTATUS_OK;
 
-    gcmHEADER_ARG("Stream=0x%x, Offset=%zu Length=%zu Operation=%d", Stream, Offset, Length, Operation);
+    gcmHEADER_ARG("Stream=0x%x, Offset=%u Length=%u Operation=%d", Stream, Offset, Length, Operation);
 
     /* Verify the arguments. */
     gcmVERIFY_OBJECT(Stream, gcvOBJ_STREAM);

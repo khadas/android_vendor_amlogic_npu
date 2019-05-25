@@ -356,7 +356,7 @@ gcoCL_WrapUserMemory(
     gcoOS_ZeroMemory(&desc, gcmSIZEOF(desc));
     desc.flag     = gcvALLOC_FLAG_USERMEMORY;
     desc.logical  = gcmPTR_TO_UINT64(Ptr);
-    desc.physical = gcvINVALID_ADDRESS;
+    desc.physical = gcvINVALID_PHYSICAL_ADDRESS;
     desc.size     = Bytes;
 
     gcmONERROR(gcoHAL_WrapUserMemory(&desc, gcvVIDMEM_TYPE_BITMAP, &node));
@@ -426,6 +426,7 @@ gcoCL_WrapUserPhysicalMemory(
     IN gctUINT              Bytes,
     IN gctBOOL              VIVUnCached,
     OUT gctPOINTER  *       Logical,
+    OUT gctUINT32   *       Address,
     OUT gcsSURF_NODE_PTR *  Node
     )
 {
@@ -435,13 +436,19 @@ gcoCL_WrapUserPhysicalMemory(
     gcsUSER_MEMORY_DESC desc;
     gctPOINTER pointer = gcvNULL;
     gcsSURF_NODE_PTR surf = gcvNULL;
+    gctUINT32     address = gcvINVALID_ADDRESS;
+
 
     /* Allocate node. */
     gcoOS_ZeroMemory(&desc, gcmSIZEOF(desc));
     desc.flag     = gcvALLOC_FLAG_USERMEMORY;
-    desc.physical = gcmALL_TO_UINT32(Physical);
+    desc.physical = gcmPTR_TO_UINT64(Physical);
     desc.size     = Bytes;
 
+    if(desc.physical >= (20000000000ULL) ) /*only support 40bit physical address*/
+    {
+        gcmONERROR(gcvSTATUS_INVALID_ADDRESS);
+    }
     gcmONERROR(gcoHAL_WrapUserMemory(&desc, gcvVIDMEM_TYPE_BITMAP, &node));
 
     gcmONERROR(gcoOS_Allocate(gcvNULL,
@@ -473,7 +480,7 @@ gcoCL_WrapUserPhysicalMemory(
         surf->hardwareAddresses[i] = gcvINVALID_ADDRESS;
     }
 
-    gcmONERROR(gcoHARDWARE_Lock(surf, gcvNULL, Logical));
+    gcmONERROR(gcoHARDWARE_Lock(surf, &address, Logical));
 
     if (gcoHAL_GetOption(gcvNULL, gcvOPTION_OCL_ASYNC_BLT) &&
         gcoHARDWARE_IsFeatureAvailable(gcvNULL, gcvFEATURE_ASYNC_BLIT))
@@ -481,6 +488,8 @@ gcoCL_WrapUserPhysicalMemory(
         gcmONERROR(gcoHARDWARE_LockEx(surf, gcvENGINE_BLT,
                                       gcvNULL, gcvNULL));
     }
+
+    *Address = address;
 
     *Node = surf;
 
@@ -526,7 +535,7 @@ gcoCL_FlushMemory(
 {
     gceSTATUS status = gcvSTATUS_OK;
 
-    gcmHEADER_ARG("Node=0x%x Logical=0x%x Bytes=%zu",
+    gcmHEADER_ARG("Node=0x%x Logical=0x%x Bytes=%u",
                   Node, Logical, Bytes);
 
     if (Node /*&& Node->pool == gcvPOOL_VIRTUAL*/)
@@ -585,7 +594,7 @@ gcoCL_InvalidateMemoryCache(
 {
     gceSTATUS status = gcvSTATUS_OK;
 
-    gcmHEADER_ARG("Node=0x%x Logical=0x%x Bytes=%zu",
+    gcmHEADER_ARG("Node=0x%x Logical=0x%x Bytes=%u",
                   Node, Logical, Bytes);
 
     if (Node /*&& Node->pool == gcvPOOL_VIRTUAL*/)
@@ -1001,7 +1010,7 @@ gcoCL_CreateTexture(
                                          Format,
                                          Stride,
                                          (gctPOINTER) Memory,
-                                         gcvINVALID_ADDRESS));
+                                         gcvINVALID_PHYSICAL_ADDRESS));
                 }
                 else
                 {
@@ -1011,7 +1020,7 @@ gcoCL_CreateTexture(
                                          Format,
                                          Stride,
                                          gcvNULL,
-                                         gcmALL_TO_UINT32(Memory)));
+                                         gcmPTR_TO_UINT64(Memory)));
                 }
 
                 gcmERR_BREAK(gcoSURF_SetImage(surface,
@@ -2026,7 +2035,7 @@ gcoCL_LoadKernel(
 {
     gceSTATUS status;
 
-    gcmHEADER_ARG("StateBufferSize=%zu StateBuffer=0x%x Hints=0x%x",
+    gcmHEADER_ARG("StateBufferSize=%u StateBuffer=0x%x Hints=0x%x",
                   ProgramState.stateBufferSize, ProgramState.stateBuffer, ProgramState.hints);
 
     /* Load kernel states. */

@@ -1212,7 +1212,7 @@ gcoHARDWARE_CopyData(
 {
     gceSTATUS status = gcvSTATUS_OK;
 
-    gcmHEADER_ARG("Memory=0x%x Offset=%zu Buffer=0x%x Bytes=%zu",
+    gcmHEADER_ARG("Memory=0x%x Offset=%u Buffer=0x%x Bytes=%u",
                   Memory, Offset, Buffer, Bytes);
 
     /* Verify the arguments. */
@@ -7190,7 +7190,7 @@ gcoHARDWARE_3DBlitTileFill(
         gctUINT i, j = 0;
         gctUINT blitUnit = gpuCount * clusterCount;
         gctUINT tsBitsPerTile = Hardware->features[gcvFEATURE_TILE_STATUS_2BITS] ? 2 : 4;
-        gctUINT averageTiles = gcmALIGN(tileCount / blitUnit, 8 / tsBitsPerTile);
+        gctUINT averageTiles = (gctUINT)gcmALIGN(tileCount / blitUnit, 8 / tsBitsPerTile);
         gctUINT tileFillCount = (gctUINT)tileCount - (blitUnit - 1) * averageTiles;
         gctUINT32 dstAddr = dstAddress;
         gctUINT32 dstTsAddr = dstTileStatusAddress;

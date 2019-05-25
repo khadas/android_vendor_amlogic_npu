@@ -1477,7 +1477,7 @@ gcoBUFOBJ_CPUCacheOperation_Range(
 {
     gceSTATUS status = gcvSTATUS_OK;
 
-    gcmHEADER_ARG("BufObj=0x%x, Offset=%zu Length=%zu Operation=%d", BufObj, Offset, Length, Operation);
+    gcmHEADER_ARG("BufObj=0x%x, Offset=%u Length=%u Operation=%d", BufObj, Offset, Length, Operation);
 
     /* Verify the arguments. */
     gcmVERIFY_OBJECT(BufObj, gcvOBJ_BUFOBJ);

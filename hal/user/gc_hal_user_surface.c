@@ -2480,7 +2480,14 @@ gcoSURF_WrapSurface(
         gcsSURF_NODE_SetHardwareAddress(&Surface->node, Address);
         Surface->node.count                   = 1;
 
-        Surface->node.u.wrapped.physical = Address;
+        if (Address != gcvINVALID_ADDRESS)
+        {
+            Surface->node.u.wrapped.physical = Address;
+        }
+        else
+        {
+            Surface->node.u.wrapped.physical = gcvINVALID_PHYSICAL_ADDRESS;
+        }
     }
     while (gcvFALSE);
 
@@ -2510,7 +2517,7 @@ gcoSURF_WrapSurface(
 **          logical pointer has been provided.
 **
 **      gctPHYS_ADDR_T Physical
-**          Physical pointer to the user allocated surface or gcvINVALID_ADDRESS if no
+**          Physical pointer to the user allocated surface or gcvINVALID_PHYSICAL_ADDRESS if no
 **          physical pointer has been provided.
 **
 **  OUTPUT:
@@ -2561,7 +2568,7 @@ gcoSURF_MapUserSurface(
 
             gcmGETHARDWAREADDRESS(Surface->node, address);
 
-            if ((Physical != gcvINVALID_ADDRESS) &&
+            if ((Physical != gcvINVALID_PHYSICAL_ADDRESS) &&
                 (Physical != address))
             {
                 status = gcvSTATUS_INVALID_ARGUMENT;
@@ -7769,7 +7776,7 @@ gcoSURF_NODE_Cache(
 {
     gceSTATUS status = gcvSTATUS_OK;
 
-    gcmHEADER_ARG("Node=0x%x, Operation=%d, Bytes=%zu", Node, Operation, Bytes);
+    gcmHEADER_ARG("Node=0x%x, Operation=%d, Bytes=%u", Node, Operation, Bytes);
 
     if (Node->u.normal.cacheable == gcvFALSE)
     {
@@ -7850,7 +7857,7 @@ gcoSURF_NODE_CPUCacheOperation(
     gctPOINTER memory;
     gctBOOL locked = gcvFALSE;
 
-    gcmHEADER_ARG("Node=0x%x, Type=%u, Offset=%zu, Length=%zu, Operation=%d", Node, Type, Offset, Length, Operation);
+    gcmHEADER_ARG("Node=0x%x, Type=%u, Offset=%u, Length=%u, Operation=%d", Node, Type, Offset, Length, Operation);
 
     /* Lock the node. */
     gcmONERROR(gcoHARDWARE_Lock(Node, gcvNULL, &memory));
@@ -9043,9 +9050,9 @@ gcoSURF_SetFlags(
 **          Logical pointer to the user allocated surface or gcvNULL if no
 **          logical pointer has been provided.
 **
-**      gctUINT32 Physical
+**      gctPHYS_ADDR_T Physical
 **          Physical address (NOT GPU address) of a contiguous buffer.
-**          It should be gcvINVALID_ADDRESS for non-contiguous buffer or
+**          It should be gcvINVALID_PHYSICAL_ADDRESS for non-contiguous buffer or
 **          buffer whose physical address is unknown.
 **  OUTPUT:
 **
@@ -9058,14 +9065,14 @@ gcoSURF_SetBuffer(
     IN gceSURF_FORMAT Format,
     IN gctUINT Stride,
     IN gctPOINTER Logical,
-    IN gctUINT32 Physical
+    IN gctPHYS_ADDR_T Physical
     )
 {
     gceSTATUS status;
     gcsSURF_FORMAT_INFO_PTR fmtInfo;
 
     gcmHEADER_ARG("Surface=0x%x Type=%d Format=%d Stride=%u Logical=0x%x "
-                  "Physical=%08x",
+                  "Physical=0x%llx",
                   Surface, Type, Format, Stride, Logical, Physical);
 
     /* Verify the arguments. */
@@ -9292,9 +9299,9 @@ gcoSURF_SetWindow(
     Surface->node.size = Surface->size;
     /* Need to map logical pointer? */
     Surface->node.logical = (gctUINT8_PTR)Surface->userLogical + offset;
-    Surface->node.u.wrapped.physical = Surface->userPhysical + offset;
+    Surface->node.u.wrapped.physical = Surface->userPhysical + (gctUINT64)offset;
 
-    gcmSAFECASTPHYSADDRT(desc.physical, Surface->userPhysical + offset);
+    desc.physical = Surface->node.u.wrapped.physical;
     desc.logical = gcmPTR_TO_UINT64(Surface->node.logical);
     desc.size = Surface->size;
     desc.flag = gcvALLOC_FLAG_USERMEMORY;
@@ -9461,9 +9468,9 @@ gcoSURF_SetImage(
     /* Set user pool node size. */
     Surface->node.size = Surface->size;
     Surface->node.logical = (gctUINT8_PTR)Surface->userLogical + offset;
-    Surface->node.u.wrapped.physical = Surface->userPhysical + offset;
+    Surface->node.u.wrapped.physical = Surface->userPhysical + (gctUINT64)offset;
 
-    gcmSAFECASTPHYSADDRT(desc.physical, Surface->userPhysical + offset);
+    desc.physical = Surface->node.u.wrapped.physical;
     desc.logical = gcmPTR_TO_UINT64(Surface->node.logical);
     desc.size = Surface->size;
     desc.flag = gcvALLOC_FLAG_USERMEMORY;
@@ -10439,7 +10446,7 @@ _WrapUserMemory(
     desc.flag    = gcvALLOC_FLAG_USERMEMORY;
     desc.logical = gcmPTR_TO_UINT64(Memory);
     desc.size    = (gctUINT32)Size;
-    desc.physical = ~0U;
+    desc.physical = ~0ULL;
 
     gcmONERROR(gcoHAL_WrapUserMemory(&desc, gcvVIDMEM_TYPE_BITMAP, &node));
 
@@ -11118,7 +11125,7 @@ gcsSURF_NODE_Construct(
     };
 #endif
 
-    gcmHEADER_ARG("Node=%p, Bytes=%zu, Alignement=%d, Type=%d, Flag=%d, Pool=%d",
+    gcmHEADER_ARG("Node=%p, Bytes=%u, Alignement=%d, Type=%d, Flag=%d, Pool=%d",
                   Node, Bytes, Alignment, Type, Flag, Pool);
 
 #ifdef LINUX

@@ -324,6 +324,7 @@ typedef struct _gcsHARDWARE_CONFIG
     gctUINT32                   sRAMSizes[gcvSRAM_COUNT];
 #if gcdENABLE_3D && gcdUSE_VX
     vx_nn_config                nnConfig;
+    vx_hw_chip_info             hwChipInfo;
 #endif
 }
 gcsHARDWARE_CONFIG;

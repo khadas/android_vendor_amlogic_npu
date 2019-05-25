@@ -92,13 +92,14 @@ typedef struct _gcsNN_FIXED_FEATURE
     gctUINT  nnLanesPerOutCycle;
     gctUINT  maxOTNumber;
     gctUINT  equivalentVipsramWidthInByte;
+    gctUINT  shaderCoreCount;
 } gcsNN_FIXED_FEATURE;
 
 /* Features can be customized from outside */
 typedef struct _gcsNN_CUSTOMIZED_FEATURE
 {
-    gctUINT  vipSRAMSizeInKB;
-    gctUINT  axiSRAMSizeInKB;
+    gctUINT  vipSRAMSize;
+    gctUINT  axiSRAMSize;
     gctFLOAT ddrReadBWLimit;
     gctFLOAT ddrWriteBWLimit;
     gctFLOAT ddrTotalBWLimit;
@@ -145,6 +146,8 @@ typedef struct _gcsNN_UNIFIED_FEATURE
     gctUINT  smallBatchEnable : 1;
     gctUINT  axiSramOnlySWTiling : 1;
     gctUINT  imageNotPackedInSram : 1;
+    gctUINT  coefDeltaCordOverFlowZRL8BitFix : 1;
+    gctUINT  xyOffsetLimitationFix : 1;
 } gcsNN_UNIFIED_FEATURE;
 
 /* Features are derived from above ones */
@@ -317,6 +320,7 @@ typedef enum _gcePOOL
     gcvPOOL_LOCAL_EXTERNAL,
     gcvPOOL_UNIFIED,
     gcvPOOL_SYSTEM,
+    gcvPOOL_SRAM,
     gcvPOOL_VIRTUAL,
     gcvPOOL_USER,
 
@@ -1920,8 +1924,8 @@ gcoOS_MemoryBarrier(
 
 gceSTATUS
 gcoOS_CPUPhysicalToGPUPhysical(
-    IN gctUINT32 CPUPhysical,
-    OUT gctUINT32_PTR GPUPhysical
+    IN gctPHYS_ADDR_T CPUPhysical,
+    OUT gctPHYS_ADDR_T * GPUPhysical
     );
 
 gceSTATUS
@@ -2650,7 +2654,7 @@ gcoSURF_SetBuffer(
     IN gceSURF_FORMAT Format,
     IN gctUINT Stride,
     IN gctPOINTER Logical,
-    IN gctUINT32 Physical
+    IN gctUINT64 Physical
     );
 
 /* Set the size of the surface in pixels and map the underlying buffer. */
@@ -4188,7 +4192,7 @@ gceSTATUS gcoOS_Dump2DSurface(IN gctBOOL Src, IN gctUINT32 Address);
 **      gctUINT32           Address.
 **      gctSIZE_T           Size.
 */
-gceSTATUS gcfAddMemoryInfo(IN gctUINT32 GPUAddress, IN gctPOINTER Logical, IN gctUINT32 Physical, IN gctUINT32 Size);
+gceSTATUS gcfAddMemoryInfo(IN gctUINT32 GPUAddress, IN gctPOINTER Logical, IN gctUINT64 Physical, IN gctUINT32 Size);
 #if gcdDUMP_2D
 #   define gcmDUMP_ADD_MEMORY_INFO  gcfAddMemoryInfo
 #else

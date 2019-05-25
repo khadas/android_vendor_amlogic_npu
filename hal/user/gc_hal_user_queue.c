@@ -220,7 +220,7 @@ gcoQUEUE_Free(
     if (Queue->tail)
     {
         Queue->tail->next = gcmPTR_TO_UINT64(Queue->freeList);
-        Queue->freeList = Queue->tail;
+        Queue->freeList = Queue->head;
 
         Queue->head = Queue->tail = gcvNULL;
     }

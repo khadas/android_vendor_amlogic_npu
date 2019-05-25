@@ -905,7 +905,7 @@ gcoINDEX_UploadOffset(
 {
     gceSTATUS status;
 
-    gcmHEADER_ARG("Index=0x%x Offset=%zu Buffer=0x%x Bytes=%lu",
+    gcmHEADER_ARG("Index=0x%x Offset=%u Buffer=0x%x Bytes=%lu",
                   Index, Offset, Buffer, Bytes);
 
     /* Verify the arguments. */

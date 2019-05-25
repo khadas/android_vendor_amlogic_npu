@@ -2475,6 +2475,8 @@ _FillInFeatureTable(
     Features[gcvFEATURE_OCB_COUNTER] = database->OCB_COUNTER;
     Features[gcvFEATURE_NN_ZXDP3_KERNEL_READ_CONFLICT_FIX] = database->NN_ZXDP3_KERNEL_READ_CONFLICT_FIX;
     Features[gcvFEATURE_NN_ASYNC_COPY_MERGE_FIX] = database->NN_ASYNC_COPY_MERGE_FIX;
+    Features[gcvFEATURE_XY_OFFSET_LIMITATION_FIX] = database->XY_OFFSET_LIMITATION_FIX;
+    Features[gcvFEATURE_USC_INVALIDATE_CACHE_LINE_FIX] = database->USC_INVALIDATE_CACHE_LINE_FIX;
 
     Features[gcvFEATURE_USC_ATOMIC_FIX2] = database->USC_ATOMIC_FIX2;
     Features[gcvFEATURE_MULTICORE_CONFIG] = database->MP_ARCH;
@@ -2495,6 +2497,7 @@ _FillInFeatureTable(
     Features[gcvFEATURE_IMAGE_NOT_PACKED_IN_SRAM_FIX] = database->IMAGE_NOT_PACKED_IN_SRAM_FIX;
     Features[gcvFEATURE_IDLE_BEFORE_FLUSH_COMPLETE_FIX] = database->IDLE_BEFORE_FLUSH_COMPLETE_FIX;
     Features[gcvFEATURE_NO_FLUSH_USC_FIX] = database->NO_FLUSH_USC_FIX;
+    Features[gcvFEATURE_COEF_DELTA_CORD_OVERFLOW_ZRL_8BIT_FIX] = database->COEF_DELTA_CORD_OVERFLOW_ZRL_8BIT_FIX;
     Features[gcvFEATURE_VIP_DEC400] = database->VIP_DEC400;
 
 
@@ -2779,6 +2782,7 @@ if (smallBatch){    Config->vsConstBase  = 0xD000;
 #if gcdENABLE_3D && gcdUSE_VX
     /* real run environment. */
     Config->nnConfig.fixedFeature.vipCoreCount                   = featureDatabase->CoreCount;
+    Config->nnConfig.fixedFeature.shaderCoreCount                = featureDatabase->NumShaderCores;
     Config->nnConfig.fixedFeature.nnMadPerCore                   = featureDatabase->NNMadPerCore;
     Config->nnConfig.fixedFeature.nnCoreCount                    = featureDatabase->NNCoreCount;
     Config->nnConfig.fixedFeature.nnCoreCountInt8                = featureDatabase->NNCoreCount_INT8;
@@ -2803,8 +2807,8 @@ if (smallBatch){    Config->vsConstBase  = 0xD000;
     Config->nnConfig.fixedFeature.maxOTNumber                    = featureDatabase->MAX_OT_NUMBER;
     Config->nnConfig.fixedFeature.equivalentVipsramWidthInByte   = featureDatabase->EQUIVALENT_VIP_SRAM_WIDTH_INBYTE;
 
-    Config->nnConfig.customizedFeature.vipSRAMSizeInKB = featureDatabase->VIP_SRAM_SIZE;
-    Config->nnConfig.customizedFeature.axiSRAMSizeInKB = featureDatabase->AXI_SRAM_SIZE;
+    Config->nnConfig.customizedFeature.vipSRAMSize = featureDatabase->VIP_SRAM_SIZE;
+    Config->nnConfig.customizedFeature.axiSRAMSize = featureDatabase->AXI_SRAM_SIZE;
 #endif
 
     /* Return the status. */
@@ -4136,6 +4140,12 @@ _DetectProcess(
             /*viv: CompuBench-CLI */
             "\xbc\x90\x92\x8f\x8a\xbd\x9a\x91\x9c\x97\xd2\xbc\xb3\xb6",
             gcvFALSE
+        },
+        {
+            gcvPATCH_OVX_CTS,
+            /*vx_test_conformance*/
+            "\x89\x87\xa0\x8b\x9a\x8c\x8b\xa0\x9c\x90\x91\x99\x90\x8d\x92\x9e\x91\x9c\x9a",
+            gcvFALSE,
         },
     };
 
@@ -15682,16 +15692,17 @@ gcoHARDWARE_LockEx(
 
         if (Node->pool == gcvPOOL_USER)
         {
-            gctUINT32 physical;
+            gctPHYS_ADDR_T physical;
 
-            gcmSAFECASTPHYSADDRT(physical, Node->u.wrapped.physical);
+            physical = Node->u.wrapped.physical;
 
-            if (physical != gcvINVALID_ADDRESS)
+            if (physical != gcvINVALID_PHYSICAL_ADDRESS)
             {
                 gcoHARDWARE hardware = gcvNULL;
                 gcmGETHARDWARE(hardware);
 
                 physical -= hardware->baseAddr;
+
                 gcoOS_CPUPhysicalToGPUPhysical(physical, &physical);
             }
 
@@ -15706,7 +15717,8 @@ gcoHARDWARE_LockEx(
                 ** Since 'physical' is only for one hardware, it can't be used by other hardware type.
                 */
                 gcmASSERT(Node->logical != gcvNULL);
-                gcsSURF_NODE_SetHardwareAddress(Node, physical + (gctUINT32) Node->bufferOffset);
+
+                gcsSURF_NODE_SetHardwareAddress(Node, (gctUINT32) physical + (gctUINT32) Node->bufferOffset);
             }
             else
             if (gcoHARDWARE_IsFlatMapped(gcvNULL, physical))
@@ -15715,7 +15727,8 @@ gcoHARDWARE_LockEx(
                 ** If physical address is in flat mapping range of current hardware,
                 ** use physical address as hardware address instead of lock in kernel.
                 */
-                gcsSURF_NODE_SetHardwareAddress(Node, physical + (gctUINT32) Node->bufferOffset);
+
+                gcsSURF_NODE_SetHardwareAddress(Node, (gctUINT32) physical + (gctUINT32) Node->bufferOffset);
 
                 handle = 0;
 
@@ -15762,7 +15775,7 @@ gcoHARDWARE_LockEx(
         gctUINT32 address;
 
         gcmGETHARDWAREADDRESS(*Node, address);
-        gcmDUMP_ADD_MEMORY_INFO(address, Node->logical, gcvINVALID_ADDRESS, Node->size);
+        gcmDUMP_ADD_MEMORY_INFO(address, Node->logical, gcvINVALID_PHYSICAL_ADDRESS, Node->size);
     }
 
     /* Increment the lock count per hardware type. */
@@ -18323,8 +18336,8 @@ gcoHARDWARE_FlushPipe(
             gcvNULL,
             &channelId));
 
-        /* Flush SH L1 cache except for system channel (0). */
-        if (channelId != 0)
+        /* Just flush SH L1 cache in SH channel (id=1). */
+        if (channelId == 1)
         {
             gcmONERROR(gcoHARDWARE_LoadCtrlState(
                 Hardware,
@@ -25807,7 +25820,7 @@ gcoHARDWARE_WriteBuffer(
 {
     gceSTATUS status;
 
-    gcmHEADER_ARG("Hardware=0x%x Data=0x%x Bytes=%zu Aligned=%d",
+    gcmHEADER_ARG("Hardware=0x%x Data=0x%x Bytes=%u Aligned=%d",
                     Hardware, Data, Bytes, Aligned);
 
     gcmGETHARDWARE(Hardware);

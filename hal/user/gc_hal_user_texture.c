@@ -907,8 +907,8 @@ gcoTEXTURE_Upload(
     gctUINT32 offset, sliceSize, width, height, stride;
     gcsSURF_VIEW texView = {gcvNULL, 0, 1};
 
-    gcmHEADER_ARG("Texture=0x%x MipMap=%d Face=%d Width=%zu Height=%zu "
-                  "Slice=%d Memory=0x%x Stride=%zu Format=%d, SrcColorSpace=%u",
+    gcmHEADER_ARG("Texture=0x%x MipMap=%d Face=%d Width=%u Height=%u "
+                  "Slice=%d Memory=0x%x Stride=%u Format=%d, SrcColorSpace=%u",
                   Texture, MipMap, Face, Width, Height,
                   Slice, Memory, Stride, Format, SrcColorSpace);
 
@@ -1174,8 +1174,8 @@ gcoTEXTURE_UploadSub(
     gctBOOL forceSW = gcvFALSE;
     gcsSURF_VIEW texView = {gcvNULL, 0, 1};
 
-    gcmHEADER_ARG("Texture=0x%x MipMap=%d Face=%d XOffset=%zu YOffset=%zu Width=%zu Height=%zu "
-                  "Slice=%d Memory=0x%x Stride=%zu Format=%d, SrcColorSpace=%u",
+    gcmHEADER_ARG("Texture=0x%x MipMap=%d Face=%d XOffset=%u YOffset=%u Width=%u Height=%u "
+                  "Slice=%d Memory=0x%x Stride=%u Format=%d, SrcColorSpace=%u",
                   Texture, MipMap, Face, XOffset, YOffset, Width, Height,
                   Slice, Memory, Stride, Format, SrcColorSpace);
 
@@ -1834,8 +1834,8 @@ gcoTEXTURE_AddMipMapEx(
     gctUINT width, height, depth, faces;
     gceSURF_TYPE surfType;
 
-    gcmHEADER_ARG("Texture=0x%x Level=%d Format=%d Width=%zu Height=%zu "
-                    "Depth=%zu Faces=0x%x Pool=%d",
+    gcmHEADER_ARG("Texture=0x%x Level=%d Format=%d Width=%u Height=%u "
+                    "Depth=%u Faces=0x%x Pool=%d",
                     Texture, Level, Format, Width, Height,
                     Depth, Faces, Pool);
 
@@ -3002,7 +3002,7 @@ gcoTEXTURE_UploadCompressed(
     gceSTATUS status;
     gctUINT32 offset, width, height, size;
 
-    gcmHEADER_ARG("Texture=0x%x Mipmap=%d, Face=%d Width=%zu Height=%zu Slice=%d Memory=0x%x Size=%zu",
+    gcmHEADER_ARG("Texture=0x%x Mipmap=%d, Face=%d Width=%u Height=%u Slice=%d Memory=0x%x Size=%u",
                     Texture, MipMap, Face, Width, Height, Slice, Memory, Size);
 
     /* Verify the arguments. */
@@ -3170,7 +3170,7 @@ gcoTEXTURE_UploadCompressedSub(
     gceSTATUS status;
     gctUINT32 offset, width, height, size, xOffset, yOffset;
 
-    gcmHEADER_ARG("Texture=0x%x Face=%d Width=%zu Height=%zu Slice=%d Memory=0x%x Size=%zu",
+    gcmHEADER_ARG("Texture=0x%x Face=%d Width=%u Height=%u Slice=%d Memory=0x%x Size=%u",
                    Texture, Face, Width, Height, Slice, Memory, Size);
 
     /* Verify the arguments. */

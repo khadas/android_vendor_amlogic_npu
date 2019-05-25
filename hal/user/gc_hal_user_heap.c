@@ -659,7 +659,8 @@ gcoHEAP_Allocate(
 
     /* Check if this allocation is bigger than the default allocation size.
        Need to account for the sentinel as well, hence the gcmSIZEOF(gcsNODE). */
-    if ((bytes + gcmSIZEOF(gcsHEAP) + gcmSIZEOF(gcsNODE)) >= Heap->allocationSize)
+    if ((bytes + gcmSIZEOF(gcsHEAP) + gcmSIZEOF(gcsNODE)) >= Heap->allocationSize
+        && bytes < (gcvMAXSIZE_T >> 1))
     {
         /* Adjust allocation size. */
         Heap->allocationSize = bytes * 2;

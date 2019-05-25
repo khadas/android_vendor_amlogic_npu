@@ -92,7 +92,7 @@ _ClearTileStatus(
     gcmDEFINESTATEBUFFER_NEW(reserve, stateDelta, memory);
 
     gcmHEADER_ARG("Hardware=0x%x Surface=0x%x Address=0x%x "
-                  "Bytes=%zu Type=%d ClearValue=0x%x ClearMask=0x%x",
+                  "Bytes=%u Type=%d ClearValue=0x%x ClearMask=0x%x",
                   Hardware, Surface, Address,
                   Bytes, Type, ClearValue, ClearMask);
 
@@ -965,7 +965,7 @@ gcoHARDWARE_ClearTileStatus(
     gceSTATUS status;
 
     gcmHEADER_ARG("Hardware=0x%x SurfView=0x%x Address=0x%x "
-                  "Bytes=%zu Type=%d ClearValue=0x%x ClearMask=0x%x",
+                  "Bytes=%u Type=%d ClearValue=0x%x ClearMask=0x%x",
                   Hardware, SurfView, Address,
                   Bytes, Type, ClearValue, ClearMask);
 
@@ -1027,7 +1027,7 @@ gcoHARDWARE_ComputeClearWindow(
     gceSTATUS status = gcvSTATUS_OK;
     gctUINT32 width, height, alignY;
 
-    gcmHEADER_ARG("Bytes=%zu Width=%d Height=%d",
+    gcmHEADER_ARG("Bytes=%u Width=%d Height=%d",
                   Bytes, gcmOPT_VALUE(Width), gcmOPT_VALUE(Height));
 
     gcmGETHARDWARE(Hardware);

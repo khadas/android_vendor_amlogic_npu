@@ -374,8 +374,23 @@ gcoVX_InvokeThreadWalker(
         gcmONERROR(gcoHARDWARE_SetAPI(gcvNULL, gcvAPI_OPENCL));
     }
 
-    /* Route to hardware. */
-    gcmONERROR(gcoHARDWARE_InvokeThreadWalkerCL(gcvNULL, Info));
+    /* add env to skip shader execution */
+    {
+        gctSTRING envctrl = gcvNULL;
+        gctBOOL bSkipShader = gcvFALSE;
+        if (gcmIS_SUCCESS(gcoOS_GetEnv(gcvNULL, "VIV_VX_SKIP_SHADER", &envctrl)) && envctrl
+            && gcmIS_SUCCESS(gcoOS_StrCmp(envctrl, "1")))
+        {
+            bSkipShader = gcvTRUE;
+        }
+
+        if (!bSkipShader)
+        {
+            /* Route to hardware. */
+            gcmONERROR(gcoHARDWARE_InvokeThreadWalkerCL(gcvNULL, Info));
+        }
+    }
+
 
     if (currentApi != gcvAPI_OPENCL && currentApi != 0 )
     {
@@ -736,7 +751,7 @@ gcoVX_LoadKernelShader(
     gceSTATUS status;
     gceAPI    currentApi;
 
-    gcmHEADER_ARG("StateBufferSize=%zu StateBuffer=0x%x Hints=0x%x",
+    gcmHEADER_ARG("StateBufferSize=%u StateBuffer=0x%x Hints=0x%x",
                   ProgramState.stateBufferSize, ProgramState.stateBuffer, ProgramState.hints);
 
     gcmASSERT(gcoVX_VerifyHardware());
@@ -1058,6 +1073,31 @@ gcoVX_GetNNConfig(
     gcmHEADER_ARG("Config=%p", Config);
 
     gcmONERROR(gcoHARDWARE_QueryNNConfig(gcvNULL, Config));
+
+OnError:
+    gcmFOOTER();
+    return status;
+}
+
+gceSTATUS
+gcoVX_QueryHWChipInfo(
+    IN OUT vx_hw_chip_info * HwChipInfo
+    )
+{
+    gceSTATUS status = gcvSTATUS_OK;
+
+    gcmHEADER_ARG("HwChipInfo=%p", HwChipInfo);
+
+    if (HwChipInfo != gcvNULL)
+    {
+        gcmONERROR(gcoHARDWARE_QueryHwChipInfo(gcvNULL,
+            &HwChipInfo->customerID,
+            &HwChipInfo->ecoID));
+    }
+    else
+    {
+        status = gcvSTATUS_INVALID_ARGUMENT;
+    }
 
 OnError:
     gcmFOOTER();
@@ -1406,7 +1446,9 @@ gcoVX_SetRemapAddress(
     {
         gcmONERROR(gcoHARDWAREVX_SetRemapAddress(tls->engineVX->hardwares[i], remapStart, remapEnd, remapType));
     }
+
 OnError:
+
     gcmFOOTER();
     return status;
 }
@@ -1562,6 +1604,11 @@ gceSTATUS gcoVX_GetEvisNoInstFeatureCap(
     }
 
     hardware = tls->engineVX->hardwares[0]; /*Use the 0th hardware as Query input */
+
+    if(gcoHARDWARE_IsFeatureAvailable(gcvNULL, gcvFEATURE_EVIS))
+    {
+        EvisNoInst->supportEVIS = gcvTRUE;
+    }
 
     if (gcoHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_EVIS_NO_ABSDIFF))
     {
