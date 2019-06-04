@@ -11,6 +11,13 @@
 ##############################################################################
 LOCAL_PATH := $(call my-dir)
 
+ifeq ($(TARGET_PRODUCT), galilei)
+RRODUCT_PATH := libraryso/PID0x88
+else
+RRODUCT_PATH := libraryso/PID0x99
+endif
+
+
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
     libraryso/libCLC.so
@@ -41,7 +48,6 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)
 endif
 include $(BUILD_PREBUILT)
 
-
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
     libraryso/libLLVM_viv.so
@@ -59,7 +65,7 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
-    libraryso/libNNVXCBinary.so
+    $(RRODUCT_PATH)/libNNVXCBinary.so
 LOCAL_MODULE         := libNNVXCBinary
 LOCAL_MODULE_SUFFIX  := .so
 LOCAL_MODULE_TAGS    := optional
@@ -90,7 +96,7 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
-    libraryso/libOpenVX.so
+    $(RRODUCT_PATH)/libOpenVX.so
 LOCAL_MODULE         := libOpenVX
 LOCAL_MODULE_SUFFIX  := .so
 LOCAL_MODULE_TAGS    := optional
@@ -154,7 +160,7 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
-    libraryso/libOvx12VXCBinary.so
+    $(RRODUCT_PATH)/libOvx12VXCBinary.so
 LOCAL_MODULE         := libOvx12VXCBinary
 LOCAL_MODULE_SUFFIX  := .so
 LOCAL_MODULE_TAGS    := optional

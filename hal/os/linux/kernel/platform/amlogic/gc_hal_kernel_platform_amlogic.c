@@ -71,50 +71,54 @@
 #define AO_RTI_GEN_PWR_ISO0   (AO_RTI_BASE + (0x3b<<2))   //0xff8000ec
 
 #define HHI_BASE_ADDR         0xff63c000
-#define HHI_NANOQ_MEM_PD_REG0 (HHI_BASE_ADDR+(0x43<<2))
-#define HHI_NANOQ_MEM_PD_REG1 (HHI_BASE_ADDR+(0x44<<2))
+#define NN_CHIP_W400         0
+#define NN_CHIP_SM1         1
 
-#define RESET_LEVEL2          0xffd01088
+static	unsigned int HHI_NANOQ_MEM_PD_REG0 = HHI_BASE_ADDR+(0x43<<2);//0xff63c10c;
+static	unsigned int HHI_NANOQ_MEM_PD_REG1 = HHI_BASE_ADDR+(0x44<<2);//0xff63c110;
+static  unsigned int RESET_LEVEL2 = 0xffd01088;
+static  unsigned int NN_clk = 0xff63c1c8;
+static  unsigned int NN_chipid = NN_CHIP_W400;
 
-//#define MAX_NANOQ_FREQ        800000000
 
 static int hardwareResetNum = 0;
 module_param(hardwareResetNum, int, 0644);
 static int nanoqFreq = 800000000;
 module_param(nanoqFreq, int, 0644);
-/*======== add by zxw for g12b hardware reg define end========*/
-/*
-static gceSTATUS _CmaAlloc(struct platform_device *pdev,gctSIZE_T NumPages,unsigned long *pmem)
-{
-	struct page *nano_pages;
-	
-	nano_pages = dma_alloc_from_contiguous(&pdev->dev,NumPages, 0);
-	if(nano_pages == NULL)
-	{
-		printk("dma_alloc_from contiguous fail\n");
-		return gcvSTATUS_OUT_OF_MEMORY;
-	}
-	else
-	{
-		*pmem = page_to_phys(nano_pages);
-	}
-    return gcvSTATUS_OK;	
-}
 
-static gceSTATUS _DmaAlloc(struct platform_device *pdev,gctSIZE_T memsize,dma_addr_t *pmem)
+static void _InitDtsRegValue(IN gcsPLATFORM *Platform)
 {
-	u32 gfp = GFP_KERNEL | gcdNOWARN;
-	
-	dma_alloc_coherent(&pdev->dev, memsize, pmem, gfp);
-	if(pmem == NULL)
+//	OUT gcsMODULE_PARAMETERS *Args;
+    struct platform_device *pdev = Platform->device;
+	struct resource *res;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	if (res)
 	{
-		printk("dma_alloc_from contiguous fail\n");
-		return gcvSTATUS_OUT_OF_MEMORY;
+		printk("reg resource 2, start: %ld,end: %ld\n",(unsigned long)res->start,(unsigned long)res->end);
+		HHI_NANOQ_MEM_PD_REG0 = (unsigned long)res->start;
 	}
 
-    return gcvSTATUS_OK;	
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 3);
+	if (res)
+	{
+		printk("reg resource 3, start: %ld,end: %ld\n",(unsigned long)res->start,(unsigned long)res->end);
+		HHI_NANOQ_MEM_PD_REG1 = (unsigned long)res->start;
+	}
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 4);
+	if (res)
+	{
+		printk("reg resource 4, start: %ld,end: %ld\n",(unsigned long)res->start,(unsigned long)res->end);
+		RESET_LEVEL2 = (unsigned long)res->start;
+	}
+	if (HHI_NANOQ_MEM_PD_REG1 != 0xff63c110)
+	{
+		NN_chipid = NN_CHIP_SM1;
+	}
+
+	return;
 }
-*/
 
 gceSTATUS _AdjustParam(IN gcsPLATFORM *Platform,OUT gcsMODULE_PARAMETERS *Args)
 {
@@ -148,11 +152,18 @@ gceSTATUS _AdjustParam(IN gcsPLATFORM *Platform,OUT gcsMODULE_PARAMETERS *Args)
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (res) 
+	if (res)
 	{
 		/*printk("reg resource 1,start:%ld,end:%ld",(unsigned long)res->start,(unsigned long)res->end);*/
 		Args->sRAMBases[0][0] = ~0L;
-		Args->sRAMBases[0][1] = (gctPHYS_ADDR_T)res->start;
+		if (NN_chipid == NN_CHIP_W400)
+		{
+			Args->sRAMBases[0][1] = (gctPHYS_ADDR_T)res->start;
+		}
+		else
+		{
+			Args->sRAMBases[0][1] = ~0L;
+		}
 		Args->sRAMBases[0][2] = ~0L;
 		Args->contiguousBase = 0;
 		Args->contiguousSize = (gctSIZE_T)(res->end - res->start+1);
@@ -166,17 +177,17 @@ gceSTATUS _AdjustParam(IN gcsPLATFORM *Platform,OUT gcsMODULE_PARAMETERS *Args)
 				printk("contiguousBase use from cma,page size is %ld\n",Args->contiguousSize/PAGE_SIZE);
 			}
 		}*/
-	} 
-	else 
+	}
+	else
 	{
 		printk("no memory resource 1\n");
 		Args->contiguousBase = 0;
 		Args->contiguousSize = 0x400000;
 		Args->sRAMBases[0][0] = ~0L;
-		Args->sRAMBases[0][1] = 0xFF000000;
+		Args->sRAMBases[0][1] = ~0L;
 		Args->sRAMBases[0][2] = ~0L;
-	}	
-	Args->registerSizes[0] = 0x20000;
+	}
+	Args->registerSizes[0] = 0x800;
     return gcvSTATUS_OK;
 }
 
@@ -184,7 +195,7 @@ int _RegWrite(unsigned int reg, unsigned int writeval)
 {
 	void __iomem *vaddr;
 	reg = round_down(reg, 0x3);
-	
+
 	vaddr = ioremap(reg, 0x4);
 	writel(writeval, vaddr);
 	iounmap(vaddr);
@@ -233,7 +244,7 @@ void delay(unsigned int time)
 		for(i = 0;i<time;i++);
 	}
 }
-
+/*
 static void set_clock(struct platform_device *pdev)
 {
 	struct clk *npu_axi_clk = NULL;
@@ -262,9 +273,11 @@ static void set_clock(struct platform_device *pdev)
 	}
 	clk_set_rate(npu_core_clk, nanoqFreq);
 	return;
-}
+}*/
 gceSTATUS _GetPower(IN gcsPLATFORM *Platform)
 {
+	unsigned int readReg=0;
+	_InitDtsRegValue(Platform);
 #if 0
 	unsigned int readReg=0;
 	_RegRead(AO_RTI_GEN_PWR_SLEEP0,&readReg);
@@ -275,10 +288,10 @@ gceSTATUS _GetPower(IN gcsPLATFORM *Platform)
 	_RegWrite(AO_RTI_GEN_PWR_ISO0, readReg);
 	_RegWrite(HHI_NANOQ_MEM_PD_REG0, 0x0);
 	_RegWrite(HHI_NANOQ_MEM_PD_REG1, 0x0);
-	set_clock(Platform->device);
+//	set_clock(Platform->device);
+	_RegWrite(NN_clk, 0x7000700);
 	delay(500);
 #else
-	unsigned int readReg=0;
 	_RegRead(AO_RTI_GEN_PWR_SLEEP0,&readReg);
 	readReg = (readReg & 0xfffcffff);
 	_RegWrite(AO_RTI_GEN_PWR_SLEEP0, readReg);
@@ -286,16 +299,17 @@ gceSTATUS _GetPower(IN gcsPLATFORM *Platform)
 	_RegWrite(HHI_NANOQ_MEM_PD_REG1, 0x0);
 	_RegRead(RESET_LEVEL2,&readReg);
 	readReg = (readReg & 0xffffefff);
-	_RegWrite(RESET_LEVEL2, readReg); 
+	_RegWrite(RESET_LEVEL2, readReg);
 	_RegRead(AO_RTI_GEN_PWR_ISO0,&readReg);
 	readReg = (readReg & 0xfffcffff);
 	_RegWrite(AO_RTI_GEN_PWR_ISO0, readReg);
 	_RegRead(RESET_LEVEL2,&readReg);
 	readReg = (readReg | (0x1<<12));
-	_RegWrite(RESET_LEVEL2, readReg); 
-	set_clock(Platform->device);
+	_RegWrite(RESET_LEVEL2, readReg);
+//	set_clock(Platform->device);
+	_RegWrite(NN_clk, 0x7000700);
 	//mdelay(1);
-#endif	
+#endif
     return gcvSTATUS_OK;
 }
 
@@ -303,15 +317,21 @@ gceSTATUS _DownPower(IN gcsPLATFORM *Platform)
 {
 	unsigned int readReg=0;
 	printk("====>>>>downpower for putpower\n");
-	_RegRead(AO_RTI_GEN_PWR_ISO0,&readReg);
-	readReg = (readReg | 0x30000);
-	_RegWrite(AO_RTI_GEN_PWR_ISO0, readReg);
+	if (NN_chipid == NN_CHIP_W400)
+	{
+		_RegRead(AO_RTI_GEN_PWR_ISO0,&readReg);
+		readReg = (readReg | 0x30000);
+		_RegWrite(AO_RTI_GEN_PWR_ISO0, readReg);
+	}
 	_RegWrite(HHI_NANOQ_MEM_PD_REG0, 0xffffffff);
 	_RegWrite(HHI_NANOQ_MEM_PD_REG1, 0xffffffff);
-	_RegRead(AO_RTI_GEN_PWR_SLEEP0,&readReg);
-	readReg = (readReg | 0x30000);
-	_RegWrite(AO_RTI_GEN_PWR_SLEEP0, readReg);
-    return gcvSTATUS_OK;	
+	if (NN_chipid == NN_CHIP_W400)
+	{
+		_RegRead(AO_RTI_GEN_PWR_SLEEP0,&readReg);
+		readReg = (readReg | 0x30000);
+		_RegWrite(AO_RTI_GEN_PWR_SLEEP0, readReg);
+	}
+    return gcvSTATUS_OK;
 }
 
 gceSTATUS _Reset(IN gcsPLATFORM * Platform, IN gceCORE GPU)
@@ -323,16 +343,18 @@ gceSTATUS _Reset(IN gcsPLATFORM * Platform, IN gceCORE GPU)
 	/*==========power off=============*/
 	_RegWrite(HHI_NANOQ_MEM_PD_REG0, 0xffffffff);
 	_RegWrite(HHI_NANOQ_MEM_PD_REG1, 0xffffffff);
-	_RegRead(AO_RTI_GEN_PWR_ISO0,&readReg);
-	readReg = (readReg | 0x30000);
-	_RegWrite(AO_RTI_GEN_PWR_ISO0, readReg);
-	
-	_RegRead(AO_RTI_GEN_PWR_SLEEP0,&readReg);
-	readReg = (readReg | 0x30000);
-	_RegWrite(AO_RTI_GEN_PWR_SLEEP0, readReg);
+	if (NN_chipid == NN_CHIP_W400)
+	{
+		_RegRead(AO_RTI_GEN_PWR_ISO0,&readReg);
+		readReg = (readReg | 0x30000);
+		_RegWrite(AO_RTI_GEN_PWR_ISO0, readReg);
 
-	mdelay(10);	
-	/*==========power on===============*/	
+		_RegRead(AO_RTI_GEN_PWR_SLEEP0,&readReg);
+		readReg = (readReg | 0x30000);
+		_RegWrite(AO_RTI_GEN_PWR_SLEEP0, readReg);
+	}
+	mdelay(10);
+	/*==========power on===============*/
 	_RegRead(AO_RTI_GEN_PWR_SLEEP0,&readReg);
 	readReg = (readReg & 0xfffcffff);
 	_RegWrite(AO_RTI_GEN_PWR_SLEEP0, readReg);
@@ -341,13 +363,14 @@ gceSTATUS _Reset(IN gcsPLATFORM * Platform, IN gceCORE GPU)
 	_RegWrite(AO_RTI_GEN_PWR_ISO0, readReg);
 	_RegWrite(HHI_NANOQ_MEM_PD_REG0, 0x0);
 	_RegWrite(HHI_NANOQ_MEM_PD_REG1, 0x0);
-	set_clock(Platform->device);
+//	set_clock(Platform->device);
+	_RegWrite(NN_clk, 0x7000700);
 	mdelay(1);
 	_RegWrite(RESET_LEVEL2, 0xffffffff);
-	mdelay(2);	      
+	mdelay(2);
 	printk("====>>>>npu hardware reset end!\n");
 	hardwareResetNum++;
-	if(hardwareResetNum > 10000)
+	if (hardwareResetNum > 10000)
 	{
 		printk("hardwareResetNum is too large over 10000,just set zero\n");
 		hardwareResetNum = 0;
@@ -362,14 +385,20 @@ gceSTATUS  _SetPower(IN gcsPLATFORM * Platform,IN gceCORE GPU,IN gctBOOL Enable)
 	if(Enable == 0)
 	{
 		printk("====>>>>poweroff in _SetPower\n");
-		_RegRead(AO_RTI_GEN_PWR_ISO0,&readReg);
-		readReg = (readReg | 0x30000);
-		_RegWrite(AO_RTI_GEN_PWR_ISO0, readReg);
+		if (NN_chipid == NN_CHIP_W400)
+		{
+			_RegRead(AO_RTI_GEN_PWR_ISO0,&readReg);
+			readReg = (readReg | 0x30000);
+			_RegWrite(AO_RTI_GEN_PWR_ISO0, readReg);
+		}
 		_RegWrite(HHI_NANOQ_MEM_PD_REG0, 0xffffffff);
 		_RegWrite(HHI_NANOQ_MEM_PD_REG1, 0xffffffff);
-		_RegRead(AO_RTI_GEN_PWR_SLEEP0,&readReg);
-		readReg = (readReg | 0x30000);
-		_RegWrite(AO_RTI_GEN_PWR_SLEEP0, readReg);
+		if (NN_chipid == NN_CHIP_W400)
+		{
+			_RegRead(AO_RTI_GEN_PWR_SLEEP0,&readReg);
+			readReg = (readReg | 0x30000);
+			_RegWrite(AO_RTI_GEN_PWR_SLEEP0, readReg);
+		}
 	}
 	else
 	{
@@ -381,16 +410,17 @@ gceSTATUS  _SetPower(IN gcsPLATFORM * Platform,IN gceCORE GPU,IN gctBOOL Enable)
 		_RegWrite(HHI_NANOQ_MEM_PD_REG1, 0x0);
 		_RegRead(RESET_LEVEL2,&readReg);
 		readReg = (readReg & 0xffffefff);
-		_RegWrite(RESET_LEVEL2, readReg); 
+		_RegWrite(RESET_LEVEL2, readReg);
 		_RegRead(AO_RTI_GEN_PWR_ISO0,&readReg);
 		readReg = (readReg & 0xfffcffff);
 		_RegWrite(AO_RTI_GEN_PWR_ISO0, readReg);
 		_RegRead(RESET_LEVEL2,&readReg);
 		readReg = (readReg | (0x1<<12));
-		_RegWrite(RESET_LEVEL2, readReg); 
-		set_clock(Platform->device);
+		_RegWrite(RESET_LEVEL2, readReg);
+//		set_clock(Platform->device);
+		_RegWrite(NN_clk, 0x7000700);
 	}
-	return gcvSTATUS_OK;	
+	return gcvSTATUS_OK;
 }
 static gcsPLATFORM_OPERATIONS default_ops =
 {
@@ -435,4 +465,3 @@ int gckPLATFORM_Terminate(gcsPLATFORM *platform)
 
     return 0;
 }
-
