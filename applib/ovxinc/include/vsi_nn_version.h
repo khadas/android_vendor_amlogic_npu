@@ -24,12 +24,21 @@
 #ifndef _VSI_NN_VERSION_H_
 #define _VSI_NN_VERSION_H_
 
+#if defined(__cplusplus)
+extern "C"{
+#endif
+
 #define VSI_NN_VERSION_MAJOR 1
-#define VSI_NN_VERSION_MINOR 0
-#define VSI_NN_VERSION_PATCH 10
+#define VSI_NN_VERSION_MINOR 1
+#define VSI_NN_VERSION_PATCH 1
 #define VSI_NN_VERSION \
     (VSI_NN_VERSION_MAJOR * 10000 + VSI_NN_VERSION_MINOR * 100 + VSI_NN_VERSION_PATCH)
 
+#define _version_assert _compiler_assert
+
 OVXLIB_API const char *vsi_nn_GetVersion(void);
 
+#if defined(__cplusplus)
+}
+#endif
 #endif

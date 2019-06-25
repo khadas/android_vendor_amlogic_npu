@@ -27,6 +27,10 @@
 #include "vsi_nn_types.h"
 #include "vsi_nn_platform.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define _VSI_NN_ARGMAX_LOCAL_TENSOR_NUM 1
 
 typedef struct _vsi_nn_argmax_lcl_data
@@ -40,6 +44,9 @@ typedef struct _vsi_nn_argmax_param
     vsi_nn_argmax_lcl_data local;
 } vsi_nn_argmax_param;
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

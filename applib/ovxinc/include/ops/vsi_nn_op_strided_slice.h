@@ -26,6 +26,10 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_strided_slice_lcl_data_t
 {
     vsi_nn_tensor_t *begin_dims_tensor;
@@ -48,5 +52,9 @@ typedef struct _vsi_nn_strided_slice_param
     vx_int32 end_mask;
     vx_int32 shrink_axis_mask;
 } vsi_nn_strided_slice_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

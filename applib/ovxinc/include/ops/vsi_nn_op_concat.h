@@ -28,6 +28,10 @@
 #include "vsi_nn_types.h"
 #include "utils/vsi_nn_link_list.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_concat_lcl_data
 {
     vsi_nn_link_list_t link_list;
@@ -54,6 +58,10 @@ typedef struct _vsi_nn_concat_param
     vsi_nn_concat_lcl_data * lcl_data;
     uint32_t axis;
 } vsi_nn_concat_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

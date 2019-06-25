@@ -23,7 +23,12 @@
 *****************************************************************************/
 #ifndef _VSI_NN_LINK_LIST_H
 #define _VSI_NN_LINK_LIST_H
+
 #include "vsi_nn_types.h"
+
+#if defined(__cplusplus)
+extern "C"{
+#endif
 
 #define vsi_nn_LinkListInitRoot(n) do{n = NULL;} while (0);
 
@@ -76,6 +81,12 @@ OVXLIB_API vsi_nn_link_list_t * vsi_nn_LinkListNewNode
     vsi_nn_link_list_init_t init
     );
 
+OVXLIB_API void vsi_nn_LinkListRemoveNode
+    (
+    vsi_nn_link_list_t ** root,
+    vsi_nn_link_list_t  * nodes
+    );
+
 OVXLIB_API void vsi_nn_LinkListDeinit
     (
     vsi_nn_link_list_t * root,
@@ -98,4 +109,9 @@ OVXLIB_API uint32_t vsi_nn_LinkListGetNodeNumber
     (
     vsi_nn_link_list_t * root
     );
+
+#if defined(__cplusplus)
+}
+#endif
+
 #endif

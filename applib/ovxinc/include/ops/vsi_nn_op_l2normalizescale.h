@@ -27,6 +27,10 @@
 #include "vsi_nn_platform.h"
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define _VSI_NN_L2NORMALIZESCALE_LOCAL_TENSOR_NUM 3
 
 typedef struct _vsi_nn_l2normalizescale_lcl_data
@@ -41,5 +45,9 @@ typedef struct _vsi_nn_l2normalizescale_param
     /* l2normalizescale layer local data structure */
     vsi_nn_l2normalizescale_lcl_data local;
 } vsi_nn_l2normalizescale_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

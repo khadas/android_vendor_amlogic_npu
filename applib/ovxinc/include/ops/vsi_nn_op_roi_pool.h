@@ -26,6 +26,10 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_roi_pool_lcl_data
 {
     vx_tensor rois;
@@ -38,6 +42,10 @@ typedef struct _vsi_nn_roi_pool_param
     uint32_t   size[2];
     float      scale;
 } vsi_nn_roi_pool_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2018 Vivante Corporation
+*    Copyright (c) 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -27,10 +27,18 @@
 #ifndef _VSI_NN_LIBNNEXT_VC_H
 #define _VSI_NN_LIBNNEXT_VC_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_vx_resource_item_type
 {
     char const* name;
     char const* data;
 } vsi_nn_vx_resource_item_type;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _VSI_NN_LIBNNEXT_VC_H */

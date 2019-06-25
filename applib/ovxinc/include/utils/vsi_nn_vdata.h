@@ -31,6 +31,10 @@
 #include "vsi_nn_node.h"
 #include "vsi_nn_tensor.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 OVXLIB_API uint8_t * vsi_nn_VdataCreate
     (
     vsi_nn_graph_t * graph,
@@ -44,5 +48,9 @@ OVXLIB_API vsi_nn_tensor_t * vsi_nn_CreateVDataTensor
     uint8_t             * stream,
     vsi_nn_tensor_attr_t * attr
     );
+
+#ifdef __cplusplus
+}
 #endif
 
+#endif

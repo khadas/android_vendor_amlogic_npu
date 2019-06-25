@@ -73,9 +73,27 @@
 #include "ops/vsi_nn_op_signalframe.h"
 #include "ops/vsi_nn_op_argmax.h"
 #include "ops/vsi_nn_op_svdf.h"
+#include "ops/vsi_nn_op_conv1d.h"
+#include "ops/vsi_nn_op_nbg.h"
+#include "ops/vsi_nn_op_minimum.h"
+#include "ops/vsi_nn_op_spatial_transformer.h"
+#include "ops/vsi_nn_op_logical_ops.h"
+#include "ops/vsi_nn_op_select.h"
+#include "ops/vsi_nn_op_concatshift.h"
+#include "ops/vsi_nn_op_relational_ops.h"
+#include "ops/vsi_nn_op_pow.h"
+#include "ops/vsi_nn_op_floordiv.h"
+#include "ops/vsi_nn_op_lstmunit_activation.h"
+#include "ops/vsi_nn_op_lstmunit_ovxlib.h"
+#include "ops/vsi_nn_op_tensor_add_mean_stddev_norm.h"
+#include "ops/vsi_nn_op_stack.h"
 
 /* custom node head define define */
 #include "custom/vsi_nn_custom_node_type.h"
+
+#if defined(__cplusplus)
+extern "C"{
+#endif
 
 typedef union _vsi_nn_nn_param
 {
@@ -129,6 +147,20 @@ typedef union _vsi_nn_nn_param
     vsi_nn_strided_slice_param      strided_slice;
     vsi_nn_signalframe_param        signalframe;
     vsi_nn_svdf_param               svdf;
+    vsi_nn_conv1d_param             conv1d;
+    vsi_nn_nbg_param                nbg;
+    vsi_nn_concatshift_param        concatshift;
+    vsi_nn_relational_ops_param     relational_ops;
+    vsi_nn_pow_param                pow;
+    vsi_nn_floordiv_param           floordiv;
+    vsi_nn_minimum_param            minimum;
+    vsi_nn_spatial_transformer_param spatial_transformer;
+    vsi_nn_logical_ops_param        logical_ops;
+    vsi_nn_select_param             select;
+    vsi_nn_lstmunit_activation_param lstmunit_activation;
+    vsi_nn_lstmunit_ovxlib_param    lstmunit_ovxlib;
+    vsi_nn_tensor_add_mean_stddev_norm_param tensor_add_mean_stddev_norm;
+    vsi_nn_stack_param              stack;
     uint8_t                         client_param[128];
 
     /* custom node data struct define */
@@ -146,5 +178,9 @@ typedef struct _vsi_nn_vx_param
     uint32_t accumulator_bits;
     vsi_nn_platform_e platform;
 } vsi_nn_vx_param_t;
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif

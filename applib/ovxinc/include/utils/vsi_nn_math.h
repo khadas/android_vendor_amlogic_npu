@@ -23,14 +23,19 @@
 *****************************************************************************/
 #ifndef _VSI_NN_MATH_H
 #define _VSI_NN_MATH_H
-
+#include <math.h>
 #include "vsi_nn_types.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define vsi_nn_abs(x)               (((x) < 0)    ? -(x) :  (x))
 #define vsi_nn_max(a,b)             ((a > b) ? a : b)
 #define vsi_nn_min(a,b)             ((a < b) ? a : b)
 #define vsi_nn_clamp(x, min, max)   (((x) < (min)) ? (min) : \
                                  ((x) > (max)) ? (max) : (x))
+#define vsi_nn_float_compare(a,b,diff) (vsi_nn_abs((a) - (b)) < (diff) ? TRUE : FALSE)
 
 OVXLIB_API void vsi_nn_Transpose
     (
@@ -75,8 +80,47 @@ OVXLIB_API double vsi_nn_Rint
     double x
     );
 
-OVXLIB_API float vsi_nn_SimpleRound
+static inline double copy_sign
+    (
+    double number,
+    double sign
+    )
+{
+    double value = vsi_nn_abs(number);
+    return (sign > 0) ? value : (-value);
+} /* copy_sign() */
+
+static inline float simple_round
     (
     float x
-    );
+    )
+{
+    return (float) copy_sign(floorf(fabsf(x) + 0.5f), x);
+} /* simple_round() */
+
+static inline double vsi_rint
+    (
+    double x
+    )
+{
+#define _EPSILON 1e-8
+    double decimal;
+    double inter;
+
+    decimal = modf((double)x, &inter);
+    if( vsi_nn_abs((vsi_nn_abs(decimal) - 0.5f)) < _EPSILON )
+    {
+        inter += (int32_t)(inter) % 2;
+    }
+    else
+    {
+        return simple_round( (float)x );
+    }
+    return inter;
+} /* vsi_rint() */
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

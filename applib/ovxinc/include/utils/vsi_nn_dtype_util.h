@@ -27,10 +27,29 @@
 
 #include "vsi_nn_platform.h"
 #include "vsi_nn_types.h"
+#include "vsi_nn_log.h"
+#include "vsi_nn_math.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+OVXLIB_API void vsi_nn_TypeGetRange
+    (
+    vsi_nn_type_e type,
+    double  * max_range,
+    double  * min_range
+    );
+
+OVXLIB_API vsi_bool vsi_nn_TypeIsInteger
+    (
+    const vsi_nn_type_e type
+    );
+
+OVXLIB_API vsi_bool vsi_nn_TypeIsSigned
+    (
+    const vsi_nn_type_e type
+    );
 
 OVXLIB_API vsi_status vsi_nn_DtypeConvert
     (
@@ -49,16 +68,6 @@ OVXLIB_API uint32_t vsi_nn_GetTypeBytes
     );
 
 OVXLIB_API uint32_t vsi_nn_TypeGetBytes
-    (
-    const vsi_nn_type_e type
-    );
-
-OVXLIB_API vsi_bool vsi_nn_TypeIsSigned
-    (
-    const vsi_nn_type_e type
-    );
-
-OVXLIB_API vsi_bool vsi_nn_TypeIsInteger
     (
     const vsi_nn_type_e type
     );
@@ -188,6 +197,30 @@ OVXLIB_API vsi_bool vsi_nn_QuantCheck
     vsi_nn_tensor_t *input,
     vsi_nn_tensor_t *weight,
     vsi_nn_tensor_t *bias
+    );
+
+OVXLIB_API vsi_bool vsi_nn_DtypeCompare
+    (
+    vsi_nn_dtype_t *dtype0,
+    vsi_nn_dtype_t *dtype1
+    );
+
+OVXLIB_API vsi_status vsi_nn_vxConvertTensorToFloat32Data
+    (
+    vx_context context,
+    vx_tensor tensor,
+    vsi_nn_tensor_attr_t *attr,
+    float *f32_data,
+    uint32_t f32_data_sz
+    );
+
+OVXLIB_API vsi_status vsi_nn_vxConvertFloat32DataToTensor
+    (
+    vx_context context,
+    vx_tensor tensor,
+    vsi_nn_tensor_attr_t *attr,
+    float *f32_data,
+    uint32_t f32_data_sz
     );
 
 #ifdef __cplusplus

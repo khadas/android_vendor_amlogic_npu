@@ -27,6 +27,10 @@
 
 #include "vsi_nn_platform.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef vx_uint32 vsi_nn_reduce_t; enum
 {
     VSI_NN_REDUCE_MEAN = 1,
@@ -50,5 +54,9 @@ typedef struct _vsi_nn_reduce_param
     vx_uint32   axis_num;
     vx_bool     keep_dim;
 } vsi_nn_reduce_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

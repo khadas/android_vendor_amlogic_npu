@@ -26,6 +26,10 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 OVXLIB_API vsi_status vsi_nn_QuantDFPCalParam
     (
     vsi_nn_type_e dtype,
@@ -40,5 +44,9 @@ OVXLIB_API vsi_bool vsi_nn_QuantDFPCheck
     vsi_nn_tensor_t *weight,
     vsi_nn_tensor_t *bias
     );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

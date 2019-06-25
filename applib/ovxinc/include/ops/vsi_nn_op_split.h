@@ -28,6 +28,10 @@
 #include "vsi_nn_platform.h"
 #include "utils/vsi_nn_link_list.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_split_lcl_data
 {
     vsi_nn_link_list_t link_list;
@@ -44,6 +48,10 @@ typedef struct _vsi_nn_split_param
     uint32_t *slices;
     uint32_t slices_num;
 } vsi_nn_split_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

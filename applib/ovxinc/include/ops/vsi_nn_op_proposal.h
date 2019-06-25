@@ -26,6 +26,10 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_proposal_lcl_data
 {
     vx_tensor rois;
@@ -58,6 +62,10 @@ typedef struct _vsi_nn_proposal_param
     float      nms_thresh;
     uint32_t   min_size;
 } vsi_nn_proposal_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

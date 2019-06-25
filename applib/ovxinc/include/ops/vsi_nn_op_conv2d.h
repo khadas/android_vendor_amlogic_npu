@@ -26,6 +26,10 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_conv2d_param
 {
     uint32_t     ksize[2];
@@ -39,6 +43,10 @@ typedef struct _vsi_nn_conv2d_param
     uint32_t     dilation[2];
     int32_t      multiplier;
 } vsi_nn_conv2d_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

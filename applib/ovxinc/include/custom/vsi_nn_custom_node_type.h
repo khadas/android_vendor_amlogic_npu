@@ -21,8 +21,8 @@
 *    DEALINGS IN THE SOFTWARE.
 *
 *****************************************************************************/
-#ifndef _VSI_NN_OP_CUSTOM_SOFTMAX_H_
-#define _VSI_NN_OP_CUSTOM_SOFTMAX_H_
+#ifndef _VSI_NN_CUSTOM_NODE_TYPE_H_
+#define _VSI_NN_CUSTOM_NODE_TYPE_H_
 /*
     custom op head files
 */

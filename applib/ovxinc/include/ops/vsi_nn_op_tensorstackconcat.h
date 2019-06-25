@@ -26,6 +26,10 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define _VSI_NN_STACKCONCAT_LOCAL_TENSOR_NUM 3
 
 typedef struct _vsi_nn_stackconcat_lcl_data
@@ -40,5 +44,9 @@ typedef struct _vsi_nn_tensorstackconcat_param
     int32_t index;
     vx_scalar indexs;
 } vsi_nn_tensorstackconcat_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

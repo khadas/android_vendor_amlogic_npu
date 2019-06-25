@@ -28,6 +28,10 @@
 #include "vsi_nn_platform.h"
 #include "utils/vsi_nn_link_list.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_softmax_lcl_data
 {
     vsi_nn_link_list_t link_list;
@@ -40,5 +44,9 @@ typedef struct _vsi_nn_softmax_param
 {
     vsi_nn_softmax_lcl_data *data;
 } vsi_nn_softmax_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

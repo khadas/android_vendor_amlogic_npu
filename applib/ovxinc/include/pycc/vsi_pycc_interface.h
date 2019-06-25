@@ -28,6 +28,10 @@
 
 #include "vsi_nn_tensor.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_pycc_params_t
 {
     uint32_t   op;
@@ -80,5 +84,8 @@ uint32_t vsi_pycc_VdataCreate
     uint8_t * buffer
     );
 
+#ifdef __cplusplus
+}
 #endif
 
+#endif

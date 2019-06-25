@@ -26,6 +26,10 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum _vsi_nn_lstmunit_activation_e
 {
     VSI_NN_LSTMUNIT_ACT_NONE    = 0,
@@ -55,5 +59,9 @@ typedef struct _vsi_nn_lstmunit_param_t
     vsi_nn_lstmunit_activation_e activation;
     float forget_bias;
 } vsi_nn_lstmunit_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

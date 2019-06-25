@@ -26,10 +26,18 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_batch_norm_param
 {
     float  eps;
 } vsi_nn_batch_norm_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

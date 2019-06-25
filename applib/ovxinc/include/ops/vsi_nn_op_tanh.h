@@ -26,11 +26,19 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_tanh_param
 {
     float scale_a;
     float scale_b;
 } vsi_nn_tanh_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

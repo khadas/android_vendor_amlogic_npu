@@ -26,9 +26,17 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_shufflechannel_param
 {
     int32_t group_number;
 } vsi_nn_shufflechannel_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

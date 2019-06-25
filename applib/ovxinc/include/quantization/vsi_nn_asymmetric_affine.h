@@ -26,6 +26,10 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 OVXLIB_API vsi_status vsi_nn_QuantAffineCalParam
     (
     vsi_nn_type_e type,
@@ -41,5 +45,9 @@ OVXLIB_API vsi_bool vsi_nn_QuantAffineCheck
     vsi_nn_tensor_t *weight,
     vsi_nn_tensor_t *bias
     );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -26,6 +26,10 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define _VSI_NN_UPSAMPLE_LOCAL_TENSOR_NUM 3
 
 typedef struct _vsi_nn_upsample_lcl_data
@@ -40,6 +44,10 @@ typedef struct _vsi_nn_upsample_param
     /* upsample layer local data structure */
     vsi_nn_upsample_lcl_data local;
 } vsi_nn_upsample_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

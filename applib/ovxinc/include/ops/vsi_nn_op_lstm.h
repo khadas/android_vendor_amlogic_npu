@@ -27,6 +27,10 @@
 #include "vsi_nn_types.h"
 #include "vsi_nn_op_lstmunit.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_lstm_lcl_data_t
 {
     vsi_nn_tensor_t *activation_tensor;
@@ -46,6 +50,10 @@ typedef struct _vsi_nn_lstm_param
 
     uint32_t weights;
 } vsi_nn_lstm_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

@@ -2,6 +2,10 @@
 #define _VSI_NN_LOG_H
 #include <stdio.h>
 
+#if defined(__cplusplus)
+extern "C"{
+#endif
+
 #ifdef _MSC_VER
 #define snprintf _snprintf
 #endif
@@ -34,6 +38,10 @@ OVXLIB_API void vsi_nn_LogMsg
     const char *fmt,
     ...
     );
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif
 

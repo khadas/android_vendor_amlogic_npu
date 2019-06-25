@@ -26,6 +26,10 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_lrn_param
 {
     vsi_enum   type;
@@ -34,6 +38,10 @@ typedef struct _vsi_nn_lrn_param
     float      beta;
     float      bias;
 } vsi_nn_lrn_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

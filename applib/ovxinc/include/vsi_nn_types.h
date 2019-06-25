@@ -27,6 +27,14 @@
 #include <stdint.h>
 #include "vsi_nn_platform.h"
 
+#if defined(__cplusplus)
+extern "C"{
+#endif
+
+#ifdef _WIN32
+#define inline __inline
+#endif
+
 /* Basic data type definition */
 typedef int32_t  vsi_enum;
 typedef int32_t  vsi_status;
@@ -103,5 +111,9 @@ typedef struct _vsi_nn_graph vsi_nn_graph_t;
 typedef struct _vsi_nn_node vsi_nn_node_t;
 
 typedef struct _vsi_nn_tensor vsi_nn_tensor_t;
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif

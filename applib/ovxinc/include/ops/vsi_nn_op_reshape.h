@@ -26,6 +26,10 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_reshape_lcl_data
 {
     vsi_bool initialized;
@@ -39,6 +43,10 @@ typedef struct _vsi_nn_reshape_param
     /* reshape layer local data structure */
     vsi_nn_reshape_lcl_data local;
 } vsi_nn_reshape_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

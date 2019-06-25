@@ -28,6 +28,10 @@
 #include "vsi_nn_types.h"
 #include "vsi_nn_platform.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define _VSI_NN_RESIZE_LOCAL_TENSOR_NUM 2
 
 typedef uint32_t vsi_nn_interpolation_type_t; enum
@@ -51,5 +55,9 @@ typedef struct _vsi_nn_resize_param
     /* resize layer local data structure */
     vsi_nn_resize_lcl_data local;
 } vsi_nn_resize_param;
+
+#ifdef __cplusplus
+}
 #endif
 
+#endif

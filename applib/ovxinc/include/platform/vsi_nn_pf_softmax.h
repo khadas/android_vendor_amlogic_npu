@@ -28,6 +28,10 @@
 #include "vsi_nn_platform.h"
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if( defined(VSI_NNAPI_0_3) || defined(VSI_NNAPI_0_4))
 vsi_status vsi_nn_softmax_compute
     (
@@ -37,6 +41,10 @@ vsi_status vsi_nn_softmax_compute
     );
 #else
 #define vsi_nn_softmax_compute NULL
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif

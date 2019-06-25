@@ -29,6 +29,10 @@
 #include "vsi_nn_tensor.h"
 #include "utils/vsi_nn_link_list.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_fasterrcnn_box_t
 {
     vsi_nn_link_list_t link_list;
@@ -67,5 +71,9 @@ OVXLIB_API vsi_status vsi_nn_FasterRCNN_PostProcess
     vsi_nn_fasterrcnn_param_t *param,
     vsi_nn_fasterrcnn_box_t **dets_box
     );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -27,6 +27,10 @@
 #include "vsi_nn_types.h"
 #include "vsi_nn_platform.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define _VSI_NN_ELU_LOCAL_TENSOR_NUM 2
 
 typedef struct _vsi_nn_elu_lcl_data
@@ -39,6 +43,10 @@ typedef struct _vsi_nn_elu_param
     /* elu layer local data structure */
     vsi_nn_elu_lcl_data local;
 } vsi_nn_elu_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

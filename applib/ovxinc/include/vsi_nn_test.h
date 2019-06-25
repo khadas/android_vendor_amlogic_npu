@@ -24,38 +24,36 @@
 #ifndef _VSI_NN_TEST_H
 #define _VSI_NN_TEST_H
 
-#include <stdio.h>
-//include "assert/vsi_nn_assert.h"
+#include "vsi_nn_log.h"
 
-#define TEST_CASE_INIT( name )   \
-    static int name()
-
-#define TEST_RUN_CASE( name )   \
-    name()
-
-//#define TEST_ASSERT( cond ) vsi_nn_assert( cond )
+#if defined(__cplusplus)
+extern "C"{
+#endif
 
 #define TEST_CHECK_TENSOR_ID( id, lbl )      do {\
     if( VSI_NN_TENSOR_ID_NA == id ) {\
-        printf("CHECK TENSOR ID %d", __LINE__);\
+        VSILOGE("CHECK TENSOR ID %d", __LINE__);\
         goto lbl;\
         }\
     } while(0)
 
 #define TEST_CHECK_PTR( ptr, lbl )      do {\
     if( NULL == ptr ) {\
-        printf("CHECK PTR %d", __LINE__);\
+        VSILOGE("CHECK PTR %d", __LINE__);\
         goto lbl;\
     }\
 } while(0)
 
 #define TEST_CHECK_STATUS( stat, lbl )  do {\
     if( VSI_SUCCESS != stat ) {\
-        printf("CHECK STATUS %d", __LINE__);\
+        VSILOGE("CHECK STATUS %d", __LINE__);\
         goto lbl;\
     }\
 } while(0)
 
+#if defined(__cplusplus)
+}
+#endif
 
 #endif
 

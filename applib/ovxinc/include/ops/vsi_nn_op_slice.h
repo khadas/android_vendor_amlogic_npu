@@ -26,11 +26,19 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_slice_param
 {
     uint32_t   dims;
     uint32_t * start;
     uint32_t * length;
 } vsi_nn_slice_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -27,6 +27,10 @@
 #include "vsi_nn_types.h"
 #include "vsi_nn_platform.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define _VSI_NN_REVERSE_LOCAL_TENSOR_NUM 2
 
 typedef struct _vsi_nn_reverse_lcl_data
@@ -42,6 +46,10 @@ typedef struct _vsi_nn_reverse_param
     /* reverse layer local data structure */
     vsi_nn_reverse_lcl_data local;
 } vsi_nn_reverse_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

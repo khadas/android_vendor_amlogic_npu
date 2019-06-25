@@ -24,11 +24,19 @@
 #ifndef _VSI_NN_ASSERT_H_
 #define _VSI_NN_ASSERT_H_
 
+#if defined(__cplusplus)
+extern "C"{
+#endif
+
 #ifndef _compiler_assert
 #define _compiler_assert(cond, msg) _assert_impl(cond, __LINE__, msg)
 #define _assert_paste(msg, line) msg##line
 #define _assert_impl(cond, line, msg)  \
     typedef char _assert_paste(assert_failed_##msg##_, line)[2*!!(cond)-1];
+#endif
+
+#if defined(__cplusplus)
+}
 #endif
 
 #endif

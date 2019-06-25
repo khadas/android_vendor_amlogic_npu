@@ -27,16 +27,24 @@
 #include "vsi_nn_node.h"
 #include "vsi_nn_types.h"
 
-OVXLIB_API vsi_status vsi_nn_InitConvReluPoolParameter
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+vsi_status vsi_nn_InitConvReluPoolParameter
     (
     vsi_nn_node_t * node,
     vx_nn_convolution_relu_pooling_params_ext2_t * param,
     vsi_bool has_pool
     );
 
-OVXLIB_API void vsi_nn_DeinitConvReluPoolParameter
+void vsi_nn_DeinitConvReluPoolParameter
     (
     vx_nn_convolution_relu_pooling_params_ext2_t * param
     );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -26,6 +26,10 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define _VSI_NN_POOLWITHARGMAX_LOCAL_TENSOR_NUM 3
 
 typedef struct _vsi_nn_poolwithargmax_lcl_data
@@ -47,6 +51,10 @@ typedef struct _vsi_nn_pool_param
     /* poolwithargmax layer local data structure */
     vsi_nn_poolwithargmax_lcl_data local;
 } vsi_nn_pool_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

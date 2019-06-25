@@ -27,6 +27,10 @@
 #include "vsi_nn_types.h"
 #include "vsi_nn_platform.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_svdf_lcl_data
 {
     vsi_nn_tensor_t *act_tensor;
@@ -40,5 +44,9 @@ typedef struct _vsi_nn_svdf_param
     int32_t num_units;
     int32_t spectrogram_length;
 } vsi_nn_svdf_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -30,6 +30,8 @@
 #include "vsi_nn_node.h"
 #include "vsi_nn_ops.h"
 #include "vsi_nn_types.h"
+#include "vsi_nn_rnn.h"
+#include "utils/vsi_nn_map.h"
 
 #define VSI_NN_MAX_IO_NUM        32
 
@@ -43,7 +45,12 @@ struct _vsi_nn_graph
     /* OpenVX graph */
     vx_graph           g;
     /* Tensor list of this graph */
+    union
+    {
+    /* Deprecated: Never use tensors. */
     vsi_nn_tensor_t ** tensors;
+    vsi_nn_map_t     * tensor_table;
+    };
     union
     {
         uint32_t          cur_tid;
@@ -51,7 +58,12 @@ struct _vsi_nn_graph
     };
     uint32_t          max_tensor_num;
     /* Node list of this graph */
+    union
+    {
+    /* Deprecated: Never use nodes. */
     vsi_nn_node_t   ** nodes;
+    vsi_nn_map_t     * node_table;
+    };
     union
     {
         uint32_t          cur_nid;
@@ -71,6 +83,12 @@ struct _vsi_nn_graph
         vsi_nn_tensor_id_t * tensors;
         uint32_t            num;
     } output;
+
+    /* workspace for RNN */
+    void* rnn_wksp;
+
+    /* Handle manager */
+    vsi_nn_handle_manager_t handle_manager;
 };
 
 OVXLIB_API vsi_nn_graph_t * vsi_nn_CreateGraph
@@ -116,6 +134,15 @@ OVXLIB_API vsi_nn_tensor_id_t vsi_nn_AddTensor
     uint8_t             * data
     );
 
+OVXLIB_API vsi_nn_tensor_id_t vsi_nn_AddTensorFromHandle
+    (
+    vsi_nn_graph_t       * graph,
+    vsi_nn_tensor_id_t     id,
+    vsi_nn_tensor_attr_t * attr,
+    /* Optional */
+    uint8_t             * data
+    );
+
 OVXLIB_API vsi_nn_tensor_id_t vsi_nn_AttachTensorToGraph
     (
     vsi_nn_graph_t       * graph,
@@ -123,6 +150,9 @@ OVXLIB_API vsi_nn_tensor_id_t vsi_nn_AttachTensorToGraph
     vsi_nn_tensor_t      * tensor
     );
 
+/*
+ * Deprecated, Use vsi_nn_RemoveTensor() instead
+ */
 OVXLIB_API void vsi_nn_DeleteTensor
     (
     vsi_nn_graph_t       * graph,
@@ -228,6 +258,29 @@ OVXLIB_API void vsi_nn_PrintGraph
 OVXLIB_API void vsi_nn_DumpGraphToJson
     (
     vsi_nn_graph_t *graph
+    );
+
+OVXLIB_API vsi_status vsi_nn_SetupRNNConnections
+    (
+    vsi_nn_graph_t* graph,
+    const vsi_nn_rnn_external_connection_t* connections,
+    uint32_t connections_count
+    );
+
+OVXLIB_API vsi_status vsi_nn_ResetRNNBuffers
+    (
+    vsi_nn_graph_t* graph
+    );
+
+OVXLIB_API vsi_bool vsi_nn_HasRNN
+    (
+    vsi_nn_graph_t* graph
+    );
+
+OVXLIB_API void vsi_nn_RemoveTensor
+    (
+    vsi_nn_graph_t       * graph,
+    vsi_nn_tensor_id_t     id
     );
 
 #ifdef __cplusplus

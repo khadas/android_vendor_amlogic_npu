@@ -27,7 +27,11 @@
 #include "vsi_nn_platform.h"
 #include "vsi_nn_types.h"
 
-#define VSI_NN_MAX_DIM_NUM              (4)
+#if defined(__cplusplus)
+extern "C"{
+#endif
+
+#define VSI_NN_MAX_DIM_NUM              (8)
 #define VSI_NN_TENSOR_ID_NA             ((uint32_t)-1)
 #define VSI_NN_TENSOR_ID_AUTO           (VSI_NN_TENSOR_ID_NA - 1)
 #define VSI_NN_DIM_AUTO                 (0)
@@ -84,6 +88,8 @@ typedef struct vsi_nn_tensor_attr
     vsi_bool     vtl;
     vsi_bool     is_const;
     vsi_nn_dtype_t dtype;
+    vsi_bool     is_created_from_handle;
+    vsi_bool     is_handle_malloc_by_ovxlib;
 } vsi_nn_tensor_attr_t;
 
 struct _vsi_nn_tensor
@@ -95,6 +101,17 @@ struct _vsi_nn_tensor
     /* Optimized weight bias tensor */
     vx_weights_biases_parameter wb;
 };
+
+/*
+* Handle Manager
+* The starting memory address of vx_handle MUST be aligned with `align_start_size` bytes.
+* And the memory size of vx_handle MUST be multiple of `align_block_size` bytes.
+*/
+typedef struct vsi_nn_handle_manager
+{
+    uint32_t align_start_size;
+    uint32_t align_block_size;
+} vsi_nn_handle_manager_t;
 
 typedef struct _vsi_nn_tensor_rel_table
 {
@@ -115,6 +132,10 @@ typedef struct _vsi_nn_tensor_rel
         uint32_t                   num;
     } output;
 }vsi_nn_tensor_rel_t;
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif
 

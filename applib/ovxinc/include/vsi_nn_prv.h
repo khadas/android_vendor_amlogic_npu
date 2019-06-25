@@ -24,6 +24,10 @@
 #ifndef _VSI_NN_PRV_H_
 #define _VSI_NN_PRV_H_
 
+#if defined(__cplusplus)
+extern "C"{
+#endif
+
 #define VSI_NN_MAX_PATH 256
 
 #ifdef __linux__
@@ -35,5 +39,9 @@
 #define REQUIRED_IO( _IOPORT ) ( (_IOPORT) != NULL ? (_IOPORT)->t : \
     ( VSILOGE("Required IO port: %s", #_IOPORT), (_IOPORT)->t ) )
 #define OPTIONAL_IO( _IOPORT ) ( (_IOPORT) != NULL ? (_IOPORT)->t : NULL)
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif

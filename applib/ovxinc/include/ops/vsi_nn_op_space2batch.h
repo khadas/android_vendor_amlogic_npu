@@ -26,6 +26,10 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_space2batch_lcl_data_t
 {
     vsi_nn_tensor_t *block_size_tensor;
@@ -42,6 +46,10 @@ typedef struct _vsi_nn_space2batch_param
     uint32_t block_size_2_num;
     uint32_t pad[4]; // [top, bottom, left, right]
 } vsi_nn_space2batch_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

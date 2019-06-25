@@ -26,19 +26,19 @@
 
 #include "vsi_nn_types.h"
 
-typedef struct _vsi_nn_crop_lcl_data
-{
-    uint32_t offset[4];
-} vsi_nn_crop_lcl_data;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct _vsi_nn_crop_param
 {
     int32_t  axis;
     uint32_t dims;
     uint32_t offset[4];
-
-    /* crop layer local data structure */
-    vsi_nn_crop_lcl_data local;
 } vsi_nn_crop_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

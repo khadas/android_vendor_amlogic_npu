@@ -33,6 +33,10 @@
 #include "vsi_nn_types.h"
 #include "vsi_nn_node_type.h"
 
+#if defined(__cplusplus)
+extern "C"{
+#endif
+
 /*------------------------------------
                 Macros
   -----------------------------------*/
@@ -95,5 +99,9 @@ OVXLIB_API void vsi_nn_PrintNode
     vsi_nn_node_t * node,
     vsi_nn_node_id_t id
     );
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif

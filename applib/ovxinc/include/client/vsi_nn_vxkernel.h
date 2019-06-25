@@ -28,6 +28,10 @@
 #include "vsi_nn_platform.h"
 #include "vsi_nn_graph.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum _vx_kernel_type_e
 {
     VX_KERNEL_TYPE_CPU,
@@ -45,13 +49,13 @@ typedef struct vsi_nn_kernel_info
     uint8_t init_index;
 } vsi_nn_kernel_info_t;
 
-OVXLIB_API uint8_t * vsi_nn_LoadBinarySource
+uint8_t * vsi_nn_LoadBinarySource
     (
     uint8_t * file,
     int32_t * sz
     );
 
-OVXLIB_API vsi_status vsi_nn_RegisterClientKernel
+vsi_status vsi_nn_RegisterClientKernel
     (
     vsi_nn_graph_t * graph,
     vsi_nn_kernel_info_t * kernel_info
@@ -125,5 +129,9 @@ OVXLIB_API vx_bool vsi_nn_is_do_vx_op_pre_init
     (
     vx_kernel_type_e type
     );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

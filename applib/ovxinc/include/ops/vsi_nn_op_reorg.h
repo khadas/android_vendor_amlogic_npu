@@ -26,10 +26,18 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_reorg_param
 {
     uint32_t stride;
 } vsi_nn_reorg_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

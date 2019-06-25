@@ -26,6 +26,10 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef uint32_t vsi_nn_imageprocess_resize_type_e; enum
 {
     VSI_NN_IMAGEPROCESS_RESIZE_NONE = 0,
@@ -41,6 +45,7 @@ typedef uint32_t vsi_nn_imageprocess_mean_type_e; enum
 
 typedef struct _vsi_nn_imageprocess_param
 {
+    vsi_nn_platform_e platform_type;
     struct
     {
         vx_bool enable;
@@ -72,6 +77,10 @@ OVXLIB_API vsi_status vsi_nn_op_imageprocess_single_node
     uint8_t *data,
     vsi_nn_tensor_t *tensor_out
     );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

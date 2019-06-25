@@ -32,6 +32,10 @@
 #include "vsi_nn_platform.h"
 #include "vsi_nn_ops.h"
 
+#if defined(__cplusplus)
+extern "C"{
+#endif
+
 /*------------------------------------
                 Types
   -----------------------------------*/
@@ -67,5 +71,8 @@ OVXLIB_API void vsi_nn_OpRemoveClient
     vsi_nn_op_t op
     );
 
+#if defined(__cplusplus)
+}
 #endif
 
+#endif

@@ -24,7 +24,13 @@
 #ifndef _VSI_NN_BINARY_TREE_H
 #define _VSI_NN_BINARY_TREE_H
 
+#if defined(__cplusplus)
+extern "C"{
+#endif
+
 typedef long long vsi_nn_binary_tree_key_t;
+
+#define vsi_nn_BinaryTreeInitRoot(n) do{n = NULL;} while (0);
 
 typedef struct _vsi_nn_binary_tree
 {
@@ -52,5 +58,9 @@ OVXLIB_API void * vsi_nn_BinaryTreeGetNode
     vsi_nn_binary_tree_t ** root,
     vsi_nn_binary_tree_key_t key
     );
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif

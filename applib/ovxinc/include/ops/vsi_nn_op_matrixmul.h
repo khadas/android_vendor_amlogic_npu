@@ -26,11 +26,18 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_matrixmul_param
 {
     vx_bool transpose[2];
     vx_bool adjoint[2];
 } vsi_nn_matrixmul_param;
 
+#ifdef __cplusplus
+}
 #endif
 
+#endif

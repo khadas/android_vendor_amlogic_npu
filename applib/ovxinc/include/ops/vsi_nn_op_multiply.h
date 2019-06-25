@@ -26,10 +26,18 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_multiply_param
 {
     float scale;
 } vsi_nn_multiply_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

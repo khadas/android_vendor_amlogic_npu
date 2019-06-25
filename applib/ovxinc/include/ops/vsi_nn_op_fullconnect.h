@@ -26,11 +26,19 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_fcl_param
 {
     uint32_t   weights;
     uint32_t   axis;
 } vsi_nn_fcl_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

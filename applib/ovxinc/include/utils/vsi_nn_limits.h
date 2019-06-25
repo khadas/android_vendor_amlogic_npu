@@ -26,6 +26,10 @@
 
 #include "vsi_nn_types.h"
 
+#if defined(__cplusplus)
+extern "C"{
+#endif
+
 OVXLIB_API void vsi_nn_TypeGetRange
     (
     vsi_nn_type_e type,
@@ -33,5 +37,8 @@ OVXLIB_API void vsi_nn_TypeGetRange
     double  * min_range
     );
 
+#if defined(__cplusplus)
+}
 #endif
 
+#endif

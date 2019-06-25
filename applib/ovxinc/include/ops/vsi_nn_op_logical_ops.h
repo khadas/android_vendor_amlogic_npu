@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2018 Vivante Corporation
+*    Copyright (c) 2019 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -21,22 +21,38 @@
 *    DEALINGS IN THE SOFTWARE.
 *
 *****************************************************************************/
-#ifndef _VSI_NN_PF_LRN_H
-#define _VSI_NN_PF_LRN_H
+#ifndef _VSI_NN_OP_LOGICAL_OPS_H
+#define _VSI_NN_OP_LOGICAL_OPS_H
 
-#include "vsi_nn_graph.h"
-#include "vsi_nn_platform.h"
 #include "vsi_nn_types.h"
 
-#if( defined(VSI_NNAPI_0_3) || defined(VSI_NNAPI_0_4))
-vsi_status vsi_nn_lrn_compute
-    (
-    vsi_nn_node_t * self,
-    vsi_nn_tensor_t ** inputs,
-    vsi_nn_tensor_t ** outputs
-    );
-#else
-#define vsi_nn_lrn_compute NULL
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define _VSI_NN_LOGICAL_OPS_LOCAL_TENSOR_NUM 3
+
+typedef uint32_t vsi_nn_logical_ops_type_t; enum
+{
+    VSI_NN_LOGICAL_OR = 0,
+    VSI_NN_LOGICAL_AND,
+    VSI_NN_LOGICAL_XOR,
+};
+
+typedef struct _vsi_nn_logical_ops_lcl_data
+{
+    vx_tensor   local_tensor[_VSI_NN_LOGICAL_OPS_LOCAL_TENSOR_NUM];
+} vsi_nn_logical_ops_lcl_data;
+
+typedef struct _vsi_nn_logical_ops_param
+{
+    vsi_nn_logical_ops_lcl_data     local;
+    vsi_nn_logical_ops_type_t       op;
+} vsi_nn_logical_ops_param;
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif
+

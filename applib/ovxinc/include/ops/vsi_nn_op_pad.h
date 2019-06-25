@@ -26,6 +26,10 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
     VSI_NN_PAD_MODE_CONSTANT,
     VSI_NN_PAD_MODE_REPLICATE,
@@ -41,5 +45,9 @@ typedef struct _vsi_nn_pad_param
     int32_t            const_val;
     vsi_nn_pad_mode_e  mode;
 } vsi_nn_pad_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

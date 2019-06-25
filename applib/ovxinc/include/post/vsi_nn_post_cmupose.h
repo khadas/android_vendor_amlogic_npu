@@ -26,6 +26,10 @@
 
 #include "utils/vsi_nn_link_list.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_subset_data_t
 {
     float idx[20];
@@ -151,5 +155,9 @@ OVXLIB_API vsi_status vsi_nn_CMUPose_PostProcess
     uint32_t *candidate_num,
     vsi_nn_subset_t **subset
     );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

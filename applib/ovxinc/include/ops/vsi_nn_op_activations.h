@@ -26,6 +26,10 @@
 
 #include "vsi_nn_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _vsi_nn_activation_param
 {
     union
@@ -33,6 +37,10 @@ typedef struct _vsi_nn_activation_param
         float leaky_ratio;
     };
 } vsi_nn_activation_param;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 
