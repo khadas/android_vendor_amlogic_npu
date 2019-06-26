@@ -646,8 +646,11 @@ gcoHEAP_Allocate(
 #endif
 
     /* Determine number of bytes required for a node. */
+    gcmONERROR(gcmCHECK_ADD_OVERFLOW(Bytes, gcmSIZEOF(gcsNODE)));
+    gcmONERROR(gcmALIGN_CHECK_OVERFLOW(Bytes + gcmSIZEOF(gcsNODE), 8));
     bytes = gcmALIGN(Bytes + gcmSIZEOF(gcsNODE), 8);
 #if gcdDEBUG_HEAP_SIGNATURE
+    gcmONERROR(gcmCHECK_ADD_OVERFLOW(Bytes, 8));
     bytes += 8; /* Add room for signature. */
 #endif
 
@@ -659,14 +662,23 @@ gcoHEAP_Allocate(
 
     /* Check if this allocation is bigger than the default allocation size.
        Need to account for the sentinel as well, hence the gcmSIZEOF(gcsNODE). */
-    if ((bytes + gcmSIZEOF(gcsHEAP) + gcmSIZEOF(gcsNODE)) >= Heap->allocationSize
-        && bytes < (gcvMAXSIZE_T >> 1))
+    if ((bytes + gcmSIZEOF(gcsHEAP) + gcmSIZEOF(gcsNODE)) >= Heap->allocationSize)
     {
-        /* Adjust allocation size. */
-        Heap->allocationSize = bytes * 2;
-
-        /* If this assert is hit, we should keep increasing the allocationSize. */
-        gcmASSERT(bytes + gcmSIZEOF(gcsHEAP) + gcmSIZEOF(gcsNODE) < Heap->allocationSize);
+        /* Check if increasing allocation size causes overflow */
+        if (bytes < ((gcvMAXSIZE_T - gcmSIZEOF(gcsHEAP) - gcmSIZEOF(gcsNODE)) >> 1))
+        {
+            /* Increase allocation size. */
+            Heap->allocationSize = (bytes << 1) + gcmSIZEOF(gcsHEAP) + gcmSIZEOF(gcsNODE);
+        }
+        else if (bytes < (gcvMAXSIZE_T - gcmSIZEOF(gcsHEAP) - gcmSIZEOF(gcsNODE)))
+        {
+            Heap->allocationSize = bytes + gcmSIZEOF(gcsHEAP) + gcmSIZEOF(gcsNODE);
+        }
+        else
+        {
+            /* Unable to increase allocation size due to overflow. */
+            gcmONERROR(gcvSTATUS_DATA_TOO_LARGE);
+        }
     }
     else if (Heap->heap != gcvNULL)
     {

@@ -485,6 +485,7 @@ OnError:
 ************************* Process/Thread Local Storage *************************
 \******************************************************************************/
 
+static gceSTATUS __attribute__((constructor)) _ModuleConstructor(void);
 static void __attribute__((destructor)) _ModuleDestructor(void);
 
 static gceSTATUS
@@ -849,6 +850,9 @@ _PLSDestructor(
     gcmVERIFY_OK(gcoOS_DeleteMutex(gcPLS.os, gcPLS.clFECompilerAccessLock));
     gcPLS.clFECompilerAccessLock = gcvNULL;
 
+    gcmVERIFY_OK(gcoOS_DeleteMutex(gcPLS.os, gcPLS.vxContextGlobalLock));
+    gcPLS.vxContextGlobalLock = gcvNULL;
+
     gcmVERIFY_OK(gcoOS_AtomDestroy(gcPLS.os, gcPLS.reference));
     gcPLS.reference = gcvNULL;
 
@@ -1017,6 +1021,10 @@ _ModuleConstructor(
     int result;
     static pthread_once_t onceControl = {PTHREAD_ONCE_INIT};
 
+#if VIVANTE_PROFILER_SYSTEM_MEMORY
+    gcoOS_InitMemoryProfile();
+#endif
+
     gcmHEADER();
 
     if (gcPLS.processID)
@@ -1071,6 +1079,9 @@ _ModuleConstructor(
     /* Construct cl FE compiler access lock */
     gcmONERROR(gcoOS_CreateMutex(gcPLS.os, &gcPLS.clFECompilerAccessLock));
 
+    /* Construct vx context access lock */
+    gcmONERROR(gcoOS_CreateMutex(gcPLS.os, &gcPLS.vxContextGlobalLock));
+
 #if gcdDUMP_2D
     gcmONERROR(gcoOS_CreateMutex(gcPLS.os, &dumpMemInfoListMutex));
 #endif
@@ -1089,24 +1100,35 @@ OnError:
     {
         /* Destroy access lock */
         gcmVERIFY_OK(gcoOS_DeleteMutex(gcPLS.os, gcPLS.accessLock));
+        gcPLS.accessLock = gcvNULL;
     }
 
     if (gcPLS.glFECompilerAccessLock != gcvNULL)
     {
         /* Destroy access lock */
         gcmVERIFY_OK(gcoOS_DeleteMutex(gcPLS.os, gcPLS.glFECompilerAccessLock));
+        gcPLS.glFECompilerAccessLock = gcvNULL;
     }
 
     if (gcPLS.clFECompilerAccessLock != gcvNULL)
     {
         /* Destroy access lock */
         gcmVERIFY_OK(gcoOS_DeleteMutex(gcPLS.os, gcPLS.clFECompilerAccessLock));
+        gcPLS.clFECompilerAccessLock = gcvNULL;
+    }
+
+    if (gcPLS.vxContextGlobalLock != gcvNULL)
+    {
+        /* Destroy vx context access lock */
+        gcmVERIFY_OK(gcoOS_DeleteMutex(gcPLS.os, gcPLS.vxContextGlobalLock));
+        gcPLS.vxContextGlobalLock = gcvNULL;
     }
 
     if (gcPLS.reference != gcvNULL)
     {
         /* Destroy the reference. */
         gcmVERIFY_OK(gcoOS_AtomDestroy(gcPLS.os, gcPLS.reference));
+        gcPLS.reference = gcvNULL;
     }
 
     gcmFOOTER();
@@ -2397,7 +2419,7 @@ gcoOS_AllocateMemory(
     )
 {
     gceSTATUS status;
-    gctPOINTER memory;
+    gctPOINTER memory = gcvNULL;
 
     gcmHEADER_ARG("Bytes=%lu", Bytes);
 
@@ -2409,6 +2431,7 @@ gcoOS_AllocateMemory(
 #if VIVANTE_PROFILER_SYSTEM_MEMORY
     if (gcPLS.bMemoryProfile)
     {
+        gcmONERROR(gcmCHECK_ADD_OVERFLOW(Bytes, VP_MALLOC_OFFSET));
         memory = malloc(Bytes + VP_MALLOC_OFFSET);
     }
     else
@@ -3222,6 +3245,7 @@ gcoOS_Read(
     OUT gctSIZE_T * ByteRead
     )
 {
+    gceSTATUS status = gcvSTATUS_OK;
     size_t byteRead;
 
     gcmHEADER_ARG("File=0x%x ByteCount=%lu Data=0x%x",
@@ -3235,19 +3259,31 @@ gcoOS_Read(
     /* Read the data from the file. */
     byteRead = fread(Data, 1, ByteCount, (FILE *) File);
 
+    if (byteRead != ByteCount)
+    {
+        if (ferror((FILE *) File))
+        {
+            status = gcvSTATUS_GENERIC_IO;
+            clearerr((FILE *) File);
+        }
+        else if (feof((FILE *) File))
+        {
+            status = gcvSTATUS_DATA_TOO_LARGE;
+            clearerr((FILE *) File);
+        }
+        else
+        {
+            status = gcvSTATUS_GENERIC_IO;
+        }
+    }
+
     if (ByteRead != gcvNULL)
     {
         *ByteRead = (gctSIZE_T) byteRead;
-        /* Success. */
-        gcmFOOTER_ARG("*ByteRead=%lu", gcmOPT_VALUE(ByteRead));
-        return gcvSTATUS_OK;
     }
-    else
-    {
-        /* Failure. */
-        gcmFOOTER_ARG("%d", gcvSTATUS_TRUE);
-        return gcvSTATUS_TRUE;
-    }
+
+    gcmFOOTER_ARG("status=%d", status);
+    return status;
 }
 
 /*******************************************************************************
@@ -3282,6 +3318,7 @@ gcoOS_Write(
     IN gctCONST_POINTER Data
     )
 {
+    gceSTATUS status = gcvSTATUS_OK;
     size_t byteWritten;
 
     gcmHEADER_ARG("File=0x%x ByteCount=%lu Data=0x%x",
@@ -3295,18 +3332,25 @@ gcoOS_Write(
     /* Write the data to the file. */
     byteWritten = fwrite(Data, 1, ByteCount, (FILE *) File);
 
-    if (byteWritten == ByteCount)
+    if (byteWritten != ByteCount)
     {
-        /* Success. */
-        gcmFOOTER_NO();
-        return gcvSTATUS_OK;
+        if (ferror((FILE *) File))
+        {
+            status = gcvSTATUS_GENERIC_IO;
+            clearerr((FILE *) File);
+        }
+        else if (feof((FILE *) File))
+        {
+            clearerr((FILE *) File);
+        }
+        else
+        {
+            status = gcvSTATUS_GENERIC_IO;
+        }
     }
-    else
-    {
-        /* Error */
-        gcmFOOTER_ARG("status=%d", gcvSTATUS_GENERIC_IO);
-        return gcvSTATUS_GENERIC_IO;
-    }
+
+    gcmFOOTER_ARG("status=%d", status);
+    return status;
 }
 
 /* Flush data to a file. */
@@ -4527,7 +4571,7 @@ gcoOS_StrCatSafe(
     IN gctCONST_STRING Source
     )
 {
-    gctSIZE_T n;
+    gctSIZE_T end = 0, src = 0;
 
     gcmHEADER_ARG("Destination=0x%x DestinationSize=%lu Source=0x%x",
                   Destination, DestinationSize, Source);
@@ -4536,26 +4580,31 @@ gcoOS_StrCatSafe(
     gcmDEBUG_VERIFY_ARGUMENT(Destination != gcvNULL);
     gcmDEBUG_VERIFY_ARGUMENT(Source != gcvNULL);
 
-    /* Find the end of the destination. */
-    n = strlen(Destination);
-    if (n + 1 < DestinationSize)
+    /* go to the end of destination */
+    while (Destination[end] != '\0')
     {
-        /* Append the string but don't overflow the destination buffer. */
-        strncpy(Destination + n, Source, DestinationSize - n - 1);
-
-        /* Put this there in case the strncpy overflows. */
-        Destination[DestinationSize - 1] = '\0';
-
-        /* Success. */
-        gcmFOOTER_NO();
-        return gcvSTATUS_OK;
+        end++;
+        if (end > DestinationSize)
+        {
+            return gcvSTATUS_INVALID_ARGUMENT;
+        }
     }
-    else
+
+    /* if dest is enough to append source */
+    while (Source[src] != '\0')
     {
-        /* Failure */
-        gcmFOOTER_ARG("%d", gcvSTATUS_TRUE);
-        return gcvSTATUS_TRUE;
+        src++;
+        if (src > DestinationSize - end - 1)
+        {
+            return gcvSTATUS_INVALID_ARGUMENT;
+        }
     }
+
+    /* Append the string but don't overflow the destination buffer. */
+    strncpy(&Destination[end], Source, DestinationSize - end);
+
+    gcmFOOTER_NO();
+    return gcvSTATUS_OK;
 }
 
 /*******************************************************************************
@@ -7484,12 +7533,3 @@ gceSTATUS gcoOS_DeInitMemoryProfile(void)
 }
 
 #endif
-
-static void __attribute__((constructor)) _ModuleConstructor_(void);
-static void _ModuleConstructor_(void)
-{
-
-#if VIVANTE_PROFILER_SYSTEM_MEMORY
-    gcoOS_InitMemoryProfile();
-#endif
-}

@@ -260,6 +260,7 @@ gcsSystemInfo;
     gcvNULL, /* accessLock         */ \
     gcvNULL, /* GL FE compiler lock*/ \
     gcvNULL, /* CL FE compiler lock*/ \
+    gcvNULL, /* VX context lock    */ \
     gcvPATCH_NOTINIT,/* global patchID     */ \
     gcvNULL, /* global fenceID*/ \
     gcvFALSE, /* memory profile flag */ \
@@ -4885,6 +4886,14 @@ gckOS_DebugStatus2Name(
                 _gcmVERIFY_ARGUMENT_RETURN(gcm, arg, value)
 #   define gcmkVERIFY_ARGUMENT_RETURN(arg, value) \
                 _gcmVERIFY_ARGUMENT_RETURN(gcmk, arg, value)
+
+#define _gcmCHECK_ADD_OVERFLOW(x, y) \
+(\
+    ((x) > 0 && (y) > 0 && gcvMAXSIZE_T - (x) < (y)) ? gcvSTATUS_RESLUT_OVERFLOW : gcvSTATUS_OK \
+)
+
+#define gcmCHECK_ADD_OVERFLOW(x, y) _gcmCHECK_ADD_OVERFLOW(x, y)
+#define gcmkCHECK_ADD_OVERFLOW(x, y) _gcmCHECK_ADD_OVERFLOW(x, y)
 
 #define MAX_LOOP_COUNT 0x7FFFFFFF
 

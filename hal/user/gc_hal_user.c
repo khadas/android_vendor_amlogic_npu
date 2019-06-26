@@ -2842,3 +2842,47 @@ OnError:
     return status;
 }
 
+
+/*******************************************************************************
+ **
+ ** gcoHAL_GetPLS
+ **
+ ** Get access to the process local storage.
+ **
+ ** INPUT:
+ **
+ **     Nothing.
+ **
+ ** OUTPUT:
+ **
+ **     gcsPLS_PTR * PLS
+ **         Pointer to a variable that will hold the pointer to the PLS.
+ */
+extern gcsPLS gcPLS;
+gceSTATUS
+gcoHAL_GetPLS(
+    OUT gcsPLS_PTR * PLS
+    )
+{
+    gceSTATUS status = gcvSTATUS_OK;
+
+    gcmHEADER_ARG("PLS=%p", PLS);
+
+    if (!gcPLS.processID)
+    {
+        gcmPRINT("PLS isn't existed");
+        status = gcvSTATUS_TRUE;
+        gcmONERROR(status);
+    }
+
+    *PLS = &gcPLS;
+
+    gcmFOOTER_NO();
+    return gcvSTATUS_OK;
+
+OnError:
+    *PLS = gcvNULL;
+
+    gcmFOOTER();
+    return status;
+}

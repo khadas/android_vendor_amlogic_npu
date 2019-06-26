@@ -7035,6 +7035,14 @@ gckOS_WrapMemory(
 
     if (Desc->flag & gcvALLOC_FLAG_DMABUF)
     {
+        if (IS_ERR(gcmUINT64_TO_PTR(Desc->dmabuf)))
+        {
+            /* Won't enter here currently, the caller confirms the dmabuf is valid. */
+
+            gcmkPRINT("Wrap memory: invalid dmabuf.\n");
+            gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        }
+
         desc.dmaBuf.dmabuf = gcmUINT64_TO_PTR(Desc->dmabuf);
 
 #if defined(CONFIG_DMA_SHARED_BUFFER)

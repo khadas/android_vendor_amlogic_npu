@@ -100,6 +100,7 @@ gcoQUEUE_Destroy(
         /* Unlink the first chunk. */
         chunk = Queue->chunks;
         Queue->chunks = chunk->next;
+        chunk->next = gcvNULL;
 
         /* Free the memory. */
         gcoOS_FreeSharedMemory(gcvNULL, chunk);

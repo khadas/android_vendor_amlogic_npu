@@ -50,6 +50,12 @@ extern "C" {
          (n) : gcmALIGN(n, align)                                      \
 )
 
+#define gcmALIGN_CHECK_OVERFLOW(n, align)                              \
+(\
+    (gcmALIGN((n) & ~0ULL, (align) & ~0ULL) ^ gcmALIGN(n, align)) ?    \
+         gcvSTATUS_RESLUT_OVERFLOW : gcvSTATUS_OK                      \
+)
+
 #define gcmALIGN_BASE(n, align) \
 (\
     ((n) & ~((align) - 1)) \

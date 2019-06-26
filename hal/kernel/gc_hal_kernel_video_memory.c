@@ -3264,17 +3264,26 @@ gckVIDMEM_NODE_WrapUserMemory(
 
             dma_buf_put(dmabuf);
         }
-        else
+        else if (fd == -1)
         {
-            if (!Desc->dmabuf)
+            /* It is called by our kernel drm driver. */
+
+            if (IS_ERR(gcmUINT64_TO_PTR(Desc->dmabuf)))
             {
-                gcmkPRINT("Wrap user memory: invalid dmabuf from user.\n");
+                gcmkPRINT("Wrap memory: invalid dmabuf from kernel.\n");
 
                 gcmkFOOTER();
                 return gcvSTATUS_INVALID_ARGUMENT;
             }
 
             dmabuf = gcmUINT64_TO_PTR(Desc->dmabuf);
+        }
+        else
+        {
+            gcmkPRINT("Wrap memory: invalid dmabuf fd.\n");
+
+            gcmkFOOTER();
+            return gcvSTATUS_INVALID_ARGUMENT;
         }
 
         if (dmabuf->ops == &_dmabuf_ops)
