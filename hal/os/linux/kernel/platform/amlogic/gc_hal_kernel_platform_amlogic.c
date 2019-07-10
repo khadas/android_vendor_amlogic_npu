@@ -72,8 +72,8 @@
 #define HHI_BASE_ADDR         0xff63c000
 #define HHI_NANOQ_MEM_PD_REG0 (HHI_BASE_ADDR+(0x43<<2))
 #define HHI_NANOQ_MEM_PD_REG1 (HHI_BASE_ADDR+(0x44<<2))
-
-#define MAX_NANOQ_FREQ        800000000
+//800m to 960m
+#define MAX_NANOQ_FREQ        960000000
 /*======== add by zxw for g12b hardware reg define end========*/
 /*
 static gceSTATUS _CmaAlloc(struct platform_device *pdev,gctSIZE_T NumPages,unsigned long *pmem)
@@ -248,13 +248,13 @@ gceSTATUS _GetPower(IN gcsPLATFORM *Platform)
     return gcvSTATUS_OK;
 }
 
-static struct soc_platform_ops default_ops =
+static gcsPLATFORM_OPERATIONS default_ops =
 {
     .adjustParam   = _AdjustParam,
 	.getPower  = _GetPower,
 };
 
-static struct soc_platform default_platform =
+static gcsPLATFORM default_platform =
 {
     .name = __FILE__,
     .ops  = &default_ops,
@@ -270,8 +270,7 @@ static const struct of_device_id galcore_dev_match[] = {
     { },
 };
 
-int soc_platform_init(struct platform_driver *pdrv,
-            struct soc_platform **platform)
+int gckPLATFORM_Init(struct platform_driver *pdrv, gcsPLATFORM **platform)
 {
     pdrv->driver.of_match_table = galcore_dev_match;
 
@@ -280,7 +279,7 @@ int soc_platform_init(struct platform_driver *pdrv,
     return 0;
 }
 
-int soc_platform_terminate(struct soc_platform *platform)
+int gckPLATFORM_Terminate(gcsPLATFORM *platform)
 {
     if (default_dev) {
         platform_device_unregister(default_dev);

@@ -1292,8 +1292,7 @@ static int __init gpu_init(void)
     gpu_driver.remove = viv_drm_remove;
 #endif
 
-    ret = soc_platform_init(&gpu_driver, &platform);
-
+    ret = gckPLATFORM_Init(&gpu_driver, &platform);
     if (ret || !platform)
     {
         printk(KERN_ERR "galcore: Soc platform init failed.\n");
@@ -1310,7 +1309,8 @@ static int __init gpu_init(void)
     if (ret)
     {
         printk(KERN_ERR "galcore: gpu_init() failed to register driver!\n");
-        soc_platform_terminate(platform);
+        gckPLATFORM_Terminate(platform);
+		//soc_platform_terminate(platform);
         platform = NULL;
         return -ENODEV;
     }
@@ -1326,8 +1326,8 @@ static void __exit gpu_exit(void)
 #else
     platform_driver_unregister(&gpu_driver);
 #endif /* USE_LINUX_PCIE */
-
-    soc_platform_terminate(platform);
+	//soc_platform_terminate(platform);
+    gckPLATFORM_Terminate(platform);
     platform = NULL;
 }
 

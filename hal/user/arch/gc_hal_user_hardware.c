@@ -2475,6 +2475,7 @@ _FillInFeatureTable(
     Features[gcvFEATURE_NN_ZXDP3_KERNEL_READ_CONFLICT_FIX] = database->NN_ZXDP3_KERNEL_READ_CONFLICT_FIX;
 
     Features[gcvFEATURE_USC_ATOMIC_FIX2] = database->USC_ATOMIC_FIX2;
+    Features[gcvFEATURE_MULTICORE_CONFIG] = (database->CoreCount > 1);
 
 
 
@@ -2766,6 +2767,7 @@ if (smallBatch){    Config->vsConstBase  = 0xD000;
     Config->nnConfig.fixedFeature.tpPwlLUTSize         = featureDatabase->TPEngine_PwlLUTSize;
     Config->nnConfig.fixedFeature.vip7Version          = featureDatabase->VIP_V7;
     Config->nnConfig.fixedFeature.nnInImageOffsetBits  = featureDatabase->NN_INIMAGE_OFFSET_BITS;
+    Config->nnConfig.fixedFeature.tpReorderInImageSize = featureDatabase->TP_REORDER_INIMAGE_SIZE;
 
     Config->nnConfig.customizedFeature.vipSRAMSizeInKB = featureDatabase->VIP_SRAM_SIZE;
     Config->nnConfig.customizedFeature.axiSRAMSizeInKB = featureDatabase->AXI_SRAM_SIZE;
@@ -7080,7 +7082,7 @@ gcoHARDWARE_LoadCtrlStateNEW_GPU0(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0));
  } };
 
     }
@@ -7153,7 +7155,7 @@ gcoHARDWARE_LoadCtrlStateNEW_GPU0(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
     }
@@ -8080,7 +8082,7 @@ _SendHWFence(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0));
  } };
 
 
@@ -8260,7 +8262,7 @@ _SendHWFence(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
 
@@ -10754,7 +10756,7 @@ static gceSTATUS _Tile420Surface(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0));
  } };
 
     }
@@ -11504,7 +11506,7 @@ static gceSTATUS _Tile420Surface(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
         /* Sync between GPUs */
@@ -13912,7 +13914,7 @@ gcmSETCTRLSTATE(stateDelta, reserve, memory, 0x0E02, ((((gctUINT32) (0)) & ~(((g
  12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
  12:8) - (0 ?
  12:8) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));    gcmDUMP(gcvNULL, ,    ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));    gcmDUMP(gcvNULL, "@[stall 0x%08X 0x%08X]",    ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:0) - (0 ?
  4:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -15529,6 +15531,400 @@ OnError:
     return status;
 }
 
+#if (gcdDUMP && !gcdDUMP_IN_KERNEL)
+gceSTATUS
+gcoHARDWARE_CleanCache(
+    IN gcoHARDWARE Hardware,
+    IN gceSURF_TYPE Type
+    )
+{
+    gctUINT32 pipe;
+    gctUINT32 flushBits = 0;
+    gctUINT32 flush = 0;
+    gctUINT32 flushVST = 0;
+    gctBOOL flushTileStatus;
+    gceSTATUS status;
+    gctBOOL halti5;
+    gctBOOL flushICache;
+    gctBOOL flushTXDescCache;
+    gctBOOL flushTFB;
+    gctBOOL hwTFB;
+    gctBOOL multiCluster;
+
+    gcmHEADER_ARG("Hardware=0x%x Type=0x%x", Hardware, Type);
+
+    gcmGETHARDWARE(Hardware);
+
+    /* Verify the arguments. */
+    gcmVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
+
+    /* Get current pipe. */
+    pipe = Hardware->currentPipe;
+
+    halti5 = gcoHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_HALTI5);
+
+    hwTFB = gcoHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_HW_TFB);
+
+    multiCluster = gcoHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_MULTI_CLUSTER);
+
+    switch (Type)
+    {
+    case gcvSURF_TILE_STATUS:
+        flushBits |= gcvFLUSH_TILE_STATUS;
+        break;
+    case gcvSURF_RENDER_TARGET:
+        flushBits |= gcvFLUSH_COLOR;
+        break;
+    case gcvSURF_DEPTH:
+        flushBits |= gcvFLUSH_DEPTH;
+        break;
+    case gcvSURF_TEXTURE:
+        flushBits |= gcvFLUSH_TEXTURE;
+        break;
+    case gcvSURF_ICACHE:
+        flushBits |= gcvFLUSH_ICACHE;
+        break;
+    case gcvSURF_TXDESC:
+        flushBits |= gcvFLUSH_TXDESC;
+        break;
+    case gcvSURF_FENCE:
+        flushBits |= gcvFLUSH_FENCE;
+        break;
+    case gcvSURF_VERTEX:
+        flushBits |= gcvFLUSH_VERTEX;
+        break;
+    case gcvSURF_TFBHEADER:
+        flushBits |= gcvFLUSH_TFBHEADER;
+        break;
+    case gcvSURF_TYPE_UNKNOWN:
+        flushBits = gcvFLUSH_ALL;
+        break;
+    default:
+        break;
+    }
+
+    gcmDUMP(gcvNULL, "#[info: clean cache, flushBits=0x%x]", flushBits);
+
+    /* Flush tile status cache. */
+    flushTileStatus = flushBits & gcvFLUSH_TILE_STATUS;
+
+    /* Flush Icache for halti5 hardware as we dont do it when program or context switches*/
+    flushICache = (flushBits & gcvFLUSH_ICACHE) && halti5;
+
+    /* Flush texture descriptor cache */
+    flushTXDescCache = flushBits & gcvFLUSH_TXDESC;
+
+    /* Flush USC cache for TFB client */
+    flushTFB = (flushBits & gcvFLUSH_TFBHEADER) && hwTFB;
+
+    /* Flush TFB for vertex buffer */
+    if (flushBits & gcvFLUSH_VERTEX)
+    {
+        if (hwTFB)
+        {
+            flushTFB = gcvTRUE;
+        }
+
+        if (multiCluster)
+        {
+            flush |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 14:14) - (0 ?
+ 14:14) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 14:14) - (0 ?
+ 14:14) + 1))))))) << (0 ?
+ 14:14))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 14:14) - (0 ?
+ 14:14) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 14:14) - (0 ? 14:14) + 1))))))) << (0 ? 14:14)));
+        }
+    }
+
+    /* Flush 3D color cache. */
+    if ((flushBits & gcvFLUSH_COLOR) && (pipe == 0x0))
+    {
+        flush |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 1:1) - (0 ?
+ 1:1) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 1:1) - (0 ?
+ 1:1) + 1))))))) << (0 ?
+ 1:1))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 1:1) - (0 ?
+ 1:1) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 1:1) - (0 ? 1:1) + 1))))))) << (0 ? 1:1)));
+    }
+
+    /* Flush 3D depth cache. */
+    if ((flushBits & gcvFLUSH_DEPTH) && (pipe == 0x0))
+    {
+        flush |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)));
+    }
+
+    /* Flush 3D texture cache. */
+    if ((flushBits & gcvFLUSH_TEXTURE) && (pipe == 0x0))
+    {
+        flush |= multiCluster ?
+ 0 : ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1))))))) << (0 ?
+ 2:2))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 2:2) - (0 ? 2:2) + 1))))))) << (0 ? 2:2)));
+        flushVST = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1))))))) << (0 ?
+ 4:4))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:4) - (0 ? 4:4) + 1))))))) << (0 ? 4:4)));
+    }
+
+    /* Flush 2D cache. */
+    if ((flushBits & gcvFLUSH_2D) && (pipe == 0x1))
+    {
+        flush |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 3:3) - (0 ?
+ 3:3) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 3:3) - (0 ?
+ 3:3) + 1))))))) << (0 ?
+ 3:3))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 3:3) - (0 ?
+ 3:3) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 3:3) - (0 ? 3:3) + 1))))))) << (0 ? 3:3)));
+    }
+
+    /* Flush L2 cache. */
+    if ((flushBits & gcvFLUSH_L2) && (pipe == 0x0))
+    {
+        flush |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 6:6) - (0 ?
+ 6:6) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 6:6) - (0 ?
+ 6:6) + 1))))))) << (0 ?
+ 6:6))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 6:6) - (0 ?
+ 6:6) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 6:6) - (0 ? 6:6) + 1))))))) << (0 ? 6:6)));
+    }
+
+    /* Vertex buffer and texture could be touched by SHL1 for SSBO and image load/store */
+    if ((flushBits & (gcvFLUSH_VERTEX | gcvFLUSH_TEXTURE)) && (pipe == 0x0))
+    {
+        flush |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1))))))) << (0 ?
+ 5:5))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)))
+               | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 10:10) - (0 ?
+ 10:10) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 10:10) - (0 ?
+ 10:10) + 1))))))) << (0 ?
+ 10:10))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 10:10) - (0 ?
+ 10:10) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 10:10) - (0 ? 10:10) + 1))))))) << (0 ? 10:10)))
+               | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 11:11) - (0 ?
+ 11:11) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 11:11) - (0 ?
+ 11:11) + 1))))))) << (0 ?
+ 11:11))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 11:11) - (0 ?
+ 11:11) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 11:11) - (0 ? 11:11) + 1))))))) << (0 ? 11:11)));
+    }
+
+    /* See if there is a valid flush. */
+    if ((flush == 0) &&
+        (flushTileStatus == gcvFALSE) &&
+        (flushICache == gcvFALSE) &&
+        (flushTXDescCache == gcvFALSE) &&
+        (flushTFB == gcvFALSE))
+    {
+        gcmFOOTER_NO();
+        return gcvSTATUS_OK;
+    }
+    else
+    {
+        gctBOOL txCacheFix = gcoHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_TEX_CACHE_FLUSH_FIX)
+                           ? gcvTRUE : gcvFALSE;
+
+        gcmDEFINESTATEBUFFER_NEW(reserve, stateDelta, memory);
+        gctPOINTER * outside = gcvNULL;
+
+        gcmBEGINSTATEBUFFER_NEW(Hardware, reserve, stateDelta, memory, outside);
+
+        if (!txCacheFix || flushICache || flushTXDescCache)
+        {
+            gcoHARDWARE_Semaphore(Hardware,
+                gcvWHERE_COMMAND,
+                gcvWHERE_PIXEL,
+                gcvHOW_SEMAPHORE_STALL,
+                (gctPOINTER *)&memory);
+        }
+
+        if (flush)
+        {
+            gcoHARDWARE_LoadCtrlStateNEW(Hardware,
+                0x0380C, flush, (gctPOINTER *)&memory);
+        }
+
+        if (flushVST)
+        {
+            gcoHARDWARE_LoadCtrlStateNEW(Hardware,
+                0x0380C, flushVST, (gctPOINTER *)&memory);
+        }
+
+        if (flushTileStatus)
+        {
+             gcoHARDWARE_LoadCtrlStateNEW(Hardware,
+                0x01650,
+                ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))),
+                (gctPOINTER *)&memory);
+        }
+
+        if (flushICache)
+        {
+             gcoHARDWARE_LoadCtrlStateNEW(Hardware,
+                0x008B0,
+                ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)))
+              | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 1:1) - (0 ?
+ 1:1) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 1:1) - (0 ?
+ 1:1) + 1))))))) << (0 ?
+ 1:1))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 1:1) - (0 ?
+ 1:1) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 1:1) - (0 ? 1:1) + 1))))))) << (0 ? 1:1)))
+              | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1))))))) << (0 ?
+ 2:2))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 2:2) - (0 ? 2:2) + 1))))))) << (0 ? 2:2)))
+              | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 3:3) - (0 ?
+ 3:3) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 3:3) - (0 ?
+ 3:3) + 1))))))) << (0 ?
+ 3:3))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 3:3) - (0 ?
+ 3:3) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 3:3) - (0 ? 3:3) + 1))))))) << (0 ? 3:3)))
+              | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1))))))) << (0 ?
+ 4:4))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:4) - (0 ? 4:4) + 1))))))) << (0 ? 4:4))),
+                (gctPOINTER *)&memory);
+        }
+
+        if (flushTXDescCache)
+        {
+            gcoHARDWARE_LoadCtrlStateNEW(Hardware,
+                0x14C44,
+                ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:28) - (0 ?
+ 31:28) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:28) - (0 ?
+ 31:28) + 1))))))) << (0 ?
+ 31:28))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 31:28) - (0 ?
+ 31:28) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:28) - (0 ? 31:28) + 1))))))) << (0 ? 31:28))),
+                (gctPOINTER *)&memory);
+        }
+
+        if (flushTFB)
+        {
+            gcoHARDWARE_LoadCtrlStateNEW(Hardware,
+               0x1C00C,
+               0x1,
+               (gctPOINTER *)&memory);
+        }
+
+        gcoHARDWARE_Semaphore(Hardware,
+            gcvWHERE_COMMAND,
+            gcvWHERE_PIXEL,
+            gcvHOW_SEMAPHORE_STALL,
+            (gctPOINTER *)&memory);
+
+#ifndef __clang__
+            stateDelta = stateDelta; /* Keep the compiler happy. */
+#endif
+
+        gcmENDSTATEBUFFER_NEW(Hardware, reserve, memory, outside);
+    }
+
+    /* Success. */
+    gcmFOOTER_NO();
+    return gcvSTATUS_OK;
+OnError:
+    gcmFOOTER();
+    return status;
+}
+
+#endif
+
+
 /*******************************************************************************
 **
 **  gcoHARDWARE_UnlockEx
@@ -15622,6 +16018,11 @@ gcoHARDWARE_UnlockEx(
 
                 /* Schedule an event for the unlock. */
                 gcmONERROR(gcoHARDWARE_CallEvent(gcvNULL, &iface));
+
+#if (gcdDUMP && !gcdDUMP_IN_KERNEL)
+                gcmONERROR(gcoHARDWARE_CleanCache(gcvNULL, Type));
+
+#endif
             }
         }
     }
@@ -15781,6 +16182,7 @@ OnError:
     return status;
 }
 
+
 gceSTATUS
 gcoHARDWARE_QueryQueuedMaxUnlockBytes(
     IN  gcoHARDWARE Hardware,
@@ -15854,6 +16256,7 @@ gcoHARDWARE_ScheduleVideoMemory(
 
     /* Call kernel HAL. */
     gcmONERROR(gcoHAL_Call(gcvNULL, &iface));
+
 
 OnError:
     /* Return status. */
@@ -21462,7 +21865,7 @@ gcoHARDWARE_FillFromTileStatus(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0));
  } };
 
     }
@@ -21992,7 +22395,7 @@ gcoHARDWARE_FillFromTileStatus(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
 
@@ -25940,7 +26343,7 @@ gcoHARDWARE_MultiGPUSyncV2(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << ChipIDs[coreID]; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << ChipIDs[coreID]);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << ChipIDs[coreID]);
  } };
 
 
@@ -28064,7 +28467,17 @@ gcoHARDWARE_MultiGPUCacheFlush(
  0:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0)))
               | (Hardware->features[gcvFEATURE_MULTI_CLUSTER] ?
-                 0 : ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                 ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 14:14) - (0 ?
+ 14:14) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 14:14) - (0 ?
+ 14:14) + 1))))))) << (0 ?
+ 14:14))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 14:14) - (0 ?
+ 14:14) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 14:14) - (0 ? 14:14) + 1))))))) << (0 ? 14:14)))
+               : ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  2:2) - (0 ?
  2:2) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -29521,7 +29934,7 @@ gcoHARDWARE_ProgramResolve(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0));
  } };
 
     }
@@ -29897,7 +30310,7 @@ gcoHARDWARE_ProgramResolve(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
 
@@ -33557,36 +33970,6 @@ OnError:
     return status;
 }
 
-
-gceSTATUS
-gcoHARDWARE_GetConfigGpuCount(
-        IN gcoHARDWARE Hardware,
-        OUT gctUINT32 *CoreCount
-        )
-{
-    gceSTATUS status;
-
-    gcmHEADER_ARG("Hardware=0x%x CoreCount=%x",
-                  Hardware, CoreCount);
-
-    gcmGETHARDWARE(Hardware);
-
-    /* Verify the arguments. */
-    gcmVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
-
-    *CoreCount = Hardware->config->gpuCoreCount;
-
-    /* Success. */
-    gcmFOOTER_NO();
-    return gcvSTATUS_OK;
-
-OnError:
-    /* Return the status. */
-    gcmFOOTER();
-    return status;
-}
-
-
 gceSTATUS
 gcoHARDWARE_QueryReset(
     IN gcoHARDWARE Hardware,
@@ -33765,6 +34148,8 @@ gcoHARDWARE_GetProductName(
             case 5: /* VIP */
                 switch (grade)
                 {
+                case 0:
+                    break;
                 case 1:
                     gcoOS_StrCatSafe(chipNameBase, 32, "Nano");
                     break;
@@ -33909,12 +34294,16 @@ gcoHARDWARE_GetProductName(
                                 gcoOS_StrCatSafe(chipNameBase, 32, cc_str); break;
                             }
                         }
-
                     }
 
                     if (vipIntegerOnly)
                     {
                         gcoOS_StrCatSafe(chipNameBase, 32, "I");
+                    }
+
+                    if (Hardware->features[gcvFEATURE_MULTICORE_CONFIG])
+                    {
+                        gcoOS_StrCatSafe(chipNameBase, 32, " MP");
                     }
                 }
                 else

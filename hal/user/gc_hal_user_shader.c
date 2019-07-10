@@ -215,7 +215,7 @@ gcoSHADER_BindUniformCombinedMode(
     gcmSAFECASTSIZET(matrixStride, MatrixStride);
     gcmSAFECASTSIZET(arrayStride, ArrayStride);
 
-    gcoHARDWARE_GetConfigGpuCount(gcvNULL, &gpuCount);
+    gcoHARDWARE_Query3DCoreCount(gcvNULL, &gpuCount);
     gcmASSERT(ValuesCount == gpuCount);   /*Combined mode need send all gpus unform data */
     status = gcoHARDWARE_BindUniformEx(gcvNULL, Address, Physical, columns, rows, arrays, IsRowMajor,
                                        matrixStride, arrayStride, Values, Convert, Type, gcvTRUE);

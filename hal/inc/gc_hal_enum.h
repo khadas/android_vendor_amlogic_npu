@@ -524,8 +524,8 @@ typedef enum _gceFEATURE
     gcvFEATURE_NN_ASYNC_COPY_PERF_FIX,
     gcvFEATURE_OCB_COUNTER,
     gcvFEATURE_NN_ZXDP3_KERNEL_READ_CONFLICT_FIX,
-
     gcvFEATURE_USC_ATOMIC_FIX2,
+    gcvFEATURE_MULTICORE_CONFIG,
     /* Insert features above this comment only. */
     gcvFEATURE_COUNT                /* Not a feature. */
 }
@@ -573,6 +573,7 @@ typedef enum _gceOPTION
     gcvOPTION_OVX_ENABLE_NN_ZDP3 = 500,
     gcvOPTION_OVX_ENABLE_NN_ZDP6,
     gcvOPTION_OVX_ENABLE_NN_STRIDE,
+    gcvOPTION_OVX_USE_MULTI_DEVICES,
 #endif
 
     /* Insert option above this comment only */
@@ -2112,6 +2113,13 @@ typedef enum _gceSRAM
     gcvSRAM_COUNT
 }
 gceSRAM;
+
+typedef enum _gceFLATMAP_FLAG
+{
+    gcvFLATMAP_DIRECT,
+    gcvFLATMAP_SHIFT,
+}
+gceFLATMAP_FLAG;
 
 /* Video memory alloation type. */
 typedef enum _gceVIDMEM_TYPE

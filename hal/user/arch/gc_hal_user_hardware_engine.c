@@ -2759,7 +2759,7 @@ gcoHARDWARE_FlushMultiGPURenderingMode(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
  } };
 
 
@@ -2926,7 +2926,7 @@ gcoHARDWARE_FlushMultiGPURenderingMode(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
 
@@ -13581,7 +13581,7 @@ gcoHARDWARE_FlushSampling(
  12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
  12:8) - (0 ?
  12:8) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));    gcmDUMP(gcvNULL, , ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));    gcmDUMP(gcvNULL, "#[stall 0x%08X 0x%08X]", ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:0) - (0 ?
  4:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -15703,126 +15703,6 @@ gcoHARDWARE_FlushShaders(
 
     /* Reserve space in the command buffer. */
     gcmBEGINSTATEBUFFER_NEW(Hardware, reserve, stateDelta, memory, Memory);
-
-#if gcdDUMP
-    /* As we do icache address invalidate in kernel,
-       which the dump file don't have this command.
-       When reuse same memory for different shader cache, this is problem
-       Add a flush dump everytime shader flush
-    */
-    if (Hardware->features[gcvFEATURE_NEW_STEERING_AND_ICACHE_FLUSH])
-    {
-        {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
-    gcmASSERT((gctUINT32)1 <= 1024);
-    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x022C) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x022C, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 1:1) - (0 ?
- 1:1) + 1))))))) << (0 ?
- 1:1))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 1:1) - (0 ?
- 1:1) + 1))))))) << (0 ?
- 1:1))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 2:2) - (0 ?
- 2:2) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 2:2) - (0 ?
- 2:2) + 1))))))) << (0 ?
- 2:2))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 2:2) - (0 ?
- 2:2) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 2:2) - (0 ?
- 2:2) + 1))))))) << (0 ?
- 2:2))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 3:3) - (0 ?
- 3:3) + 1))))))) << (0 ?
- 3:3))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 3:3) - (0 ?
- 3:3) + 1))))))) << (0 ?
- 3:3))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 4:4) - (0 ?
- 4:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 4:4) - (0 ?
- 4:4) + 1))))))) << (0 ?
- 4:4))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 4:4) - (0 ?
- 4:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 4:4) - (0 ? 4:4) + 1))))))) << (0 ? 4:4))) );    gcmENDSTATEBATCH_NEW(reserve, memory);
-};
-
-    }
-#endif
 
     /* Copy program states to command buffer. */
     bufferCount = programState->stateBufferSize;
@@ -18704,7 +18584,7 @@ gcoHARDWARE_SetQuery(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
  } };
 
 
@@ -18737,7 +18617,7 @@ gcoHARDWARE_SetQuery(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
 
@@ -18924,7 +18804,7 @@ gcoHARDWARE_SetQuery(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
  } };
 
 
@@ -18957,7 +18837,7 @@ gcoHARDWARE_SetQuery(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
 
@@ -23443,7 +23323,7 @@ gcoHARDWARE_FlushXfb(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0));
  } };
 
         }
@@ -23671,7 +23551,7 @@ gcoHARDWARE_FlushXfb(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
             gcoHARDWARE_MultiGPUSync(Hardware, &memory);
@@ -24011,7 +23891,7 @@ gcoHARDWARE_SetProbeCmd(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
  } };
 
             address = Hardware->PROBEStates->probeAddress + TOTAL_PROBE_NUMBER * gcmSIZEOF(gctUINT64) * clusterMaxID * i;
@@ -24551,7 +24431,7 @@ gcoHARDWARE_SetProbeCmd(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
     }

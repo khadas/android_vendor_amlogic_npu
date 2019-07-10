@@ -98,7 +98,7 @@ _MultiGPUSync(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0));
  } };
 
             }
@@ -119,7 +119,7 @@ _MultiGPUSync(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
             }
@@ -1411,7 +1411,7 @@ gcoHARDWARE_3DBlitCopy(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
  } };
 
             }
@@ -1851,7 +1851,7 @@ gcoHARDWARE_3DBlitCopy(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
         }
@@ -3885,7 +3885,7 @@ gcoHARDWARE_3DBlitBlt(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
  } };
 
             }
@@ -4279,7 +4279,7 @@ gcoHARDWARE_3DBlitBlt(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
         }
@@ -5548,7 +5548,7 @@ gcoHARDWARE_3DBlitClear(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
  } };
 
             }
@@ -5866,7 +5866,7 @@ gcoHARDWARE_3DBlitClear(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
         }
@@ -7213,7 +7213,7 @@ gcoHARDWARE_3DBlitTileFill(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
  } };
 
             }
@@ -7542,7 +7542,7 @@ gcoHARDWARE_3DBlitTileFill(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
         }

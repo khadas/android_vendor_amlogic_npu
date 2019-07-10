@@ -11,13 +11,9 @@ ARCH=arm-fsl
 #    ARCH=$1
 #fi
 
-#echo $1
-#echo $2
-#echo $3
-CROSS_TOOL_PATH=$3
-fstr=${CROSS_TOOL_PATH%/*}
+PCROSS_TOOL_PATH=$3
+fstr=${PCROSS_TOOL_PATH%/*}
 fstr=${fstr%/*}
-echo $fstr
 
 export AQROOT=`pwd`
 export AQARCH=$AQROOT/arch/XAQ2
@@ -37,9 +33,24 @@ arm)
     export LIB_DIR=$TOOLCHAIN/arm-none-linux-gnueabi/libc/usr/lib
 ;;
 
-arm-fsl)
+arm-amlogic)
     ARCH=arm64
     export ARCH_TYPE=$ARCH
+    export CPU_TYPE=cortex-a53
+    export CPU_ARCH=armv8-a
+    export FIXED_ARCH_TYPE=arm64
+
+	export KERNEL_DIR=/mnt/fileroot/xingwei.zhou/work/test_buildroot/output/mesong12b_w400_release/build/linux-amlogic-4.9-dev
+    export CROSS_COMPILE=aarch64-linux-gnu-
+	export TOOLCHAIN=/mnt/fileroot/xingwei.zhou/work/test_buildroot/toolchain/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.02-x86_64_aarch64-linux-gnu/bin
+	export LIB_DIR=/mnt/fileroot/xingwei.zhou/work/test_buildroot/toolchain/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.02-x86_64_aarch64-linux-gnu/aarch64-linux-gnu/libc/lib
+	export PATH=/mnt/fileroot/xingwei.zhou/work/test_buildroot/toolchain/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.02-x86_64_aarch64-linux-gnu/bin:$PATH
+
+;;
+
+arm-fsl)
+    ARCH=arm64
+    export ARCH_TYPE=arm64
     export CPU_TYPE=cortex-a53
     export CPU_ARCH=armv8-a
     export FIXED_ARCH_TYPE=$1
@@ -48,6 +59,7 @@ arm-fsl)
     export CROSS_COMPILE=aarch64-linux-gnu-
 	export TOOLCHAIN=$fstr/bin
 	export LIB_DIR=$fstr/libc/lib
+	export PATH=$TOOLCHAIN:$PATH
 ;;
 
 arm-yocto)
@@ -279,8 +291,11 @@ esac;
 BUILD_OPTION_DEBUG=0
 BUILD_OPTION_ABI=0
 BUILD_OPTION_LINUX_OABI=0
-BUILD_OPTION_NO_DMA_COHERENT=0
+BUILD_OPTION_NO_DMA_COHERENT=1
 BUILD_OPTION_USE_VDK=1
+
+BUILD_OPTION_USE_VXC_BINARY=0
+BUILD_OPTION_GPU_CONFIG="vipnanoqi_pid0x7d"
 if [ -z $BUILD_OPTION_EGL_API_FB ]; then
     BUILD_OPTION_EGL_API_FB=1
 fi
@@ -303,10 +318,10 @@ BUILD_OPTION_gcdSTATIC_LINK=0
 BUILD_OPTION_CUSTOM_PIXMAP=0
 BUILD_OPTION_USE_3D_VG=1
 if [ -z $BUILD_OPTION_USE_OPENCL ]; then
-    BUILD_OPTION_USE_OPENCL=0
+    BUILD_OPTION_USE_OPENCL=1
 fi
 if [ -z $BUILD_OPTION_USE_OPENVX ]; then
-    BUILD_OPTION_USE_OPENVX=0
+    BUILD_OPTION_USE_OPENVX=1
 fi
 if [ -z $BUILD_OPTION_USE_VULKAN ]; then
     BUILD_OPTION_USE_VULKAN=0
@@ -346,16 +361,18 @@ BUILD_OPTIONS="$BUILD_OPTIONS ENABLE_GPU_CLOCK_BY_DRIVER=$BUILD_OPTION_ENABLE_GP
 BUILD_OPTIONS="$BUILD_OPTIONS CONFIG_DOVEXC5_BOARD=$BUILD_OPTION_CONFIG_DOVEXC5_BOARD"
 BUILD_OPTIONS="$BUILD_OPTIONS FPGA_BUILD=$BUILD_OPTION_FPGA_BUILD"
 BUILD_OPTIONS="$BUILD_OPTIONS YOCTO_DRI_BUILD=$BUILD_YOCTO_DRI_BUILD"
+BUILD_OPTIONS="$BUILD_OPTIONS USE_VXC_BINARY=$BUILD_OPTION_USE_VXC_BINARY"
+BUILD_OPTIONS="$BUILD_OPTIONS GPU_CONFIG=$BUILD_OPTION_GPU_CONFIG"
 
-export PATH=$TOOLCHAIN/bin:$PATH
+#export PATH=$TOOLCHAIN/bin:$PATH
 
 ########################################################
 # clean/build driver and samples
 # build results will save to $SDK_DIR/
 #
 cd $AQROOT; make -j1 -f makefile.linux $BUILD_OPTIONS clean
-cd $AQROOT; make -j1 -f makefile.linux $BUILD_OPTIONS install 2>&1 | tee $AQROOT/linux_build.log
-
+cd $AQROOT; make -j64 -f makefile.linux $BUILD_OPTIONS install 2>&1 | tee $AQROOT/linux_build.log
+rm galcore.o galcore.mod.o galcore.mod.c galcore.ko
 ########################################################
 # other build/clean commands to build/clean specified items, eg.
 #

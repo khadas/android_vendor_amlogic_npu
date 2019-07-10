@@ -86,13 +86,10 @@ typedef struct _gcsVX_KERNEL_PARAMETERS
 
     vx_evis_no_inst_s   evisNoInst;
 
-    gctUINT32               curDeviceID;
-    gctUINT32               usedDeviceCount;
-    gcsTHREAD_WALKER_INFO   splitInfo[4];
-    gctUINT32               deviceCount;
-    gctPOINTER              *devices;
 
     gctUINT32               optionalOutputs[3];
+    gctBOOL                 hasBarrier;
+    gctBOOL                 hasAtomic;
 }
 gcsVX_KERNEL_PARAMETERS;
 #endif
@@ -136,15 +133,6 @@ gcoVX_InvokeKernel(
     IN gcsVX_KERNEL_PARAMETERS_PTR  Parameters
     );
 
-gceSTATUS
-gcoVX_ConstructionInstruction(
-    IN gctUINT32_PTR    Point,
-    IN gctUINT32        Size,
-    IN gctBOOL          Upload,
-    OUT gctUINT32_PTR   Physical,
-    OUT gctUINT32_PTR   Logical,
-    OUT gcsSURF_NODE_PTR* Node
-    );
 
 gceSTATUS
 gcoVX_AllocateMemory(
@@ -156,11 +144,6 @@ gcoVX_AllocateMemory(
 
 gceSTATUS
 gcoVX_FreeMemory(
-    IN gcsSURF_NODE_PTR Node
-    );
-
-gceSTATUS
-gcoVX_DestroyInstruction(
     IN gcsSURF_NODE_PTR Node
     );
 
@@ -198,7 +181,9 @@ gcoVX_InvokeKernelShader(
     IN size_t              GlobalWorkScale[3],
     IN size_t              GlobalWorkSize[3],
     IN size_t              LocalWorkSize[3],
-    IN gctUINT             ValueOrder
+    IN gctUINT             ValueOrder,
+    IN gctBOOL             BarrierUsed,
+    IN gctBOOL             AtomUsed
     );
 
 gceSTATUS
@@ -229,6 +214,11 @@ gcoVX_SetNNImage(
     );
 
 gceSTATUS
+gcoVX_QueryDeviceCount(
+    OUT gctUINT32 * Count
+    );
+
+gceSTATUS
 gcoVX_GetNNConfig(
     IN OUT gctPOINTER Config
     );
@@ -250,18 +240,20 @@ gcoVX_FlushCache(
 gceSTATUS
 gcoVX_AllocateMemoryEx(
     IN OUT gctUINT *        Bytes,
+    IN  gceSURF_TYPE        Type,
+    IN  gctUINT32           alignment,
     OUT gctUINT32 *         Physical,
     OUT gctPOINTER *        Logical,
     OUT gcsSURF_NODE_PTR *  Node
     );
 
+
 gceSTATUS
 gcoVX_FreeMemoryEx(
-    IN gctUINT32            Physical,
-    IN gctPOINTER           Logical,
-    IN gctUINT              Bytes,
-    IN gcsSURF_NODE_PTR     Node
+    IN gcsSURF_NODE_PTR     Node,
+    IN gceSURF_TYPE         Type
     );
+
 
 gceSTATUS
 gcoVX_GetMemorySize(
@@ -271,46 +263,27 @@ gcoVX_GetMemorySize(
 gceSTATUS
 gcoVX_ZeroMemorySize();
 
-
 gceSTATUS
-gcoVX_CreateDevices(
-    IN gctUINT     maxDeviceCount,
-    IN gctPOINTER   *devices,
-    OUT gctUINT    *deviceCount
+gcoVX_GetHWConfigGpuCount(
+    OUT gctUINT32 *count
     );
 
 gceSTATUS
-gcoVX_DestroyDevices(
-    IN gctUINT      deviceCount,
-    IN gctPOINTER   *devices
-    );
-
-gceSTATUS
-gcoVX_GetCurrentDevice(
-    OUT gctPOINTER   *devices
-    );
-
-gceSTATUS
-gcoVX_SetCurrentDevice(
-    IN gctPOINTER   device,
-    IN gctINT       deviceID
-    );
-
-gceSTATUS
-gcoVX_MultiDeviceSync(
-    IN gctPOINTER   device
-    );
-
-
-gceSTATUS
-gcoVX_SaveContext(
-    OUT gcoHARDWARE *Hardware
+gcoVX_SwitchContext(
+    IN  gctUINT DeviceID,
+    OUT gcoHARDWARE *SavedHardware,
+    OUT gceHARDWARE_TYPE *SavedType,
+    OUT gctUINT32    *SavedCoreIndex
     );
 
 gceSTATUS
 gcoVX_RestoreContext(
-    IN gcoHARDWARE Hardware
+    IN gcoHARDWARE Hardware,
+    gceHARDWARE_TYPE PreType,
+    gctUINT32 PreCoreIndex
     );
+
+gctBOOL gcoVX_VerifyHardware();
 
 
 gceSTATUS
@@ -329,6 +302,20 @@ gcoVX_SetOCBRemapAddress(
     IN gctUINT32 remapEnd
     );
 
+gceSTATUS
+gcoVX_CreateHW(
+    IN gctUINT32    DeviceId,
+    OUT gcoHARDWARE * Hardware
+    );
+
+gceSTATUS
+gcoVX_DestroyHW(
+    IN gcoHARDWARE Hardware
+    );
+
+gceSTATUS gcoVX_GetEvisNoInstFeatureCap(
+    OUT vx_evis_no_inst_s *EvisNoInst
+    );
 
 
 

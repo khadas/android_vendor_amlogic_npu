@@ -739,6 +739,8 @@ EXPORTS
 !IF "$(VIVANTE_ENABLE_VX)" == "1"
     ; gcoVX
     gcoVX_Initialize
+    gcoVX_Construct
+    gcoVX_Destroy
     gcoVX_BindImage
     gcoVX_BindKernel
     gcoVX_BindUniform
@@ -761,16 +763,18 @@ EXPORTS
     gcoVX_FreeMemoryEx
     gcoVX_GetMemorySize
     gcoVX_ZeroMemorySize
-    gcoVX_CreateDevices
-    gcoVX_DestroyDevices
-    gcoVX_GetCurrentDevice
-    gcoVX_SetCurrentDevice
-    gcoVX_MultiDeviceSync
-    gcoVX_SaveContext
+    gcoVX_GetHWConfigGpuCount
+    gcoVX_SwitchContext
     gcoVX_RestoreContext
     gcoVX_WaitNNEvent
     gcoVX_SetOCBRemapAddress
     gcoVX_CaptureState
+    gcoVX_CreateHW
+    gcoVX_DestroyHW
+    gcoVX_VerifyHardware
+    gcoVX_GetEvisNoInstFeatureCap
+    gcoVX_QueryDeviceCount
+
 
 !IF "$(VSIMULATOR_DEBUG)" == "1"
     gcoOS_UpdateSimulatorCallback
@@ -780,8 +784,7 @@ EXPORTS
     gcoVX_QueryShader
     gcoVX_QueryShaderList
     gcoVX_cleanDebugShader
-    gcoVX_addNNProfileInfo
-    gcoVX_QueryNNPerf
+    gcoVX_SetDebugShaderCount
 !ENDIF
 
 !ENDIF

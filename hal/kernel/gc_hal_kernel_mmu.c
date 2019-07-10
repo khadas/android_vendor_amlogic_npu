@@ -738,6 +738,7 @@ _FillFlatMapping(
     IN gctUINT64 PhysBase,
     IN gctSIZE_T Size,
     IN gctBOOL   reserved,
+    IN gctBOOL   ableToShift,
     OUT gctUINT32 *GpuBaseAddress
     )
 {
@@ -746,34 +747,67 @@ _FillFlatMapping(
     gctUINT32 physBase;
     gckKERNEL kernel = Mmu->hardware->kernel;
     gcsADDRESS_AREA_PTR area = &Mmu->dynamicArea;
+    gctBOOL physicalRangeOverlapped = gcvFALSE;
+    gctBOOL virtualRangeOverlapped = gcvFALSE;
+    gctBOOL specificFlatMapping = gcvFALSE;
+    gctBOOL needShiftMapping = gcvFALSE;
 
     /************************ look up existing flat mapping ranges. ****************/
     gctUINT64 flatBase = PhysBase;
     gctUINT32 flatSize = (gctUINT32) Size;
     gctUINT64 base = flatBase;
-    gctUINT32 size = flatSize;
-    gctUINT64 end  = base + size;
+    gctUINT64 end  = base + flatSize;
+    gctUINT32 reqVirtualBase = 0;
+    gctUINT32 flatVirtualBase = 0;
     gctUINT32 i;
 
     if (reserved)
     {
         /* reserved space MUST be before flat mapping */
-        gcmkASSERT(!Mmu->flatMappingRangeCount);
+        gcmkASSERT(!Mmu->gpuPhysicalRangeCount);
         /* reserved space MUST be before dynamic space set up */
         gcmkASSERT(area->mappingStart == gcvINVALID_ADDRESS);
     }
     else
     {
-        for (i = 0; i < Mmu->flatMappingRangeCount; i++)
+        for (i = 0; i < Mmu->gpuPhysicalRangeCount; i++)
         {
-            if (base < Mmu->flatMappingRanges[i].start)
+            if (base < Mmu->gpuPhysicalRanges[i].start)
             {
-                end  = gcmMIN(end, Mmu->flatMappingRanges[i].start);
+                if (end > Mmu->gpuPhysicalRanges[i].start)
+                {
+                    physicalRangeOverlapped = gcvTRUE;
+                    if (Mmu->gpuPhysicalRanges[i].flag == gcvFLATMAP_DIRECT)
+                    {
+                        /* Overlapped part is direct mapping, continue direct mapping */
+                        end = Mmu->gpuPhysicalRanges[i].start;
+                    }
+                    else
+                    {
+                        /* Overlapped part is shift mapping, do entire shift mapping */
+                        needShiftMapping = gcvTRUE;
+                    }
+                }
+
                 flatSize = (gctUINT32) (end - base);
             }
-            else if (end > Mmu->flatMappingRanges[i].end)
+            else if (end > Mmu->gpuPhysicalRanges[i].end)
             {
-                base = gcmMAX(base, Mmu->flatMappingRanges[i].end);
+                if (base < Mmu->gpuPhysicalRanges[i].end)
+                {
+                    physicalRangeOverlapped = gcvTRUE;
+                    if (Mmu->gpuPhysicalRanges[i].flag == gcvFLATMAP_DIRECT)
+                    {
+                        /* Overlapped part is direct mapping, continue direct mapping */
+                        base = Mmu->gpuPhysicalRanges[i].end + 1;
+                    }
+                    else
+                    {
+                        /* Overlapped part is shift mapping, do entire shift mapping */
+                        needShiftMapping = gcvTRUE;
+                    }
+
+                }
 
                 flatBase = base;
                 flatSize = (gctUINT32) (end - base);
@@ -794,19 +828,54 @@ _FillFlatMapping(
                 return gcvSTATUS_OK;
             }
         }
-
-        Mmu->flatMappingRanges[Mmu->flatMappingRangeCount].start = flatBase;
-        Mmu->flatMappingRanges[Mmu->flatMappingRangeCount].end = flatBase + flatSize;
-        Mmu->flatMappingRangeCount++;
-
-        gcmkASSERT(Mmu->flatMappingRangeCount <= gcdMAX_FLAT_MAPPING_COUNT);
     }
+
     /* overwrite the orignal parameters */
     PhysBase = flatBase;
     physBase = (gctUINT32)flatBase;
-    Size = (gctSIZE_T)flatSize;
 
     mtlb = _MtlbOffset(physBase);
+
+    if (GpuBaseAddress)
+    {
+        reqVirtualBase = *GpuBaseAddress;
+    }
+
+    /*
+     * if no partcial physical range overlap to request entire shift mapping,
+     * it is specific shift mapping or directly mapping by default.
+     */
+    if (!needShiftMapping)
+    {
+        flatVirtualBase = reqVirtualBase ? reqVirtualBase : (gctUINT32) flatBase;
+    }
+
+    for (i = 0; i < Mmu->gpuAddressRangeCount; i++)
+    {
+        if (_IsRangeInsected(flatVirtualBase, flatSize,
+            Mmu->gpuAddressRanges[i].start,  Mmu->gpuAddressRanges[i].size))
+        {
+            virtualRangeOverlapped = gcvTRUE;
+        }
+    }
+
+    /* If gpu virtual range overlapped or gpu physical over 4G, still need entire shift mapping */
+    if ((!physicalRangeOverlapped && virtualRangeOverlapped) ||
+        PhysBase + flatSize - 1 > 0xffffffff)
+    {
+        needShiftMapping = gcvTRUE;
+    }
+
+    if (needShiftMapping && !ableToShift)
+    {
+        /*
+         * Return without mapping any address.
+         * By now, only physBase physSize could run here.
+         */
+        return gcvSTATUS_OK;
+    }
+
+    specificFlatMapping = (reqVirtualBase && !virtualRangeOverlapped && !physicalRangeOverlapped);
 
     /************************ Setup flat mapping in dynamic range. ****************/
 
@@ -817,9 +886,9 @@ _FillFlatMapping(
         stlbEntry = _StlbEntry(area, physBase);
 
         /* Must be aligned to page. */
-        gcmkASSERT((Size & 0xFFF) == 0);
+        gcmkASSERT((flatSize & 0xFFF) == 0);
 
-        for (i = 0; i < (Size / gcdMMU_PAGE_4K_SIZE); i++)
+        for (i = 0; i < (flatSize / gcdMMU_PAGE_4K_SIZE); i++)
         {
             /* Flat mapping in page table. */
             _WritePageEntry(stlbEntry, _SetPage(physBase + i * gcdMMU_PAGE_4K_SIZE, 0, gcvTRUE));
@@ -844,18 +913,16 @@ _FillFlatMapping(
 
             gcmkDUMP(Mmu->os,
                      "#[mmu-stlb: flat-mapping in dynamic: 0x%08X - 0x%08X]",
-                     physBase, physBase - 1 + Size);
+                     physBase, physBase - 1 + flatSize);
 
             gcmkDUMP(Mmu->os,
                      "@[physical.step 0x%010llX 0x%08X 0x%08X 0x%08X 0x%08X",
-                     physical, data, Size / gcdMMU_PAGE_4K_SIZE * sizeof(gctUINT32), step, mask);
+                     physical, data, flatSize / gcdMMU_PAGE_4K_SIZE * sizeof(gctUINT32), step, mask);
         }
 #endif
 
-        gcmkSAFECASTSIZET(size, Size);
-
         /* Flat mapping in map. */
-        _FillFlatMappingInMap(area, _AddressToIndex(area, physBase), size / gcdMMU_PAGE_4K_SIZE);
+        _FillFlatMappingInMap(area, _AddressToIndex(area, physBase), flatSize / gcdMMU_PAGE_4K_SIZE);
 
         return gcvSTATUS_OK;
     }
@@ -865,7 +932,7 @@ _FillFlatMapping(
         gctBOOL mutex = gcvFALSE;
         gctUINT32 physBaseExt = (gctUINT32) (PhysBase >> 32);
         gctUINT32 start = physBase & ~gcdMMU_PAGE_64K_MASK;
-        gctUINT32 end = (gctUINT32) (physBase + Size - 1) & ~gcdMMU_PAGE_64K_MASK;
+        gctUINT32 end = (gctUINT32) (physBase + flatSize - 1) & ~gcdMMU_PAGE_64K_MASK;
         gctUINT32 mStart = start >> gcdMMU_MTLB_SHIFT;
         gctUINT32 mEnd = end >> gcdMMU_MTLB_SHIFT;
         gctUINT32 sStart = (start & gcdMMU_STLB_64K_MASK) >> gcdMMU_STLB_64K_SHIFT;
@@ -877,32 +944,55 @@ _FillFlatMapping(
         gctINT32 firstMtlbEntry = -1;
         gctUINT32 mtlbCurEntry;
         gcsMMU_STLB_CHUNK_PTR curStlbChunk = gcvNULL;
-        gctUINT32 seqs[2] = {0, 0};
-        gctUINT32 seqIdx = 0;
+        gceFLATMAP_FLAG mapFlag = gcvFLATMAP_DIRECT;
+        enum
+        {
+            COLOR_NONE   = 0,
+            COLOR_RED    = 1, /* occupied entry */
+            COLOR_BLUE   = 2, /* empty entry */
+            COLOR_MAX    = COLOR_BLUE,
+        } lastColor = COLOR_NONE;
+        gctUINT32 colorNumber = 0;
 
         /* Grab the mutex. */
         gcmkONERROR(gckOS_AcquireMutex(Mmu->os, Mmu->pageTableMutex, gcvINFINITE));
         mutex = gcvTRUE;
 
-        if (PhysBase + Size - 1 > 0xffffffff)
+        if (needShiftMapping)
         {
             gctUINT32 mEntries;
             gctUINT32 sEntries;
 
-            mEntries = (gctUINT32)(Size + (1 << gcdMMU_MTLB_SHIFT) - 1) / (1 << gcdMMU_MTLB_SHIFT);
+            mEntries = (flatSize + (1 << gcdMMU_MTLB_SHIFT) - 1) / (1 << gcdMMU_MTLB_SHIFT);
 
             gcmkONERROR(_GetMtlbFreeSpace(Mmu, mEntries, &mStart, &mEnd));
 
             sStart = 0;
-            sEntries = (gctUINT32)(Size + gcdMMU_PAGE_64K_SIZE - 1) / gcdMMU_PAGE_64K_SIZE;
+            sEntries = (flatSize + gcdMMU_PAGE_64K_SIZE - 1) / gcdMMU_PAGE_64K_SIZE;
             sEnd = (sEntries - 1) % gcdMMU_STLB_64K_ENTRY_NUM;
+            mapFlag = gcvFLATMAP_SHIFT;
         }
 
+        if (specificFlatMapping)
+        {
+            start    = reqVirtualBase & ~gcdMMU_PAGE_64K_MASK;
+            end      = (reqVirtualBase + flatSize - 1) & ~gcdMMU_PAGE_64K_MASK;
+            mStart   = start >> gcdMMU_MTLB_SHIFT;
+            mEnd     = end >> gcdMMU_MTLB_SHIFT;
+            sStart   = (start & gcdMMU_STLB_64K_MASK) >> gcdMMU_STLB_64K_SHIFT;
+            sEnd     = (end & gcdMMU_STLB_64K_MASK) >> gcdMMU_STLB_64K_SHIFT;
+            mapFlag  = gcvFLATMAP_SHIFT;
+        }
+
+        /* No matter direct mapping or shift mapping or specific mapping, store gpu virtual ranges */
+        flatVirtualBase = (mStart << gcdMMU_MTLB_SHIFT)
+                        | (sStart << gcdMMU_STLB_64K_SHIFT)
+                        | (physBase & gcdMMU_PAGE_64K_MASK);
+
+        /* Return GPU virtual base address if necessary */
         if (GpuBaseAddress)
         {
-            *GpuBaseAddress = (mStart << gcdMMU_MTLB_SHIFT)
-                            | (sStart << gcdMMU_STLB_64K_SHIFT)
-                            | (physBase & gcdMMU_PAGE_64K_MASK);
+            *GpuBaseAddress = flatVirtualBase;
         }
 
         mtlbCurEntry = mStart;
@@ -912,25 +1002,19 @@ _FillFlatMapping(
         {
             if (*(Mmu->mtlbLogical + mtlbCurEntry) == 0)
             {
-                if (seqIdx < 2)
+                if (lastColor != COLOR_BLUE)
                 {
-                    if (seqs[seqIdx] != 2)
+                    if (colorNumber < COLOR_MAX)
                     {
-                        seqs[seqIdx] = 1;
-                    }
-                    else if (seqIdx < 1)
-                    {
-                        seqs[++seqIdx] = 1;
+                        lastColor = COLOR_BLUE;
+                        colorNumber++;
                     }
                     else
                     {
-                        gcmkASSERT(gcvFALSE);
+                        gcmkPRINT("There is a hole in new flat mapping range, which is not correct");
                     }
                 }
-                else if (seqs[1] != 1)
-                {
-                    gcmkPRINT("There is a hole in new flat mapping range, which is not correct");
-                }
+
                 totalNewStlbs++;
                 if (-1 == firstMtlbEntry)
                 {
@@ -939,24 +1023,17 @@ _FillFlatMapping(
             }
             else
             {
-                if (seqIdx < 2)
+                if (lastColor != COLOR_RED)
                 {
-                    if (seqs[seqIdx] != 1)
+                    if (colorNumber < COLOR_MAX)
                     {
-                        seqs[seqIdx] = 2;
-                    }
-                    else if (seqIdx < 1)
-                    {
-                        seqs[++seqIdx] = 2;
+                        lastColor = COLOR_RED;
+                        colorNumber++;
                     }
                     else
                     {
-                        gcmkASSERT(gcvFALSE);
+                        gcmkPRINT("There is a hole in new flat mapping range, which is not correct");
                     }
-                }
-                else if (seqs[1] != 2)
-                {
-                    gcmkPRINT("There is a hole in new flat mapping range, which is not correct");
                 }
             }
             mtlbCurEntry++;
@@ -1167,9 +1244,28 @@ _FillFlatMapping(
 #if gcdENABLE_TRUST_APPLICATION
         if (Mmu->hardware->options.secureMode == gcvSECURE_IN_TA)
         {
-            gckKERNEL_SecurityMapMemory(Mmu->hardware->kernel, gcvNULL, physBase, (gctUINT32)Size / gcdMMU_PAGE_4K_SIZE, &physBase);
+            gckKERNEL_SecurityMapMemory(Mmu->hardware->kernel, gcvNULL, physBase, flatSize / gcdMMU_PAGE_4K_SIZE, &physBase);
         }
 #endif
+
+        /* Store the gpu physical ranges */
+        Mmu->gpuPhysicalRanges[Mmu->gpuPhysicalRangeCount].start = flatBase;
+        Mmu->gpuPhysicalRanges[Mmu->gpuPhysicalRangeCount].end   = flatBase + flatSize - 1;
+        Mmu->gpuPhysicalRanges[Mmu->gpuPhysicalRangeCount].size  = flatSize;
+        Mmu->gpuPhysicalRanges[Mmu->gpuPhysicalRangeCount].flag  = mapFlag;
+        Mmu->gpuPhysicalRangeCount++;
+
+        gcmkASSERT(Mmu->gpuPhysicalRangeCount <= gcdMAX_FLAT_MAPPING_COUNT);
+
+        /* Store the gpu virtual ranges */
+        Mmu->gpuAddressRanges[Mmu->gpuAddressRangeCount].start = flatVirtualBase;
+        Mmu->gpuAddressRanges[Mmu->gpuAddressRangeCount].end   = flatVirtualBase + flatSize - 1;
+        Mmu->gpuAddressRanges[Mmu->gpuAddressRangeCount].size  = flatSize;
+        Mmu->gpuAddressRanges[Mmu->gpuAddressRangeCount].flag  = mapFlag;
+        Mmu->gpuAddressRangeCount++;
+
+        gcmkASSERT(Mmu->gpuAddressRangeCount <= gcdMAX_FLAT_MAPPING_COUNT);
+
 
         return gcvSTATUS_OK;
 OnError:
@@ -1695,25 +1791,27 @@ _Construct(
         gcmkONERROR(
             gckOS_ZeroMemory(pointer, mmu->mtlbSize));
 
-        for (i = 0; i < gcvSRAM_COUNT; i++)
+        if (needMapInternalSRAM)
         {
-            if (hardware->identity.sRAMSizes[i] &&
-               (hardware->identity.sRAMBases[i] != gcvINVALID_PHYSICAL_ADDRESS))
-            {
-                gcmkPRINT("Galcore Info: MMU mapped SRAM[%d] base=0x%llx size=0x%x",
-                    i,
-                    hardware->identity.sRAMBases[i],
-                    hardware->identity.sRAMSizes[i]
-                    );
+            gcmkPRINT("Galcore Info: MMU mapped internal SRAM base=0x%llx size=0x%x",
+                reservedBase,
+                reservedSize
+                );
 
-                gcmkONERROR(_FillFlatMapping(
-                    mmu,
-                    hardware->identity.sRAMBases[i],
-                    hardware->identity.sRAMSizes[i],
-                    (i == gcvSRAM_INTERNAL),
-                    &hardware->options.sRAMBaseAddress[i]
-                    ));
-            }
+            /*
+             * Default gpu virtual base = 0.
+             * It can be specified if not conflict with existing mapping.
+             */
+            hardware->options.sRAMBaseAddress[gcvSRAM_INTERNAL] = 0;
+
+            gcmkONERROR(_FillFlatMapping(
+                mmu,
+                reservedBase,
+                reservedSize,
+                gcvTRUE,
+                gcvTRUE,
+                &hardware->options.sRAMBaseAddress[gcvSRAM_INTERNAL]
+                ));
         }
 
         gcmkONERROR(
@@ -1733,12 +1831,12 @@ _Construct(
             if (needMapInternalSRAM &&
                 _IsRangeInsected(gpuAddress, physSize, reservedBase, reservedSize))
             {
-                gcmkPRINT("Galcore Error: physBase=0x%llx, physSize=0x%zx, reservedBase=0x%llx reservedSize=0x%x is overlapped!",
+                gcmkPRINT("Galcore Warning: physBase=0x%llx, physSize=0x%zx, reservedBase=0x%llx reservedSize=0x%x is overlapped!",
                           gpuAddress, physSize, reservedBase, reservedSize);
             }
 
             /* Setup user specified flat mapping. */
-            gcmkONERROR(_FillFlatMapping(mmu, gpuAddress, physSize, gcvFALSE, gcvNULL));
+            gcmkONERROR(_FillFlatMapping(mmu, gpuAddress, physSize, gcvFALSE, gcvFALSE, gcvNULL));
         }
 
 #ifndef EMULATOR
@@ -1757,10 +1855,42 @@ _Construct(
 
             gcmkDUMP(mmu->os, "#[mmu-mtlb: reserved 4M space, slot: 0]");
             gcmkDUMP(mmu->os,
-                     "@[physical.fill 0x%010X 0x%08X 0x%08X]",
-                     mmu->mtlbPhysical, mmu->mtlbLogical[0], 4);
+                     "@[physical.fill 0x%010llX 0x%08X 0x%08X]",
+                     (unsigned long long)mmu->mtlbPhysical,
+                     mmu->mtlbLogical[0], 4);
+
+            /* Store the gpu virtual ranges */
+            mmu->gpuAddressRanges[mmu->gpuAddressRangeCount].start = 0;
+            mmu->gpuAddressRanges[mmu->gpuAddressRangeCount].end   = (4 << 20) - 1;
+            mmu->gpuAddressRanges[mmu->gpuAddressRangeCount].size  = (4 << 20);
+            mmu->gpuAddressRanges[mmu->gpuAddressRangeCount].flag  = gcvFLATMAP_DIRECT;
+            mmu->gpuAddressRangeCount++;
         }
 #endif
+
+        for (i = gcvSRAM_EXTERNAL0; i < gcvSRAM_COUNT; i++)
+        {
+            if (hardware->identity.sRAMSizes[i] &&
+               (hardware->identity.sRAMBases[i] != gcvINVALID_PHYSICAL_ADDRESS))
+            {
+                gcmkPRINT("Galcore Info: MMU mapped external SRAM[%d] base=0x%llx size=0x%x",
+                    i,
+                    hardware->identity.sRAMBases[i],
+                    hardware->identity.sRAMSizes[i]
+                    );
+
+                hardware->options.sRAMBaseAddress[i] = 0;
+
+                gcmkONERROR(_FillFlatMapping(
+                    mmu,
+                    hardware->identity.sRAMBases[i],
+                    hardware->identity.sRAMSizes[i],
+                    gcvFALSE,
+                    gcvTRUE,
+                    &hardware->options.sRAMBaseAddress[i]
+                    ));
+            }
+        }
 
         status = gckOS_QueryOption(mmu->os, "contiguousBase", &contiguousBase);
 
@@ -1773,7 +1903,7 @@ _Construct(
         if (gcmIS_SUCCESS(status) && contiguousSize)
         {
             gctUINT64 gpuContiguousBase;
-            gctUINT32 contiguousBaseAddress;
+            gctUINT32 contiguousBaseAddress = 0;
 
             gcmkONERROR(gckOS_CPUPhysicalToGPUPhysical(mmu->os, contiguousBase, &gpuContiguousBase));
 
@@ -1783,8 +1913,9 @@ _Construct(
                 gcmkPRINT("Galcore Error: contiguousBase=0x%llx, contiguousSize=0x%x, reservedBase=0x%llx reservedSize=0x%x is overlapped!",
                           contiguousBase, contiguousSize, reservedBase, reservedSize);
             }
+
             /* Setup flat mapping for reserved memory (VIDMEM). */
-            gcmkONERROR(_FillFlatMapping(mmu, gpuContiguousBase, contiguousSize, gcvFALSE, &contiguousBaseAddress));
+            gcmkONERROR(_FillFlatMapping(mmu, gpuContiguousBase, contiguousSize, gcvFALSE, gcvTRUE, &contiguousBaseAddress));
 
             mmu->contiguousBaseAddress = contiguousBaseAddress;
         }
@@ -1800,12 +1931,12 @@ _Construct(
         if (gcmIS_SUCCESS(status) && externalSize)
         {
             gctUINT64 gpuExternalBase;
-            gctUINT32 externalBaseAddress;
+            gctUINT32 externalBaseAddress = 0;
 
             gcmkONERROR(gckOS_CPUPhysicalToGPUPhysical(mmu->os, externalBase, &gpuExternalBase));
 
             /* Setup flat mapping for external memory. */
-            gcmkONERROR(_FillFlatMapping(mmu, gpuExternalBase, externalSize, gcvFALSE, &externalBaseAddress));
+            gcmkONERROR(_FillFlatMapping(mmu, gpuExternalBase, externalSize, gcvFALSE, gcvTRUE, &externalBaseAddress));
 
             mmu->externalBaseAddress = externalBaseAddress;
         }
@@ -3154,7 +3285,7 @@ gckMMU_FillFlatMapping(
 
     if (hardware->mmuVersion)
     {
-        gcmkONERROR(_FillFlatMapping(Mmu, PhysBase, Size, gcvFALSE, gcvNULL));
+        gcmkONERROR(_FillFlatMapping(Mmu, PhysBase, Size, gcvFALSE, gcvTRUE, gcvNULL));
     }
 
     return gcvSTATUS_OK;
@@ -3182,10 +3313,10 @@ gckMMU_IsFlatMapped(
         gcmkONERROR(gcvSTATUS_NOT_SUPPORTED);
     }
 
-    for (i = 0; i < Mmu->flatMappingRangeCount; i++)
+    for (i = 0; i < Mmu->gpuPhysicalRangeCount; i++)
     {
-        if ((Physical >= Mmu->flatMappingRanges[i].start) &&
-            (Physical < Mmu->flatMappingRanges[i].end))
+        if ((Physical >= Mmu->gpuPhysicalRanges[i].start) &&
+            (Physical < Mmu->gpuPhysicalRanges[i].end))
         {
             inFlatmapping = gcvTRUE;
             break;

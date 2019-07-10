@@ -318,7 +318,7 @@ typedef struct _vx_tensor_addressing_t  * vx_tensor_addressing;
 /*! \brief The weight bias parameter for fused layers
  * \ingroup group_cnn
  */
-typedef struct _vx_weights_biases_parameter *     vx_weights_biases_parameter;
+typedef struct _vx_weights_biases_parameter_s *     vx_weights_biases_parameter;
 
 /*! \brief A Boolean value.
  * This allows 0 to be FALSE, as it is in C, and any non-zero to be TRUE.
@@ -386,6 +386,7 @@ enum vx_type_e {
     VX_TYPE_VENDOR_OBJECT_START  = 0xC00,/*!< \brief A vendor defined object base index. */
 
     VX_TYPE_WEIGHTS_BIASES_PARAMETER = VX_TYPE_VENDOR_OBJECT_START,
+    VX_TYPE_WEIGHTS_BIASES_PARAMETER_BASE = VX_TYPE_VENDOR_OBJECT_START+1,
     VX_TYPE_STRUCT_MAX   = VX_TYPE_USER_STRUCT_START - 1,/*!< \brief A value for comparison between Khronos defined structs and user structs. */
     VX_TYPE_KHRONOS_STRUCT_MAX   = VX_TYPE_USER_STRUCT_START - 1,/*!< \brief A value for comparison between Khronos defined structs and user structs. */
 
@@ -418,7 +419,7 @@ enum vx_type_e {
     VX_TYPE_TENSOR_ADDRESS  = 0x817,/*!< \brief A <tt>\ref vx_tensor_addressing</tt>. */
     VX_TYPE_TENSOR_MEM      = 0x818,/*!< \brief A <tt>\ref vx_tensor_alloc_info</tt>. */
 
-    VX_TYPE_OBJECT_MAX      = VX_TYPE_WEIGHTS_BIASES_PARAMETER + 1,/*!< \brief A value used for bound checking the OpenVX object types. */
+    VX_TYPE_OBJECT_MAX      = VX_TYPE_WEIGHTS_BIASES_PARAMETER_BASE + 1,/*!< \brief A value used for bound checking the OpenVX object types. */
     VX_TYPE_VENDOR_OBJECT_END   = 0xFFF,/*!< \brief A value used for bound checking of vendor objects */
 };
 
@@ -709,8 +710,6 @@ enum vx_graph_attribute_e {
     VX_GRAPH_NUMPARAMETERS = VX_ATTRIBUTE_BASE(VX_ID_KHRONOS, VX_TYPE_GRAPH) + 0x3,
     /*! \brief Returns the state of the graph. See <tt>\ref vx_graph_state_e</tt> enum. */
     VX_GRAPH_STATE = VX_ATTRIBUTE_BASE(VX_ID_KHRONOS, VX_TYPE_GRAPH) + 0x4,
-    /*! \brief Returns the memory rank of the tensor. */
-    VX_GRAPH_RANK = VX_ATTRIBUTE_BASE(VX_ID_KHRONOS, VX_TYPE_GRAPH) + 0x5,
 };
 
 /*! \brief The Conversion Policy Enumeration.

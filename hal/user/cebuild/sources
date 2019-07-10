@@ -11,6 +11,7 @@
 ##############################################################################
 
 
+
 DOSYSGEN=1
 SYNCHRONIZE_DRAIN=1
 
@@ -37,6 +38,7 @@ SOURCES = \
 !IF "$(VIVANTE_ENABLE_3D)" == "1"
 SOURCES = $(SOURCES) \
     ../gc_hal_user_bufobj.c \
+    ../gc_hal_user_cl.c \
     ../gc_hal_user_engine.c \
     ../gc_hal_user_index.c \
     ../gc_hal_user_shader.c \

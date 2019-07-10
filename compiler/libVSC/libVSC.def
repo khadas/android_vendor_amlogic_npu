@@ -22,6 +22,17 @@ EXPORTS
     dbg_dumpCode
     dbg_dumpOptimizer
     dbg_dumpShader
+    dbg_dumpVIR
+    dbg_dumpVFunc
+    dbg_dumpMCode
+    dbg_dumpVShader
+    dbg_dumpVSym
+    dbg_dumpVSymId
+    dbg_dumpVLSymId
+    dbg_dumpVNameId
+    dbg_dumpVOperand
+    dbg_dumpVTypeId
+    dbg_dumpVType
     gcDumpOption
 
     ; gcSHADER

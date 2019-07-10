@@ -325,11 +325,6 @@ _DumpState(
     /* Dump GPU Debug registers. */
     gcmkVERIFY_OK(gckHARDWARE_DumpGPUState(Kernel->hardware));
 
-    if (Kernel->command)
-    {
-        gcmkVERIFY_OK(gckCOMMAND_DumpExecutingBuffer(Kernel->command));
-    }
-
     /* Dump Pending event. */
     gcmkVERIFY_OK(gckEVENT_Dump(Kernel->eventObj));
 
@@ -340,6 +335,11 @@ _DumpState(
     /* Dump record. */
     gckRECORDER_Dump(Kernel->command->recorder);
 #endif
+
+    if (Kernel->command)
+    {
+        gcmkVERIFY_OK(gckCOMMAND_DumpExecutingBuffer(Kernel->command));
+    }
 }
 
 static gceHARDWARE_TYPE
@@ -2360,11 +2360,11 @@ gckKERNEL_Dispatch(
     case gcvHAL_GET_BASE_ADDRESS:
         /* Get base address. */
         Interface->u.GetBaseAddress.baseAddress = Kernel->hardware->baseAddress;
-        Interface->u.GetBaseAddress.flatMappingRangeCount = Kernel->mmu->flatMappingRangeCount;
-        if (Kernel->mmu->flatMappingRangeCount)
+        Interface->u.GetBaseAddress.flatMappingRangeCount = Kernel->mmu->gpuPhysicalRangeCount;
+        if (Kernel->mmu->gpuPhysicalRangeCount)
         {
-            gckOS_MemCopy(Interface->u.GetBaseAddress.flatMappingRanges, Kernel->mmu->flatMappingRanges,
-                gcmSIZEOF(gcsFLAT_MAPPING_RANGE) * Kernel->mmu->flatMappingRangeCount);
+            gckOS_MemCopy(Interface->u.GetBaseAddress.flatMappingRanges, Kernel->mmu->gpuPhysicalRanges,
+                gcmSIZEOF(gcsFLAT_MAPPING_RANGE) * Kernel->mmu->gpuPhysicalRangeCount);
         }
         break;
 

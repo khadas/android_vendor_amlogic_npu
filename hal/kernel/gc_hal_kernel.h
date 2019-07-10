@@ -1714,9 +1714,13 @@ struct _gckMMU
     /* Safe page physical address. */
     gctPHYS_ADDR_T              safePagePhysical;
 
-    /* physBase,physSize flat mapping area. */
-    gctUINT32                   flatMappingRangeCount;
-    gcsFLAT_MAPPING_RANGE       flatMappingRanges[gcdMAX_FLAT_MAPPING_COUNT];
+    /* GPU physical address flat mapping area. */
+    gctUINT32                   gpuPhysicalRangeCount;
+    gcsFLAT_MAPPING_RANGE       gpuPhysicalRanges[gcdMAX_FLAT_MAPPING_COUNT];
+
+    /* GPU virtual address flat mapping area*/
+    gctUINT32                   gpuAddressRangeCount;
+    gcsFLAT_MAPPING_RANGE       gpuAddressRanges[gcdMAX_FLAT_MAPPING_COUNT];
 
     /* List of hardware which uses this MMU. */
     gcsLISTHEAD                 hardwareList;

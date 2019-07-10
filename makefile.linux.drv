@@ -134,7 +134,7 @@ endif # VIVANTE_ENABLE_3D
 
 
 ifeq ($(VIVANTE_ENABLE_3D),1)
-ifneq ($(USE_OPENVX),0)
+ifneq ($(USE_OPENCL)$(USE_OPENVX),00)
 # libCLC
 LIB_CLC             := $(AQROOT)/compiler/libCLC
 LIB_LIST            += $(LIB_CLC)
@@ -148,6 +148,25 @@ endif # VIVANTE_ENABLE_3D
 
 
 ifeq ($(VIVANTE_ENABLE_3D),1)
+ifeq ($(USE_OPENCL),1)
+# libOpenCL
+LIB_CL11            := $(AQROOT)/driver/khronos/libCL
+LIB_LIST            += $(LIB_CL11)
+
+$(LIB_CL11):        $(LIB_GAL) $(LIB_GLES2X) $(LIB_CLC)
+
+.PHONY: cl11 ocl11_drv
+cl11:               $(LIB_CL11)
+ocl11_drv:          $(LIB_CLC) $(LIB_CL11)
+
+ifeq ($(BUILD_OPENCL_ICD),1)
+LIB_CL11_ICD        := $(AQROOT)/driver/khronos/libCL/icdloader12
+LIB_LIST            += $(LIB_CL11_ICD)
+
+cl11:               $(LIB_CL11_ICD)
+ocl11_drv:          $(LIB_CL11_ICD)
+endif # BUILD_OPENCL_ICD
+endif # USE_OPENCL
 endif # VIVANTE_ENABLE_3D
 
 

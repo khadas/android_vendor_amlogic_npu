@@ -154,12 +154,13 @@ gcoOS_DumpBuffer(
     IN gctSIZE_T Bytes
     )
 {
+    gctUINT32_PTR ptr = (gctUINT32_PTR) Logical + (Offset >> 2);
+    gctUINT32 phys    = Physical + (Offset & ~3);
+    gctSIZE_T bytes   = gcmALIGN(Bytes + (Offset & 3), 4);
+
 #if gcdDUMP_IN_KERNEL
     gcsHAL_INTERFACE ioctl;
 #else
-    gctUINT32_PTR ptr = (gctUINT32_PTR) Logical + (Offset >> 2);
-    gctSIZE_T bytes   = gcmALIGN(Bytes + (Offset & 3), 4);
-
     static gctCONST_STRING tagString[] =
     {
         "string",
@@ -194,9 +195,9 @@ gcoOS_DumpBuffer(
     ioctl.ignoreTLS = gcvFALSE;
     ioctl.command   = gcvHAL_DEBUG_DUMP;
     ioctl.u.DebugDump.type    = (gctUINT32)Type;
-    ioctl.u.DebugDump.ptr     = gcmPTR_TO_UINT64(Logical);
-    ioctl.u.DebugDump.address = Physical;
-    ioctl.u.DebugDump.size    = (gctUINT32)Bytes;
+    ioctl.u.DebugDump.ptr     = gcmPTR_TO_UINT64(ptr);
+    ioctl.u.DebugDump.address = phys;
+    ioctl.u.DebugDump.size    = (gctUINT32)bytes;
 
     gcmVERIFY_OK(gcoOS_DeviceControl(Os,
         IOCTL_GCHAL_INTERFACE,
@@ -206,7 +207,7 @@ gcoOS_DumpBuffer(
     gcmLOCKDUMP();
 
     gcmDUMP(Os, "@[%s 0x%08X 0x%08X",
-            tagString[Type], Physical + (Offset & ~3), bytes);
+            tagString[Type], phys, bytes);
 
     while (bytes >= 16)
     {

@@ -108,9 +108,9 @@ typedef struct _gcsMODULE_PARAMETERS
 }
 gcsMODULE_PARAMETERS;
 
-typedef struct soc_platform gcsPLATFORM;
+typedef struct _gcsPLATFORM gcsPLATFORM;
 
-typedef struct soc_platform_ops
+typedef struct _gcsPLATFORM_OPERATIONS
 {
 
     /*******************************************************************************
@@ -273,7 +273,7 @@ typedef struct soc_platform_ops
 }
 gcsPLATFORM_OPERATIONS;
 
-struct soc_platform
+struct _gcsPLATFORM
 {
 #if USE_LINUX_PCIE
     struct pci_dev         *device;
@@ -290,10 +290,10 @@ struct soc_platform
 };
 
 #if USE_LINUX_PCIE
-int soc_platform_init(struct pci_driver *pdrv, gcsPLATFORM **platform);
+int gckPLATFORM_Init(struct pci_driver *pdrv, gcsPLATFORM **platform);
 #else
-int soc_platform_init(struct platform_driver *pdrv, gcsPLATFORM **platform);
+int gckPLATFORM_Init(struct platform_driver *pdrv, gcsPLATFORM **platform);
 #endif
-int soc_platform_terminate(gcsPLATFORM *platform);
+int gckPLATFORM_Terminate(gcsPLATFORM *platform);
 
 #endif

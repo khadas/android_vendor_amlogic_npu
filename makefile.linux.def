@@ -44,7 +44,7 @@ LINUX_EMULATOR      ?= 0
 LINUX_VSIMULATOR    ?= 0
 NO_KERNEL           ?= 0
 
-USE_OPENCL          ?= 0
+USE_OPENCL          ?= 1
 USE_OPENVX          ?= 1
 USE_VULKAN          ?= 0
 USE_VDK             ?= 0
@@ -80,8 +80,18 @@ USE_VXC_BINARY      ?= 0
 # Option dependency.
 
 ifeq ($(VIVANTE_ENABLE_3D),1)
+  ifeq ($(USE_OPENCL),1)
+    ifeq ($(LINUX_VSIMULATOR),1)
     ENABLE_CL_GL    ?= 0
     BUILD_OPENCL_ICD:= 0
+    else
+    ENABLE_CL_GL    ?= 0
+    BUILD_OPENCL_ICD:= 1
+    endif
+  else
+    ENABLE_CL_GL    ?= 0
+    BUILD_OPENCL_ICD:= 0
+  endif
 else
   BUILD_OPENCL_ICD  := 0
 endif

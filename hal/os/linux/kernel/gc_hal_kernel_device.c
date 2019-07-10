@@ -1072,7 +1072,7 @@ _SetupContiguousVidMem(
     )
 {
     gceSTATUS status = gcvSTATUS_OK;
-    gctUINT64 physAddr = ~0U;
+    gctUINT64 physAddr = ~0ULL;
     gckGALDEVICE device = Device;
 
     gcmkHEADER_ARG("Device=%p Args=%p", Device, Args);
@@ -1117,6 +1117,10 @@ _SetupContiguousVidMem(
                     device->contiguousVidMem->capability = allocator->capability | gcvALLOC_FLAG_MEMLIMIT;
                     device->contiguousVidMem->physical = device->contiguousPhysical;
                     device->contiguousBase = physAddr;
+                    if (device->contiguousBase > 0xFFFFFFFFULL)
+                    {
+                        device->contiguousVidMem->capability &= ~gcvALLOC_FLAG_4GB_ADDR;
+                    }
                     break;
                 }
 

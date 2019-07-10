@@ -20,21 +20,11 @@
 
 #include "gc_vsc_precomp.h"
 
-/* macro to help merge from dev_129469 */
-#define DEV_129469  1
-
 /* It will be fully removed after VIR totally replaces of gcSL */
 #include "old_impl/gc_vsc_old_drvi_interface.h"
 
 /******************************* VIR SHADER BINARY FILE VERSION ******************/
 /* current version */
-#if !DEV_129469
-/* 0.0.1.3 add chipModel and ChipRevision, Nov. 30, 2017 */
-/* 0.0.1.5 add new intrinsic lib (viv_vir_intrinsic-noimgInst.lib), Nov. 30, 2017 */
-#define gcdVIR_SHADER_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 5)
-
-#define gcdVIR_PROGRAM_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 5)
-#else
 /* 0.0.1.4 add chipModel and ChipRevision, Nov. 30, 2017 */
 /* 0.0.1.6 add VIR_OP_CLAMPCOORD, Feb. 2, 2018 */
 /* 0.0.1.7 remove VG from shader flags, Mar. 1, 2018 */
@@ -48,10 +38,9 @@
 /* 0.0.1.15 add the parameter "lod" for image_fetch_samplerBuffer, Mar. 30, 2018 */
 /* 0.0.1.16 add a flag in VIR_Uniform, Apr. 2, 2018 */
 /* 0.0.1.17 save more memoryAccessFlag, Apr. 19, 2018 */
-#define gcdVIR_SHADER_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 17)
-
-#define gcdVIR_PROGRAM_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 17)
-#endif
+/* 0.0.1.18 change image_fetch_gsamplerBuffer prototype, Aug. 28, 2018 */
+#define gcdVIR_SHADER_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 18)
+#define gcdVIR_PROGRAM_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 18)
 
 #if !defined(gcdTARGETHOST_BIGENDIAN)
 #define gcdTARGETHOST_BIGENDIAN 0  /* default host little endian, to change the
@@ -59,8 +48,6 @@
 #endif
 #define gcdTARGETDEVICE_BIGENDIAN 0  /* device always little endian */
 
-#define gcdSUPPORT_COMPUTE_SHADER   1
-#define gcdSUPPORT_TESS_GS_SHADER   1
 #define gcdSUPPORT_OCL_1_2          1
 #define TREAT_ES20_INTEGER_AS_FLOAT 0
 #define __USE_IMAGE_LOAD_TO_ACCESS_SAMPLER_BUFFER__ 1
@@ -669,8 +656,9 @@ typedef struct _VSC_HW_CONFIG
         gctUINT          varyingPackingLimited  : 1;
         gctUINT          robustAtomic           : 1;
         gctUINT          newGPIPE               : 1;
+        gctUINT          FEDrawDirect           : 1;
 
-        gctUINT          reserved1              : 20;
+        gctUINT          reserved1              : 19;
     } hwFeatureFlags;
 
     gctUINT              chipModel;

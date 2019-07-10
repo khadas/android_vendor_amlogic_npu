@@ -279,7 +279,7 @@ reserved_mem_unmap_user(
     if (unlikely(!current->mm))
         return;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
     if (vm_munmap((unsigned long)MdlMap->vmaAddr, (unsigned long)Size) < 0)
     {
         printk("%s: vm_munmap failed\n", __func__);

@@ -46,8 +46,6 @@ gcoCL_InitializeHardware()
     /* Set the hardware type. */
     gcmONERROR(gcoHAL_SetHardwareType(gcvNULL, gcvHARDWARE_3D));
 
-    gcmONERROR(gcoHARDWARE_SetMultiGPUMode(gcvNULL, gcvMULTI_GPU_MODE_INDEPENDENT));
-
     if (gcoHARDWARE_IsFeatureAvailable(gcvNULL, gcvFEATURE_MCFE))
     {
         gcoHARDWARE_SelectChannel(gcvNULL, 0, 1);
@@ -812,20 +810,31 @@ gcoCL_FlushSurface(
                 return status;
             }
 
-            status = gcoOS_CacheFlush(gcvNULL,
+            gcmONERROR(gcoOS_CacheFlush(gcvNULL,
                                            Surface->node.u.normal.node,
                                            Surface->node.logical,
-                                           Surface->size);
+                                           Surface->size));
+
+            gcmONERROR(gcoSURF_NODE_Cache(&Surface->node,
+                                          Surface->node.logical,
+                                          Surface->size,
+                                          gcvCACHE_INVALIDATE));
         }
         else
         {
-            status = gcoSURF_NODE_Cache(&Surface->node,
+            gcmONERROR(gcoSURF_NODE_Cache(&Surface->node,
                                         srcMemory[0],
                                         Surface->size,
-                                        gcvCACHE_FLUSH);
+                                        gcvCACHE_FLUSH));
+
+            gcmONERROR(gcoSURF_NODE_Cache(&Surface->node,
+                                        srcMemory[0],
+                                        Surface->size,
+                                        gcvCACHE_INVALIDATE));
         }
     }
 
+OnError:
     /* Return the status. */
     gcmFOOTER();
     return status;
@@ -1238,7 +1247,7 @@ gcoCL_QueryDeviceInfo(
     gceSTATUS status;
     gctUINT threadCount;
     gctSIZE_T contiguousSize;
-    gctPHYS_ADDR contiguousAddress;
+    gctUINT32 contiguousPhysName;
     gctSIZE_T physicalSystemMemSize;
     gceCHIPMODEL  chipModel = gcv200;
     gctUINT32 chipRevision = 0;
@@ -1314,7 +1323,7 @@ gcoCL_QueryDeviceInfo(
         gcoOS_QueryVideoMemory(gcvNULL,
                                gcvNULL,            gcvNULL,
                                gcvNULL,            gcvNULL,
-                               &contiguousAddress, &contiguousSize));
+                               &contiguousPhysName, &contiguousSize));
 
         DeviceInfo->maxMemAllocSize       = contiguousSize / 4;
         DeviceInfo->globalMemSize         = contiguousSize / 2;
@@ -1500,7 +1509,8 @@ gcoCL_QueryDeviceCount(
     )
 {
     gctUINT chipIDs[32];
-
+    gceMULTI_GPU_MODE mode;
+    gctUINT coreIndex;
     gcmHEADER();
 
     /* Verify the arguments. */
@@ -1511,6 +1521,17 @@ gcoCL_QueryDeviceCount(
     if (*Count == 0)
     {
         gcoHAL_QueryCoreCount(gcvNULL, gcvHARDWARE_3D2D, Count, chipIDs);
+    }
+
+    gcoHAL_QueryMultiGPUAffinityConfig(gcvHARDWARE_3D, &mode, &coreIndex);
+
+    if (mode == gcvMULTI_GPU_MODE_COMBINED)   /*Combined Mode count is 1*/
+    {
+        *Count = 1;
+    }
+    else if(gcoHAL_GetOption(gcvNULL, gcvOPTION_OCL_USE_MULTI_DEVICES) == gcvFALSE)  /*Dependent mode depend on macro gcvOPTION_OCL_USE_MULTI_DEVICES*/
+    {
+        *Count = 1;
     }
 
     gcmFOOTER_ARG("*Count=%d", *Count);
@@ -1562,7 +1583,7 @@ gcoCL_SelectDevice(
     gcmONERROR(gcoHAL_SetCoreIndex(gcvNULL, DeviceId));
 
     gcmONERROR(gcoHARDWARE_Construct(gcPLS.hal, gcvFALSE, gcvFALSE, &hardware));
-    gcmONERROR(gcoHARDWARE_SetMultiGPUMode(hardware, gcvMULTI_GPU_MODE_INDEPENDENT));
+
     if (gcoHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_MCFE))
     {
         gcoHARDWARE_SelectChannel(hardware, 0, 1);
@@ -1612,6 +1633,14 @@ gceSTATUS
  }
 
 
+gceSTATUS
+    gcoCL_GetHWConfigGpuCount(
+     gctUINT32 * GpuCount
+    )
+{
+    gcoHAL_Query3DCoreCount(gcvNULL, GpuCount);
+    return gcvSTATUS_OK;
+}
 /*******************************************************************************
 **
 **  gcoCL_Commit
@@ -1942,7 +1971,8 @@ gcoCL_InvokeKernel(
     IN size_t              GlobalWorkSize[3],
     IN size_t              LocalWorkSize[3],
     IN gctUINT             ValueOrder,
-    IN gctBOOL             BarrierUsed
+    IN gctBOOL             BarrierUsed,
+    IN gctBOOL             AtomicUsed
     )
 {
     gcsTHREAD_WALKER_INFO   info;
@@ -1987,6 +2017,7 @@ gcoCL_InvokeKernel(
     info.swathSizeZ       = 0;
     info.valueOrder       = ValueOrder;
     info.barrierUsed      = BarrierUsed;
+    info.atomicUsed       = AtomicUsed;
 
     gcmONERROR(gcoCL_InvokeThreadWalker(&info));
 
@@ -2116,4 +2147,3 @@ OnError:
 }
 
 #endif /* gcdENABLE_3D */
-

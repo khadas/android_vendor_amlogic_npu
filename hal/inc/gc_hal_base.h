@@ -34,6 +34,7 @@ typedef struct gcsATOM *                gcsATOM_PTR;
 
 typedef struct _gco3D *                 gco3D;
 typedef struct _gcoCL *                 gcoCL;
+typedef struct _gcoVX *                 gcoVX;
 typedef struct _gcsFAST_FLUSH *         gcsFAST_FLUSH_PTR;
 
 typedef struct _gcoSURF *               gcoSURF;
@@ -79,6 +80,7 @@ typedef struct _gcsNN_FIXED_FEATURE
     gctUINT  tpPwlLUTSize;
     gctUINT  vip7Version;
     gctUINT  vipBrickMode;
+    gctUINT  tpReorderInImageSize;
 } gcsNN_FIXED_FEATURE;
 
 /* Features can be customized from outside */
@@ -238,6 +240,7 @@ typedef struct _gcsTLS
 #if gcdENABLE_3D
     gco3D                       engine3D;
 #endif
+    gcoVX                       engineVX;
 
     gctBOOL                     copied;
 
@@ -1915,6 +1918,16 @@ gceSTATUS
 gcoOS_QueryProfileTickRate(
     OUT gctUINT64_PTR TickRate
     );
+
+#if gcdSTATIC_LINK && defined(WIN32)
+void gcoOS_ModuleConstructor(
+    void
+    );
+
+void gcoOS_ModuleDestructor(
+    void
+    );
+#endif
 
 #define _gcmPROFILE_INIT(prefix, freq, start) \
     do { \

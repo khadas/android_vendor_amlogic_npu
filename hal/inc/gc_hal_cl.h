@@ -593,6 +593,10 @@ gceSTATUS
     gcoHARDWARE  Hardware
     );
 
+gceSTATUS
+    gcoCL_GetHWConfigGpuCount(
+     gctUINT32 * GpuCount
+    );
 /*******************************************************************************
 **
 **  gcoCL_Commit
@@ -740,7 +744,8 @@ gcoCL_InvokeKernel(
     IN size_t       GlobalWorkSize[3],
     IN size_t       LocalWorkSize[3],
     IN gctUINT      ValueOrder,
-    IN gctBOOL      BarrierUsed
+    IN gctBOOL      BarrierUsed,
+    IN gctBOOL      AtomicUsed
     );
 
 gceSTATUS

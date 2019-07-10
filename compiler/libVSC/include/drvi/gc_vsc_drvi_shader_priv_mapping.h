@@ -77,6 +77,7 @@ typedef struct SHADER_PRIV_MAPPING_COMMON_ENTRY
     gctUINT                                     privmKindIndex;
 
     /* For some flags, they will have their private data to tell driver how to do. */
+    gctBOOL                                     notAllocated;
     void*                                       pPrivateData;
 }
 SHADER_PRIV_MAPPING_COMMON_ENTRY;

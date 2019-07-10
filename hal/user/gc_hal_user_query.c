@@ -1367,17 +1367,6 @@ gcoHAL_QueryMultiGPUAffinityConfig(
     static gceMULTI_GPU_MODE mode = gcvMULTI_GPU_MODE_COMBINED;
     static gctUINT32 coreIndex = 0;
 
-    if (queriedOnce)
-    {
-        *Mode = mode;
-        *CoreIndex = coreIndex;
-        return gcvSTATUS_OK;
-    }
-    else
-    {
-        queriedOnce = gcvTRUE;
-    }
-
     if (Type != gcvHARDWARE_3D && Type != gcvHARDWARE_3D2D)
     {
         if (Mode)
@@ -1387,6 +1376,17 @@ gcoHAL_QueryMultiGPUAffinityConfig(
         }
 
         return gcvSTATUS_OK;
+    }
+
+    if (queriedOnce)
+    {
+        *Mode = mode;
+        *CoreIndex = coreIndex;
+        return gcvSTATUS_OK;
+    }
+    else
+    {
+        queriedOnce = gcvTRUE;
     }
 
     gcoOS_GetEnv(gcvNULL, "VIV_MGPU_AFFINITY", &affinity);

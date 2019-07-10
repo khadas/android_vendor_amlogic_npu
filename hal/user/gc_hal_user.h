@@ -432,6 +432,13 @@ gco3D_ClearHzTileStatus(
 
 #endif /* gcdENABLE_3D */
 
+#if gcdUSE_VX && gcdENABLE_3D
+
+gceSTATUS gcoVX_Construct(OUT gcoVX *VXObj);
+
+gceSTATUS gcoVX_Destroy(IN gcoVX VXObj);
+#endif
+
 /******************************************************************************\
 ******************************* gcoHARDWARE Object ******************************
 \******************************************************************************/
@@ -622,12 +629,6 @@ gcoHARDWARE_GetMultiGPUMode(
     IN gcoHARDWARE Hardware,
     OUT gceMULTI_GPU_MODE *MultiGPUMode
     );
-
-gceSTATUS
-gcoHARDWARE_GetConfigGpuCount(
-        IN gcoHARDWARE Hardware,
-        OUT gctUINT32 *CoreCount
-        );
 
 gceSTATUS
 gcoHARDWARE_MultiGPUSync(
@@ -2925,7 +2926,7 @@ typedef struct _vx_drv_option
     gctUINT enableHandleBranch; /*merge more branches to use AB Buffer for SWTiling for arch model*/
     gctUINT enableNNFirstPixelPooling;
     gctUINT enablePrintOperaTarget;
-    gctUINT enableSaveNetworkBinary;
+    gctUINT enableSaveBinary;
     gctUINT enableGraphCommandBuffer;
     gctUINT nnFormulaOpt;
     gctUINT ddrLatency;
@@ -2958,6 +2959,11 @@ typedef struct _vx_drv_option
     gctUINT enableZdpOpt;
     gctUINT nn1x1To1xN;
     gctUINT enableGraphTranform;
+    gctUINT enableGraphWAR7;
+    gctUINT enableGraphMerge;
+    gctUINT enableGraphDump;
+    gctUINT enableGraphOptimizationToTest;
+    gctUINT enableGraphConvertBatchFC2NNConv;
 }
 vx_drv_option;
 
@@ -3229,6 +3235,7 @@ typedef struct _gcoVX_Hardware_Context
 #endif
 
     gctBOOL             hasBarrier;
+    gctBOOL             hasAtomic;
 }
 gcoVX_Hardware_Context;
 

@@ -341,6 +341,8 @@ gcoHARDWARE_QueryShaderCompilerHwCfg(
     pVscHwCfg->hwFeatureFlags.supportSeparatedTex    = gcvFALSE;
     pVscHwCfg->hwFeatureFlags.supportMultiGPU        = gcvTRUE;
 
+    pVscHwCfg->hwFeatureFlags.FEDrawDirect           = IS_HW_SUPPORT(gcvFEATURE_FE_DRAW_DIRECT);
+
 OnError:
     gcmFOOTER();
     return status;
@@ -579,7 +581,7 @@ _StallHw(
         {
             gcmONERROR(gcoHARDWARE_LoadCtrlStateNEW(Hardware,
                                                     0x1C00C,
-                                                    0x12345678,
+                                                    0x1,
                                                     gcvNULL));
         }
 
@@ -773,7 +775,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
 
                 for(i = 1; i < usedGPUCount; i++)
                 {
-                    eachGPUInfo[i].globalOffsetX = eachGPUInfo[i-1].workGroupCountX * Info->workGroupSizeX + eachGPUInfo[i-1].globalOffsetX;
+                    eachGPUInfo[i].globalOffsetX = eachGPUInfo[i-1].workGroupCountX * Info->workGroupSizeX * eachGPUInfo[i].globalScaleX + eachGPUInfo[i-1].globalOffsetX;
                 }
             }
             break;
@@ -799,7 +801,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
 
                 for(i = 1; i < usedGPUCount; i++)
                 {
-                    eachGPUInfo[i].globalOffsetY = eachGPUInfo[i-1].workGroupCountY * Info->workGroupSizeY + eachGPUInfo[i-1].globalOffsetY;
+                     eachGPUInfo[i].globalOffsetY = eachGPUInfo[i-1].workGroupCountY * Info->workGroupSizeY * eachGPUInfo[i].globalScaleY + eachGPUInfo[i-1].globalOffsetY;
                 }
             }
             break;
@@ -825,7 +827,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
 
                 for(i = 1; i < usedGPUCount; i++)
                 {
-                    eachGPUInfo[i].globalOffsetZ = eachGPUInfo[i-1].workGroupCountZ * Info->workGroupSizeZ + eachGPUInfo[i-1].globalOffsetZ;
+                     eachGPUInfo[i].globalOffsetZ = eachGPUInfo[i-1].workGroupCountZ * Info->workGroupSizeZ * eachGPUInfo[i].globalScaleZ + eachGPUInfo[i-1].globalOffsetZ;
                 }
             }
             break;
@@ -922,7 +924,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
  } };
 
                 }
@@ -1763,7 +1765,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
             }
@@ -1789,7 +1791,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(i));
  } };
 
             }
@@ -2163,7 +2165,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
         }
@@ -3124,7 +3126,7 @@ gcoHARDWARE_InvokeThreadWalkerGL(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(0));
  } };
 
 
@@ -3401,7 +3403,7 @@ gcoHARDWARE_InvokeThreadWalkerGL(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
     gcoHARDWARE_MultiGPUSync(Hardware, &memory);
@@ -3911,7 +3913,7 @@ gcoHARDWARE_FlushUniform(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(k); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(k));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(k));
  } };
 
                     {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
@@ -3994,7 +3996,7 @@ gcoHARDWARE_FlushUniform(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
             }
@@ -4075,7 +4077,7 @@ gcoHARDWARE_FlushUniform(
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ?
  31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(k); memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(k));
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_0_MASK << gcmTO_CHIP_ID(k));
  } };
 
                     for (j = 0; j < 4; j++)
@@ -4149,7 +4151,7 @@ gcoHARDWARE_FlushUniform(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | gcvCORE_3D_ALL_MASK; memory++;
-  gcmDUMP(gcvNULL, , gcvCORE_3D_ALL_MASK);
+  gcmDUMP(gcvNULL, "#[chip.enable 0x%04X]", gcvCORE_3D_ALL_MASK);
  } };
 
 

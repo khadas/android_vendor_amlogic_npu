@@ -7,10 +7,19 @@ set -e
 # Please modify the following items according your build environment
 
 ARCH=arm-amlogic
-if [ ! -z $1 ]; then
-    ARCH=$1
+echo "note:arg1 is kernel path,arg2 is toolchain path"
+if [ -z $1 ]; then
+    echo "error:kernel path not set"
+	exit 1
 fi
-
+if [ -z $2 ]; then
+    echo "error:toolchain path not set"
+	exit 1
+fi
+#CROSS_TOOL_PATH=$2
+#fstr=${CROSS_TOOL_PATH%/*}
+#fstr=${fstr%/*}
+#echo $fstr
 
 export AQROOT=`pwd`
 export AQARCH=$AQROOT/arch/XAQ2
@@ -31,16 +40,17 @@ arm)
 ;;
 
 arm-amlogic)
+	echo "arm amlogic will compile"
     ARCH=arm64
     export ARCH_TYPE=$ARCH
     export CPU_TYPE=cortex-a53
     export CPU_ARCH=armv8-a
     export FIXED_ARCH_TYPE=arm64
 
-	export KERNEL_DIR=/mnt/fileroot/xingwei.zhou/work/pxp_bringup/common
+	export KERNEL_DIR=$1
     export CROSS_COMPILE=aarch64-linux-gnu-
-	export TOOLCHAIN=/mnt/fileroot/xingwei.zhou/work/linux/toolchain/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu/bin
-	export LIB_DIR=/mnt/fileroot/xingwei.zhou/work/linux/toolchain/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu/aarch64-linux-gnu/libc/lib
+	export TOOLCHAIN=$2/bin
+	export LIB_DIR=$2/libc/lib
 
 ;;
 
@@ -289,6 +299,10 @@ BUILD_OPTION_ABI=0
 BUILD_OPTION_LINUX_OABI=0
 BUILD_OPTION_NO_DMA_COHERENT=1
 BUILD_OPTION_USE_VDK=1
+
+BUILD_OPTION_USE_VXC_BINARY=0
+BUILD_OPTION_GPU_CONFIG="vipnanoqi_pid0x7d"
+
 if [ -z $BUILD_OPTION_EGL_API_FB ]; then
     BUILD_OPTION_EGL_API_FB=1
 fi
@@ -354,15 +368,16 @@ BUILD_OPTIONS="$BUILD_OPTIONS ENABLE_GPU_CLOCK_BY_DRIVER=$BUILD_OPTION_ENABLE_GP
 BUILD_OPTIONS="$BUILD_OPTIONS CONFIG_DOVEXC5_BOARD=$BUILD_OPTION_CONFIG_DOVEXC5_BOARD"
 BUILD_OPTIONS="$BUILD_OPTIONS FPGA_BUILD=$BUILD_OPTION_FPGA_BUILD"
 BUILD_OPTIONS="$BUILD_OPTIONS YOCTO_DRI_BUILD=$BUILD_YOCTO_DRI_BUILD"
+BUILD_OPTIONS="$BUILD_OPTIONS USE_VXC_BINARY=$BUILD_OPTION_USE_VXC_BINARY"
+BUILD_OPTIONS="$BUILD_OPTIONS GPU_CONFIG=$BUILD_OPTION_GPU_CONFIG"
 
-export PATH=$TOOLCHAIN/bin:$PATH
-
+export PATH=$2/bin:$PATH
 ########################################################
 # clean/build driver and samples
 # build results will save to $SDK_DIR/
 #
 cd $AQROOT; make -j1 -f makefile.linux $BUILD_OPTIONS clean
-cd $AQROOT; make -j1 -f makefile.linux $BUILD_OPTIONS install 2>&1 | tee $AQROOT/linux_build.log
+cd $AQROOT; make -j32 -f makefile.linux $BUILD_OPTIONS install 2>&1 | tee $AQROOT/linux_build.log
 rm galcore.o galcore.mod.o galcore.mod.c galcore.ko
 ########################################################
 # other build/clean commands to build/clean specified items, eg.

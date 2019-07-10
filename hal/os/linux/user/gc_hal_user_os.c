@@ -911,6 +911,13 @@ _TLSDestructor(
 #endif
 
 
+#if gcdUSE_VX
+    if (tls->engineVX)
+    {
+        gcmVERIFY_OK(gcoVX_Destroy(tls->engineVX));
+    }
+#endif
+
     if (tls->defaultHardware != gcvNULL)
     {
         gceHARDWARE_TYPE type = tls->currentType;

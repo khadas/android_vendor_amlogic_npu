@@ -6,6 +6,17 @@
     dbg_dumpIR;
     dbg_dumpShader;
     dbg_dumpOptimizer;
+    dbg_dumpVIR;
+    dbg_dumpVFunc;
+    dbg_dumpMCode;
+    dbg_dumpVShader;
+    dbg_dumpVSym;
+    dbg_dumpVSymId;
+    dbg_dumpVLSymId;
+    dbg_dumpVNameId;
+    dbg_dumpVOperand;
+    dbg_dumpVTypeId;
+    dbg_dumpVType;
     gcDumpOption;
 
     gcOptimizeShader;

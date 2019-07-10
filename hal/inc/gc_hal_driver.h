@@ -823,6 +823,8 @@ typedef struct _gcsFLAT_MAPPING_RANGE
 {
     gctUINT64 start;
     gctUINT64 end;
+    gctUINT32 size;
+    gceFLATMAP_FLAG flag;
 }
 gcsFLAT_MAPPING_RANGE;
 

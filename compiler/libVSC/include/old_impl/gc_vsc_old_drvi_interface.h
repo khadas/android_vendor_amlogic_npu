@@ -20,13 +20,8 @@
 #define __gc_vsc_old_drvi_interface_h_
 
 #define _SUPPORT_LONG_ULONG_DATA_TYPE  1
-#if !DEV_129469
-#define _OCL_USE_INTRINSIC_FOR_IMAGE   0
-#define _SUPPORT_NATIVE_IMAGE_READ     0
-#else
 #define _OCL_USE_INTRINSIC_FOR_IMAGE   1
 #define _SUPPORT_NATIVE_IMAGE_READ     1
-#endif
 
 #include "gc_hal_engine.h"
 #include "old_impl/gc_vsc_old_gcsl.h"
@@ -1235,6 +1230,7 @@ typedef struct _gcOPTIMIZER_OPTION
     gctBOOL     dumpUniform;           /* dump uniform value when setting uniform */
     gctBOOL     dumpSpirvIR;           /* dump VIR shader convert from SPIRV */
     gctBOOL     dumpSpirvToFile;       /* dump SPRIV to file */
+    gctBOOL     dumpBinToFile;         /* dump program binary to file when calling gcLoadProgram */
     gctINT      _dumpStart;            /* shader id start to dump */
     gctINT      _dumpEnd;              /* shader id end to dump */
     gctINT      renumberInst;          /* re-number instruction when dumping IR */

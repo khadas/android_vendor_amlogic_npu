@@ -100,12 +100,6 @@ BEGIN_EXTERN_C()
 /* bump up version to 1.20 for new header with chipModel and chpRevision on 11/30/2017 */
 #define gcdSL_SHADER_BINARY_BEFORE_SAVEING_CHIPMODEL gcmCC(0, 0, 1, 20)
 
-#if !DEV_129469
-/* current version */
-#define gcdSL_SHADER_BINARY_FILE_VERSION gcmCC(0, 0, 1, 21)
-
-#define gcdSL_PROGRAM_BINARY_FILE_VERSION gcmCC(0, 0, 1, 21)
-#else
 /* bump up version to 1.22 for new changes merged from dev_129469 branch on 11/21/2017 */
 #define gcdSL_SHADER_BINARY_BEFORE_MERGED_FROM_DEV_129469_FLAG gcmCC(0, 0, 1, 22)
 
@@ -113,10 +107,9 @@ BEGIN_EXTERN_C()
 #define gcdSL_SHADER_BINARY_BEFORE_MOVE_VG_FROM_SHADER_FLAG gcmCC(0, 0, 1, 23)
 
 /* current version */
-#define gcdSL_SHADER_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 24)
+#define gcdSL_SHADER_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 25)
 
-#define gcdSL_PROGRAM_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 24)
-#endif
+#define gcdSL_PROGRAM_BINARY_FILE_VERSION gcmCC(SHADER_64BITMODE, 0, 1, 25)
 
 typedef union _gcsValue
 {
@@ -362,13 +355,7 @@ typedef enum _gcSL_OPCODE
     gcSL_CADDCJ, /* 0x98 Complex number conjugate add. */
     gcSL_CSUBCJ, /* 0x99 Complex number conjugate sub. */
     gcSL_CADD, /* 0x9A Complex number add. */
-#if !DEV_129469
-    gcSL_GET_IMAGE_T_SAMPLER_IDX, /* 0x9B get or generate the generic gl sampler index mapping to this generic image_t */
-    gcSL_GET_IMAGE_T_IMAGE_DSP, /* 0x9C get or generate the generic gl image descripter mapping to this generic image_t */
-    gcSL_GET_IMAGE_T_TYPE, /* 0x9D get the image_t type: 0-1d, 1-1dbuffer, 2-1darray, 3-2d, 4-2darray, 5-3d */
-#else
     gcSL_GET_IMAGE_TYPE, /* 0x9B get the image type: 0-1d, 1-1dbuffer, 2-1darray, 3-2d, 4-2darray, 5-3d */
-#endif
     gcSL_CLAMPCOORD, /* clamp image 2d cooridate to its width and height */
     gcSL_MAXOPCODE
 }
@@ -4066,6 +4053,17 @@ typedef struct _gcsTFBVarying
     gctBOOL   isArray;
     gcOUTPUT  output;
 } gcsTFBVarying;
+
+typedef struct _gcBINARY_TFBVarying
+{
+    gctUINT16                       outputIndex;
+    gctINT16                        arraySize;
+    gctINT16                        isWholeTFBed;
+    gctINT16                        isArray;
+    gctINT16                        nameLength;
+    char                            name[1];
+}
+* gcBINARY_TFBVarying;
 
 typedef struct _gcsTRANSFORM_FEEDBACK
 {

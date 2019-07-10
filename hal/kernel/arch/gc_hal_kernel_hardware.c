@@ -3136,6 +3136,27 @@ gckHARDWARE_InitializeHardware(
             Hardware->os, Hardware->core, 0x00090, data));
     }
 
+    if ((Hardware->identity.chipRevision == 0x7004) &&
+        (Hardware->identity.customerID == 0x7d))
+    {
+        gcmkONERROR(gckOS_ReadRegisterEx(
+            Hardware->os, Hardware->core, 0x00090, &data));
+
+        data = ((((gctUINT32) (data)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 6:6) - (0 ?
+ 6:6) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 6:6) - (0 ?
+ 6:6) + 1))))))) << (0 ?
+ 6:6))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 6:6) - (0 ?
+ 6:6) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 6:6) - (0 ? 6:6) + 1))))))) << (0 ? 6:6)));
+
+        gcmkONERROR(gckOS_WriteRegisterEx(
+            Hardware->os, Hardware->core, 0x00090, data));
+    }
+
     _ConfigurePolicyID(Hardware);
 
 #if gcdDEBUG_MODULE_CLOCK_GATING
@@ -4780,7 +4801,8 @@ gckHARDWARE_SetMMU(
             {
                 gcmkONERROR(gckMCFE_Execute(
                     Hardware,
-                    0, gcvFALSE,
+                    gcvFALSE,
+                    0,
                     function->address,
                     function->bytes
                     ));
@@ -16133,7 +16155,7 @@ gckHARDWARE_ExecuteFunctions(
     /* Execute prepared command sequence. */
     if (Hardware->mcFE)
     {
-        gcmkONERROR(gckMCFE_Execute(Hardware, 0, gcvFALSE, address, function->bytes));
+        gcmkONERROR(gckMCFE_Execute(Hardware, gcvFALSE, 0, address, function->bytes));
     }
     else
     {

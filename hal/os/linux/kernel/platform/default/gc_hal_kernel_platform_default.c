@@ -88,12 +88,12 @@ _AdjustParam(
     return gcvSTATUS_OK;
 }
 
-static struct soc_platform_ops default_ops =
+static struct _gcsPLATFORM_OPERATIONS default_ops =
 {
     .adjustParam   = _AdjustParam,
 };
 
-static struct soc_platform default_platform =
+static struct _gcsPLATFORM default_platform =
 {
     .name = __FILE__,
     .ops  = &default_ops,
@@ -101,14 +101,14 @@ static struct soc_platform default_platform =
 
 #if USE_LINUX_PCIE
 
-int soc_platform_init(struct pci_driver *pdrv,
-            struct soc_platform **platform)
+int gckPLATFORM_Init(struct pci_driver *pdrv,
+            struct _gcsPLATFORM **platform)
 {
     *platform = &default_platform;
     return 0;
 }
 
-int soc_platform_terminate(struct soc_platform *platform)
+int gckPLATFORM_Terminate(struct _gcsPLATFORM *platform)
 {
     return 0;
 }
@@ -116,8 +116,8 @@ int soc_platform_terminate(struct soc_platform *platform)
 #else
 static struct platform_device *default_dev;
 
-int soc_platform_init(struct platform_driver *pdrv,
-            struct soc_platform **platform)
+int gckPLATFORM_Init(struct platform_driver *pdrv,
+            struct _gcsPLATFORM **platform)
 {
     int ret;
     default_dev = platform_device_alloc(pdrv->driver.name, -1);
@@ -143,7 +143,7 @@ put_dev:
     return ret;
 }
 
-int soc_platform_terminate(struct soc_platform *platform)
+int gckPLATFORM_Terminate(struct _gcsPLATFORM *platform)
 {
     if (default_dev) {
         platform_device_unregister(default_dev);
