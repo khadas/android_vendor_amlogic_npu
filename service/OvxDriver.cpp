@@ -73,7 +73,9 @@ Return<void> OvxDriver::getCapabilities_1_1(getCapabilities_1_1_cb cb) {
     VLOG(DRIVER) << "getCapabilities()";
     Capabilities capabilities = {.float32Performance = {.execTime = 0.9f, .powerUsage = 0.9f},
                                  .quantized8Performance = {.execTime = 0.9f, .powerUsage = 0.9f},
+#if ANDROID_SDK_VERSION >= 28
                                  .relaxedFloat32toFloat16Performance = {.execTime = 0.9f, .powerUsage = 0.9f}
+#endif
                                 };
     cb(ErrorStatus::NONE, capabilities);
     return Void();

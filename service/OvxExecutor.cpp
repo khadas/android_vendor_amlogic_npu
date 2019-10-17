@@ -17,6 +17,7 @@
 #include "NeuralNetworks.h"
 
 #include <sys/mman.h>
+#include <sys/system_properties.h>
 
 #define NN_TENSOR_MAX_DIMENSION 4
 
@@ -761,25 +762,29 @@ vx_status OvxExecutor::convertAllOperandsToRefences(const std::vector<VxRunTimeP
             {
             case OperandType::FLOAT32:
                 info.buffer = getPointer(operand, poolInfos);
-                ref = (vx_reference)vxCreateScalar(*mContext, VX_TYPE_FLOAT32, info.buffer);
+                ref = (vx_reference)vxCreateScalar(mContext, VX_TYPE_FLOAT32, info.buffer);
+                info.vx_type = VX_TYPE_SCALAR;
                 break;
             case OperandType::INT32:
                 info.buffer = getPointer(operand, poolInfos);
-                ref = (vx_reference)vxCreateScalar(*mContext, VX_TYPE_INT32, (vx_int32*)info.buffer);
+                ref = (vx_reference)vxCreateScalar(mContext, VX_TYPE_INT32, (vx_int32*)info.buffer);
+                info.vx_type = VX_TYPE_SCALAR;
                 break;
             case OperandType::UINT32:
                 info.buffer = getPointer(operand, poolInfos);
-                ref = (vx_reference)vxCreateScalar(*mContext, VX_TYPE_UINT32, info.buffer);
+                ref = (vx_reference)vxCreateScalar(mContext, VX_TYPE_UINT32, info.buffer);
+                info.vx_type = VX_TYPE_SCALAR;
                 break;
             case OperandType::TENSOR_FLOAT32:
             {
                 vx_enum rank = (operand.dimensions.size() == 2)?VX_TENSOR_RANK_SN:VX_TENSOR_RANK_CWHN;
                 vx_type_e format = target_format;
                 info.buffer = getPointer(operand, poolInfos);
+                info.vx_type = VX_TYPE_TENSOR;
 
                 if ((operand.lifetime == OperandLifeTime::MODEL_INPUT) || (operand.lifetime == OperandLifeTime::MODEL_OUTPUT))
                 {
-                    ref = (vx_reference)vxCreateTensor(*mContext, operand.dimensions.size(), operand.dimensions.data(), format, 0);
+                    ref = (vx_reference)vxCreateTensor(mContext, operand.dimensions.size(), operand.dimensions.data(), format, 0);
                 }
                 else if (operand.lifetime == OperandLifeTime::TEMPORARY_VARIABLE)
                 {
@@ -797,12 +802,12 @@ vx_status OvxExecutor::convertAllOperandsToRefences(const std::vector<VxRunTimeP
                     std::vector<vx_uint32> stride = getStrideFromDims(VX_TYPE_FLOAT32, operand.dimensions.data(), operand.dimensions.size());
 
                     /*
-                    vx_tensor_addressing addr = vxCreateTensorAddressing(*mContext, operand.dimensions.data(), stride.data(), operand.dimensions.size());
-                    ref = (vx_reference)vxCreateTensorFromHandle(*mContext, &param, sizeof(vx_tensor_create_params_t), addr, info.buffer, VX_MEMORY_TYPE_HOST);
+                    vx_tensor_addressing addr = vxCreateTensorAddressing(mContext, operand.dimensions.data(), stride.data(), operand.dimensions.size());
+                    ref = (vx_reference)vxCreateTensorFromHandle(mContext, &param, sizeof(vx_tensor_create_params_t), addr, info.buffer, VX_MEMORY_TYPE_HOST);
                     vxReleaseTensorAddressing(&addr);
                     */
 
-                    ref = (vx_reference)vxCreateTensor2(*mContext, &param, sizeof(vx_tensor_create_params_t));
+                    ref = (vx_reference)vxCreateTensor2(mContext, &param, sizeof(vx_tensor_create_params_t));                    
                     copyConstData2Tensor((vx_tensor &)ref, info.buffer, VX_WRITE_ONLY);
 
                 }
@@ -810,10 +815,14 @@ vx_status OvxExecutor::convertAllOperandsToRefences(const std::vector<VxRunTimeP
                 if (!ref)
                     LOG(ERROR) << "vxCreateTensor for TENSOR_FLOAT32 FAILED! " << format;
 
-                VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_RANK, &rank, sizeof(vx_enum)) );
-                VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_VALUE,&value, sizeof(vx_bool)) );
-                VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_LIFETIME, &lifetime, sizeof(vx_enum)) );
-                VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_PRECISION, &precision, sizeof(vx_enum)) );
+                if (checkValid(mModel, i))
+                {
+
+                    VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_RANK, &rank, sizeof(vx_enum)) );
+                    VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_VALUE,&value, sizeof(vx_bool)) );
+                    VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_LIFETIME, &lifetime, sizeof(vx_enum)) );               
+                    VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_PRECISION, &precision, sizeof(vx_enum)) );        
+                }
 
                 if (ref)info.ref = ref;
 
@@ -825,14 +834,16 @@ vx_status OvxExecutor::convertAllOperandsToRefences(const std::vector<VxRunTimeP
                 vx_enum rank = (operand.dimensions.size() == 2)?VX_TENSOR_RANK_SN:VX_TENSOR_RANK_CWHN;
 
                 info.buffer = getPointer(operand, poolInfos);
+                info.vx_type = VX_TYPE_TENSOR;
 
-                vx_tensor_create_params_t param = { (vx_uint32)operand.dimensions.size(), (vx_uint32*)operand.dimensions.data(), VX_TYPE_INT32, VX_QUANT_AFFINE_SCALE, {{0}}};
+                vx_enum quant = ((operand.scale != .0f) || (operand.zeroPoint != 0)) ? VX_QUANT_AFFINE_SCALE :  VX_QUANT_NONE;
+                vx_tensor_create_params_t param = { (vx_uint32)operand.dimensions.size(), (vx_uint32*)operand.dimensions.data(), VX_TYPE_INT32, quant, {{0}}};
                 param.quant_data.affine.scale     = operand.scale;
                 param.quant_data.affine.zeroPoint = operand.zeroPoint;
 
                 if ((operand.lifetime == OperandLifeTime::MODEL_INPUT) || (operand.lifetime == OperandLifeTime::MODEL_OUTPUT))
                 {
-                    ref = (vx_reference)vxCreateTensor2(*mContext, &param, sizeof(vx_tensor_create_params_t));
+                    ref = (vx_reference)vxCreateTensor2(mContext, &param, sizeof(vx_tensor_create_params_t));
                 }
                 else if(operand.lifetime == OperandLifeTime::TEMPORARY_VARIABLE)
                 {
@@ -844,20 +855,24 @@ vx_status OvxExecutor::convertAllOperandsToRefences(const std::vector<VxRunTimeP
                     value = vx_true_e;
                     lifetime = VX_TENSOR_LIFE_TIME_STATIC;
                     /*
-                    vx_tensor_addressing addr = vxCreateTensorAddressing(*mContext, operand.dimensions.data(), getStrideFromDims(VX_TYPE_INT32, operand.dimensions.data(), operand.dimensions.size()).data(), operand.dimensions.size());
-                    ref = (vx_reference)vxCreateTensorFromHandle(*mContext, &param, sizeof(vx_tensor_create_params_t), addr, info.buffer, VX_MEMORY_TYPE_HOST);
+                    vx_tensor_addressing addr = vxCreateTensorAddressing(mContext, operand.dimensions.data(), getStrideFromDims(VX_TYPE_INT32, operand.dimensions.data(), operand.dimensions.size()).data(), operand.dimensions.size());
+                    ref = (vx_reference)vxCreateTensorFromHandle(mContext, &param, sizeof(vx_tensor_create_params_t), addr, info.buffer, VX_MEMORY_TYPE_HOST);
                     */
-                    ref = (vx_reference)vxCreateTensor2(*mContext, &param, sizeof(vx_tensor_create_params_t));
+                    ref = (vx_reference)vxCreateTensor2(mContext, &param, sizeof(vx_tensor_create_params_t));                    
                     copyConstData2Tensor((vx_tensor &)ref, info.buffer, VX_WRITE_ONLY);
                 }
 
                 if (!ref)
                     LOG(ERROR) << "vxCreateTensor for TENSOR_INT32 FAILED! ";
 
-                VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_RANK, &rank, sizeof(vx_enum)) );
-                VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_VALUE,&value, sizeof(vx_bool)) );
-                VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_LIFETIME, &lifetime, sizeof(vx_enum)) );
-                VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_PRECISION, &precision, sizeof(vx_enum)) );
+                if (checkValid(mModel, i))
+                {                 
+
+                    VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_RANK, &rank, sizeof(vx_enum)) );
+                    VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_VALUE,&value, sizeof(vx_bool)) );
+                    VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_LIFETIME, &lifetime, sizeof(vx_enum)) );   
+                    VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_PRECISION, &precision, sizeof(vx_enum)) );
+                }
 
                 if (ref)info.ref = ref;
             }
@@ -867,13 +882,14 @@ vx_status OvxExecutor::convertAllOperandsToRefences(const std::vector<VxRunTimeP
                 vx_enum rank = (operand.dimensions.size() == 2)?VX_TENSOR_RANK_SN:VX_TENSOR_RANK_CWHN;
                 info.buffer = getPointer(operand, poolInfos);
 
+                info.vx_type = VX_TYPE_TENSOR;
                 vx_tensor_create_params_t param = { (vx_uint32)operand.dimensions.size(), (vx_uint32*)operand.dimensions.data(), VX_TYPE_UINT8, VX_QUANT_AFFINE_SCALE, {{0}}};
                 param.quant_data.affine.scale = operand.scale;
                 param.quant_data.affine.zeroPoint = operand.zeroPoint;
 
                 if ((operand.lifetime == OperandLifeTime::MODEL_INPUT) || (operand.lifetime == OperandLifeTime::MODEL_OUTPUT))
                 {
-                    ref = (vx_reference)vxCreateTensor2(*mContext, &param, sizeof(vx_tensor_create_params_t));
+                    ref = (vx_reference)vxCreateTensor2(mContext, &param, sizeof(vx_tensor_create_params_t));
                 }
                 else if (operand.lifetime == OperandLifeTime::TEMPORARY_VARIABLE)
                 {
@@ -886,20 +902,24 @@ vx_status OvxExecutor::convertAllOperandsToRefences(const std::vector<VxRunTimeP
                     lifetime = VX_TENSOR_LIFE_TIME_STATIC;
 
                     /*
-                    vx_tensor_addressing addr = vxCreateTensorAddressing(*mContext, operand.dimensions.data(), getStrideFromDims(VX_TYPE_UINT8, operand.dimensions.data(), operand.dimensions.size()).data(), operand.dimensions.size());
-                    ref = (vx_reference)vxCreateTensorFromHandle(*mContext, &param, sizeof(vx_tensor_create_params_t), addr, info.buffer, VX_MEMORY_TYPE_HOST);
+                    vx_tensor_addressing addr = vxCreateTensorAddressing(mContext, operand.dimensions.data(), getStrideFromDims(VX_TYPE_UINT8, operand.dimensions.data(), operand.dimensions.size()).data(), operand.dimensions.size());
+                    ref = (vx_reference)vxCreateTensorFromHandle(mContext, &param, sizeof(vx_tensor_create_params_t), addr, info.buffer, VX_MEMORY_TYPE_HOST);
                     */
-                    ref = (vx_reference)vxCreateTensor2(*mContext, &param, sizeof(vx_tensor_create_params_t));
+                    ref = (vx_reference)vxCreateTensor2(mContext, &param, sizeof(vx_tensor_create_params_t));                    
                     copyConstData2Tensor((vx_tensor &)ref, info.buffer, VX_WRITE_ONLY);
                 }
 
                 if (!ref)
                     LOG(ERROR) << "vxCreateTensor for TENSOR_QUANT8_ASYMM Failed! scale = " << operand.scale << ", zeroPoint = " << operand.zeroPoint;
 
-                VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_RANK, &rank, sizeof(vx_enum)) );
-                VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_VALUE,&value, sizeof(vx_bool)) );
-                VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_LIFETIME, &lifetime, sizeof(vx_enum)) );
-                VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_PRECISION, &precision, sizeof(vx_enum)) );
+                if (checkValid(mModel, i))
+                {
+
+                    VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_RANK, &rank, sizeof(vx_enum)) );
+                    VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_VALUE,&value, sizeof(vx_bool)) );
+                    VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_LIFETIME, &lifetime, sizeof(vx_enum)) );     
+                    VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)ref, VX_TENSOR_PRECISION, &precision, sizeof(vx_enum)) );
+                }
 
                 if (ref)info.ref = ref;
             }
@@ -992,8 +1012,8 @@ vx_tensor OvxExecutor::creatVirtualTensorFromRTF(vx_graph graph, const VxRunTime
     vx_uint32 whcnDim[4] = {1,1,1,1};
     if(info.dimensions.size() == 2)
     {
-        whcnDim[2] = info.dimensions[1];
-        whcnDim[3] = info.dimensions[0];
+        whcnDim[0] = info.dimensions[1];
+        whcnDim[1] = info.dimensions[0];
     }
     else if(info.dimensions.size() == 3)
     {
@@ -1010,7 +1030,7 @@ vx_tensor OvxExecutor::creatVirtualTensorFromRTF(vx_graph graph, const VxRunTime
         whcnDim[3] = info.dimensions[0];
     }
 
-    tensor = creatVirtualTensorByParam(graph, 4, whcnDim, info.type, info.scale, info.zeroPoint);
+    tensor = creatVirtualTensorByParam(graph, info.dimensions.size(), whcnDim, info.type, info.scale, info.zeroPoint);
     if (tensor == NULL)
     {
         LOG(ERROR)<<"fail to creat tensor";
@@ -1023,10 +1043,10 @@ vx_status OvxExecutor::getGraph(const std::vector<VxRunTimePoolInfo>* poolInfos)
 {
     vx_status status = VX_SUCCESS;
 
-    if (*mContext == nullptr)
+    if (mContext == nullptr)
         LOG(ERROR)<<" ----------- Context is NULL ----------- ";
 
-    mGraph = vxCreateGraph(*mContext);
+    mGraph = vxCreateGraph(mContext);
     convertAllOperandsToRefences(poolInfos, VX_TYPE_FLOAT32);
     /*Convert all operaion to corresponding node*/
     const vx_int32 operation_count = mModel->operations.size();
@@ -1057,6 +1077,27 @@ vx_status OvxExecutor::getGraph(const std::vector<VxRunTimePoolInfo>* poolInfos)
         }
         return VX_SUCCESS;
     };
+    
+    /*Function to align the tensor's dimensions in broadcast Ops*/
+    auto alignBroadcaseTensor = [&](VxRunTimeReferenceInfo &in1, VxRunTimeReferenceInfo &in2) -> void
+    {
+        if(in1.dimensions.size() != in2.dimensions.size())
+        {
+            VxRunTimeReferenceInfo *broadcastRef = in1.dimensions.size() > in2.dimensions.size() ? &in2: &in1;
+            VxRunTimeReferenceInfo *completeRef = in1.dimensions.size() > in2.dimensions.size() ? &in1: &in2;
+
+            vx_int32 tmpdims[4] = {1,1,1,1};
+            vx_int32 dims[4] = {1,1,1,1};
+
+            memcpy(tmpdims+ abs((int32_t)broadcastRef->dimensions.size()- (int32_t)completeRef->dimensions.size()),
+                        broadcastRef->dimensions.data(),
+                        broadcastRef->dimensions.size() * sizeof(vx_int32));
+
+            convertDims((vx_uint32 *)dims,  (vx_uint32 *)tmpdims, 4);
+            broadcastRef->ref = (vx_reference)vxReshapeTensor( (vx_tensor)broadcastRef->ref, dims, 4);
+        }
+
+    };
 
 
     for (vx_int32 i = 0; i < operation_count; i++)
@@ -1069,7 +1110,7 @@ vx_status OvxExecutor::getGraph(const std::vector<VxRunTimePoolInfo>* poolInfos)
 
         operation_info.operation = operation;
 
-        LOG(ERROR) << "operation type : " << getOperationName(operation.type);
+        LOG(INFO) << "operation type : " << getOperationName(operation.type);
 
 
         /* Function to verify that the number of input and output parameters
@@ -1105,13 +1146,14 @@ vx_status OvxExecutor::getGraph(const std::vector<VxRunTimePoolInfo>* poolInfos)
         {
         case OperationType::ADD:
         {
-            const VxRunTimeReferenceInfo& in1 = mReferenceInfos[ins[0]];
-            const VxRunTimeReferenceInfo& in2 = mReferenceInfos[ins[1]];
+            VxRunTimeReferenceInfo& in1 = mReferenceInfos[ins[0]];
+            VxRunTimeReferenceInfo& in2 = mReferenceInfos[ins[1]];
             const VxRunTimeReferenceInfo& out = mReferenceInfos[outs[0]];
 
             if (mGraph)
             {
                 vx_tensor tmpTensor = createTempTensor(out, mReferenceInfos[ins[2]]);
+                alignBroadcaseTensor(in1, in2);                
                 operation_info.node = vxTensorAddNode(mGraph, (vx_tensor)in1.ref, (vx_tensor)in2.ref, VX_CONVERT_POLICY_WRAP, tmpTensor);
 
                 VX_CHECK_ERROR( addActivationNode(out, tmpTensor, mReferenceInfos[ins[2]]) );
@@ -1122,18 +1164,19 @@ vx_status OvxExecutor::getGraph(const std::vector<VxRunTimePoolInfo>* poolInfos)
             break;
         case OperationType::MUL:
             {
-            const VxRunTimeReferenceInfo& in1 = mReferenceInfos[ins[0]];
-            const VxRunTimeReferenceInfo& in2 = mReferenceInfos[ins[1]];
+            VxRunTimeReferenceInfo& in1 = mReferenceInfos[ins[0]];
+            VxRunTimeReferenceInfo& in2 = mReferenceInfos[ins[1]];
             const VxRunTimeReferenceInfo& out = mReferenceInfos[outs[0]];
 
             vx_float32 s = 1.0f;
-            vx_scalar scale = vxCreateScalar(*mContext, VX_TYPE_FLOAT32, &s);
+            vx_scalar scale = vxCreateScalar(mContext, VX_TYPE_FLOAT32, &s);
             VxReferenceInfo ref_info = {(vx_reference)scale, VX_TYPE_SCALAR};
             operation_info.refs.push_back(ref_info);
 
             if (mGraph)
             {
                 vx_tensor tmpTensor = createTempTensor(out, mReferenceInfos[ins[2]]);
+                alignBroadcaseTensor(in1, in2);
                 operation_info.node = vxTensorMultiplyNode(mGraph, (vx_tensor)in1.ref, (vx_tensor)in2.ref, scale, VX_CONVERT_POLICY_WRAP, VX_ROUND_POLICY_TO_ZERO, tmpTensor);
                 VX_CHECK_ERROR( addActivationNode(out, tmpTensor, mReferenceInfos[ins[2]]) );
             }
@@ -1329,7 +1372,9 @@ vx_status OvxExecutor::getGraph(const std::vector<VxRunTimePoolInfo>* poolInfos)
             VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)mReferenceInfos[ins[13]].ref,  VX_TENSOR_PRECISION, &precision, sizeof(vx_enum)) );
             VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)mReferenceInfos[ins[14]].ref,  VX_TENSOR_PRECISION, &precision, sizeof(vx_enum)) );
             VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)mReferenceInfos[ins[15]].ref,  VX_TENSOR_PRECISION, &precision, sizeof(vx_enum)) );
-            VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)mReferenceInfos[ins[17]].ref,  VX_TENSOR_PRECISION, &precision, sizeof(vx_enum)) );
+
+            if (checkValid(mModel, ins[17]))
+                VX_CHECK_ERROR( vxSetTensorAttribute((vx_tensor)mReferenceInfos[ins[17]].ref,  VX_TENSOR_PRECISION, &precision, sizeof(vx_enum)) );
 
             for(auto &in : ins)
             {
@@ -1718,6 +1763,7 @@ vx_status OvxExecutor::getGraph(const std::vector<VxRunTimePoolInfo>* poolInfos)
 
             vx_enum precision = VX_TENSOR_PRECISION_HIGH;
             vxSetTensorAttribute((vx_tensor)hash.ref, VX_TENSOR_PRECISION, &precision, sizeof(vx_enum));
+            vxSetTensorAttribute((vx_tensor)weight.ref, VX_TENSOR_PRECISION, &precision, sizeof(vx_enum));
 
 
             if (type.type == OperandType::INT32)
@@ -1727,7 +1773,7 @@ vx_status OvxExecutor::getGraph(const std::vector<VxRunTimePoolInfo>* poolInfos)
                 vxReleaseScalar((vx_scalar*)&type.ref);
 
                 vx_tensor_create_params_t param0 = { 1, size, VX_TYPE_INT32, 0, {{0}}};
-                type.ref = (vx_reference)vxCreateTensor2(*mContext, &param0, sizeof(vx_tensor_create_params_t));
+                type.ref = (vx_reference)vxCreateTensor2(mContext, &param0, sizeof(vx_tensor_create_params_t));
                 VX_CHECK_ERROR(vxGetStatus((vx_reference)type.ref));
 
                 copyConstData2Tensor( (vx_tensor & )type.ref, (vx_uint8 *)&t, VX_WRITE_ONLY);
@@ -2082,7 +2128,7 @@ vx_status OvxExecutor::getGraph(const std::vector<VxRunTimePoolInfo>* poolInfos)
                 if (!allParametersPresent(3, 1)) {
                     return ANEURALNETWORKS_BAD_DATA;
                 }
-                const VxRunTimeReferenceInfo& input0  = mReferenceInfos[ins[0]];
+                VxRunTimeReferenceInfo& input0  = mReferenceInfos[ins[0]];
                 VxRunTimeReferenceInfo& input1  = mReferenceInfos[ins[1]];
                 VxRunTimeReferenceInfo& activation     = mReferenceInfos[ins[2]];
                 VxRunTimeReferenceInfo& output          = mReferenceInfos[outs[0]];
@@ -2097,6 +2143,8 @@ vx_status OvxExecutor::getGraph(const std::vector<VxRunTimePoolInfo>* poolInfos)
 
                 vx_tensor tmpTensor = createTempTensor(output, activation);
 
+                alignBroadcaseTensor(input0, input1); 
+                
                 operation_info.node = vxTensorDivideNode(mGraph, (vx_tensor)input0.ref, (vx_tensor)input1.ref,  vxScaler, VX_CONVERT_POLICY_WRAP, VX_ROUND_POLICY_TO_ZERO, tmpTensor );
                 if (operation_info.node == nullptr)
                 {
@@ -2113,12 +2161,14 @@ vx_status OvxExecutor::getGraph(const std::vector<VxRunTimePoolInfo>* poolInfos)
                     return ANEURALNETWORKS_BAD_DATA;
                 }
 
-                const VxRunTimeReferenceInfo& input0  = mReferenceInfos[ins[0]];
-                const VxRunTimeReferenceInfo& input1  = mReferenceInfos[ins[1]];
+                VxRunTimeReferenceInfo& input0  = mReferenceInfos[ins[0]];
+                VxRunTimeReferenceInfo& input1  = mReferenceInfos[ins[1]];
                 VxRunTimeReferenceInfo& activation     = mReferenceInfos[ins[2]];
                 VxRunTimeReferenceInfo& output          = mReferenceInfos[outs[0]];
 
                 vx_tensor tmpTensor = createTempTensor(output, activation);
+                
+                alignBroadcaseTensor(input0, input1); 
                 operation_info.node = vxTensorSubtractNode(mGraph, (vx_tensor)input0.ref, (vx_tensor)input1.ref, VX_CONVERT_POLICY_WRAP, tmpTensor);
                 if (operation_info.node == nullptr)
                 {
@@ -2379,25 +2429,29 @@ vx_status OvxExecutor::getGraph(const std::vector<VxRunTimePoolInfo>* poolInfos)
 
 int OvxExecutor::initalize(vx_context* context, pthread_mutex_t* mutex, const Model* model, std::vector<VxRunTimePoolInfo>* poolInfos)
 {
-
+#ifdef MULTI_CONTEXT
+    *context = nullptr;
+#endif
     if (mModel == nullptr)
         mModel = model;
     else
         LOG(ERROR) << "mModel is not null!";
+
+    if (checkOperation(mModel) != vx_true_e)
+        return ANEURALNETWORKS_UNEXPECTED_NULL;
 
     setRunTimePoolInfosFromHidlMemories(poolInfos, mModel->pools);
 
     mMutex = mutex;
 
     pthread_mutex_lock(mMutex);
+ 
+    mContext = vxCreateContext();
 
-    mContext = context;
-
-    *mContext = vxCreateContext();
-
-    pthread_mutex_unlock(mMutex);
-
-    getGraph(poolInfos);
+    if (getGraph(poolInfos) != VX_SUCCESS)
+    {
+        return ANEURALNETWORKS_UNEXPECTED_NULL;
+    }
 
     if(vxVerifyGraph(mGraph) != VX_SUCCESS)
     {
@@ -2405,7 +2459,9 @@ int OvxExecutor::initalize(vx_context* context, pthread_mutex_t* mutex, const Mo
         nnAssert(0);
     }
 
-   /* initalizeEnv();*/
+    pthread_mutex_unlock(mMutex);
+
+    initalizeEnv();
     return ANEURALNETWORKS_NO_ERROR;
 }
 
@@ -2413,7 +2469,7 @@ void syncIfNeed(Model model, std::vector<VxRunTimeReferenceInfo> infos)
 {
 
     const vx_int32 operand_count =  model.outputIndexes.size(); /* model.operations.size();*/
-    LOG(ERROR) << "sync output Count " << operand_count;
+    LOG(INFO) << "sync output Count " << operand_count;
     for (vx_int32 i = 0; i < operand_count; i++)
     {
         VxRunTimeReferenceInfo& info = infos[model.outputIndexes[i]];
@@ -2434,6 +2490,8 @@ void syncIfNeed(Model model, std::vector<VxRunTimeReferenceInfo> infos)
 int OvxExecutor::run(const Model& model, const Request& request,
     const std::vector<VxRunTimePoolInfo>& requestPoolInfos) {
 
+    pthread_mutex_lock(mMutex);
+
     mModel = &model;
     mRequest = &request;
 
@@ -2443,7 +2501,7 @@ int OvxExecutor::run(const Model& model, const Request& request,
 
     double t1 = getTime();
 
-    vxProcessGraph(mGraph);
+    if (mGraph)vxProcessGraph(mGraph);
 
     double t2 = getTime();
 
@@ -2452,26 +2510,29 @@ int OvxExecutor::run(const Model& model, const Request& request,
     double t3 = getTime();
 
     if(preformaceDebug){
-        LOG(INFO)<<"time of copying  host to device: "<<(t1 - t0) * 1000<<"ms\n";
-        LOG(INFO)<<"time of processing graph: "<<(t2 - t1) * 1000<<"ms\n";
-        LOG(INFO)<<"time of copying  device to host: "<<(t3 - t2) * 1000<<"ms\n";
+        LOG(INFO)<<"time of copying  host to device: "<<(t1 - t0) * 1000<<"ms";
+        LOG(INFO)<<"time of processing graph: "<<(t2 - t1) * 1000<<"ms";
+        LOG(INFO)<<"time of copying  device to host: "<<(t3 - t2) * 1000<<"ms";
         }
 
-    if (*mContext != nullptr && *mContext != mPreContext)
-    {
-        mPreContext = *mContext;
-    }
+    pthread_mutex_unlock(mMutex);
 
     return ANEURALNETWORKS_NO_ERROR;
 }
 
 void OvxExecutor::initalizeEnv()
 {
-    char *env =  getenv("GET_PREF");
-    LOG(ERROR)<<"get env for pref:"<<env<<"\n";
-    if(env)
-        preformaceDebug = vx_true_e;
-
+    char env[100] = {0};
+    int ireturn = __system_property_get("GET_PROCESS_TIME", env);
+    if(ireturn)
+    {
+        preformaceDebug = atoi(env);
+    }
+    else
+    {
+        LOG(INFO)<<"can not fetch \"GET_PROCESS_TIME\", so do not print process time";
+    }
+  
 }
 
 bool OvxExecutor::initializeRunTimeInfo(const std::vector<VxRunTimePoolInfo>& requestPoolInfos) {
@@ -2510,7 +2571,6 @@ bool OvxExecutor::initializeRunTimeInfo(const std::vector<VxRunTimePoolInfo>& re
                 auto poolIndex = from.location.poolIndex;
                 nnAssert(poolIndex < requestPoolInfos.size());
                 auto& r = requestPoolInfos[poolIndex];
-
                 //if (to.original == nullptr)
                     to.original = r.buffer + from.location.offset;
 
@@ -2532,6 +2592,10 @@ bool OvxExecutor::initializeRunTimeInfo(const std::vector<VxRunTimePoolInfo>& re
 
 bool OvxExecutor::deinitializeRunTimeInfo() {
 
+    LOG(INFO) << " =================== OvxExecutor::"  << __func__ << ", tid = " << gettid() << " =================== ";
+    if (!mContext)
+        return true;
+
     pthread_mutex_lock(mMutex);
 
     for (VxOperationInfo info : mOperationInfos)
@@ -2544,9 +2608,15 @@ bool OvxExecutor::deinitializeRunTimeInfo() {
             {
             case VX_TYPE_SCALAR:
                 vxReleaseScalar((vx_scalar*)&ref.ref);
+                ref.ref = nullptr;
                 break;
             case VX_TYPE_WEIGHTS_BIASES_PARAMETER:
                 vxReleaseWeightsBiasesParameter((vx_weights_biases_parameter*)&ref.ref);
+                ref.ref = nullptr;
+                break;
+            case VX_TYPE_TENSOR:
+                vxReleaseTensor((vx_tensor*)&ref.ref);
+                ref.ref = nullptr;
                 break;
             default:
                 LOG(ERROR) << "Cannot release the reference which type is " << ref.type << ", Not support!";
@@ -2568,22 +2638,35 @@ bool OvxExecutor::deinitializeRunTimeInfo() {
     {
         if (info.ref)
         {
-            vxReleaseTensor((vx_tensor*)&info.ref);
-            info.ref = nullptr;
+            switch(info.vx_type)
+            {
+            case VX_TYPE_TENSOR:
+                vxReleaseTensor((vx_tensor*)&info.ref);
+                info.ref = nullptr;
+                break;
+            case VX_TYPE_SCALAR:
+                vxReleaseScalar((vx_scalar*)&info.ref);
+                info.ref = nullptr;
+                break;
+            default:
+                LOG(ERROR) << "Cannot release the reference which type is " << info.vx_type << ", Not support!";
+                break;
+            }
         }
     }
 
-    if (mGraph && (mPreContext == vxGetContext((vx_reference)mGraph)))
+    if (mGraph && (mContext == vxGetContext((vx_reference)mGraph)) && (mContext != nullptr))
     {
-        vxReleaseGraph(&mGraph);
+        vx_graph graph = mGraph;
         mGraph = nullptr;
+        vxReleaseGraph(&graph);
     }
 
 #ifdef MULTI_CONTEXT
-    if (mPreContext)
+    if (mContext)
     {
-        vxReleaseContext(&mPreContext);
-        mPreContext = nullptr;
+        vxReleaseContext(&mContext);
+        mContext = nullptr;
     }
 #endif
 

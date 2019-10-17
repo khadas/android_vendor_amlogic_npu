@@ -31,7 +31,6 @@
 
 #include "OvxDevice.h"
 
-//#include "CpuExecutor.h"
 #include "HalInterfaces.h"
 
 #include <android-base/logging.h>
@@ -81,7 +80,7 @@ Return<ErrorStatus> OvxDevice::prepareModel_1_1(
 
     // TODO: make asynchronous later
     sp<OvxPreparedModel> preparedModel = new OvxPreparedModel(model);
-    if (!preparedModel->initialize(&mContext, &mMutex)) {
+    if (!preparedModel->initialize(&mContext, &mMutex, vx_false_e)) {
        callback->notify(ErrorStatus::INVALID_ARGUMENT, nullptr);
        return ErrorStatus::INVALID_ARGUMENT;
     }
@@ -119,7 +118,7 @@ Return<void> OvxDevice::getCapabilities(getCapabilities_cb cb) {
 #endif
 
 int OvxDevice::run() {
-    android::hardware::configureRpcThreadpool(4, true);
+    android::hardware::configureRpcThreadpool(1, true);
     if (registerAsService(mName) != android::OK) {
         LOG(ERROR) << "Could not register service";
         return 1;
@@ -128,13 +127,28 @@ int OvxDevice::run() {
     return 1;
 }
 
-bool OvxPreparedModel::initialize(vx_context* context, pthread_mutex_t* mutex) {
+void OvxPreparedModel::env()
+{
+    char env[100] = {0};
+    int ireturn = __system_property_get("android.nn.debug.sync", env);
+    if(ireturn)
+        mAsyncMode = (atoi(env) == 0)?vx_false_e:vx_true_e;
+}
+
+bool OvxPreparedModel::initialize(vx_context* context, pthread_mutex_t* mutex, vx_bool async) {
+
+    mAsyncMode = async;
+
+    env();
 
     mExecutor = new OvxExecutor();
 
-    mExecutor->initalize(context, mutex, &mModel, &mPoolInfos);
+    int status = mExecutor->initalize(context, mutex, &mModel, &mPoolInfos);
 
-    return true;
+    if (status != ANEURALNETWORKS_NO_ERROR)
+        return false;
+    else
+        return true;
 }
 
 void OvxPreparedModel::asyncExecute(const Request& request,
@@ -167,7 +181,10 @@ Return<ErrorStatus> OvxPreparedModel::execute(const Request& request,
 
     // This thread is intentionally detached because the sample driver service
     // is expected to live forever.
-    std::thread([this, request, callback]{ asyncExecute(request, callback); }).detach();
+    if (mAsyncMode)
+        std::thread([this, request, callback]{ asyncExecute(request, callback); }).detach();
+    else
+        asyncExecute(request, callback);
 
     return ErrorStatus::NONE;
 }
