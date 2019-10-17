@@ -270,6 +270,7 @@ EXPORTS
     gcoHAL_UnlockVideoMemory
     gcoHAL_ReleaseVideoMemory
     gcoHAL_ScheduleSignal
+    gcoHAL_GetPLS
 
 !IF "$(VIVANTE_ENABLE_3D)" == "1"
     gcoHAL_QueryShaderCaps
@@ -780,7 +781,6 @@ EXPORTS
     gcoVX_GetEvisNoInstFeatureCap
     gcoVX_QueryDeviceCount
 	gcoVX_CaptureInitState
-
 
 !IF "$(VSIMULATOR_DEBUG)" == "1"
     gcoOS_UpdateSimulatorCallback

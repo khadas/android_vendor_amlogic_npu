@@ -107,6 +107,7 @@ struct VxRunTimeReferenceInfo {
     uint32_t length;
 
     vx_reference ref = nullptr;
+    vx_enum vx_type = 0;
     // Whether this is a temporary variable, a model input, a constant, etc.
     OperandLifeTime lifetime;
     // Keeps track of how many operations have yet to make use
@@ -140,7 +141,7 @@ class OvxExecutor : public RefBase{
 public:
     OvxExecutor() {}
 
-    ~OvxExecutor() {}
+    ~OvxExecutor() {deinitializeRunTimeInfo();}    
 
     int run(const Model& model, const Request& request,
         const std::vector<VxRunTimePoolInfo>& requestPoolInfos);
@@ -172,9 +173,7 @@ private:
     void initalizeEnv();
     vx_status convertScalar2Tensor(VxRunTimeReferenceInfo* info);
 
-    vx_context* mContext = nullptr;
-
-    vx_context mPreContext = nullptr;
+    vx_context mContext = nullptr;
 
     vx_graph mGraph = nullptr;
 
@@ -269,7 +268,7 @@ T getScalarData(const VxRunTimeReferenceInfo& info) {
     if (info.buffer == nullptr)
         LOG(ERROR) << "getScalarData: buffer is null!";
     else
-        LOG(ERROR) << "getScalarData: length = " << info.length << ", buffer = " << info.buffer;
+        LOG(INFO) << "getScalarData: length = " << info.length << ", buffer = " << info.buffer;
     // TODO: Check buffer is at least as long as size of data.
     T* data = reinterpret_cast<T*>(info.buffer);
     return data[0];
@@ -300,6 +299,32 @@ inline vx_bool isTensor(VxRunTimeReferenceInfo &info)
         return vx_true_e;
 
     return vx_false_e;
+}
+
+inline vx_bool checkValid(const Model* model, const vx_uint32 index)
+{ 
+    return (model->operands[index].dimensions.size() > 0 && model->operands[index].dimensions.data()[0] > 0)?vx_true_e:vx_false_e;
+}
+
+inline vx_bool checkOperation(const Model* model)
+{
+    for (vx_int32 i = 0; i < (vx_int32)model->operations.size(); i++)
+    {
+        Operation operation = model->operations[i];
+        const hidl_vec<uint32_t>& ins = operation.inputs;
+        const hidl_vec<uint32_t>& outs = operation.outputs;
+
+        if (operation.type == OperationType::ADD)
+        {
+            const vx_uint32* out_dims = model->operands[outs[0]].dimensions.data();
+            const vx_uint32* act_v = model->operands[ins[2]].dimensions.data();
+            if (((out_dims == nullptr) &&  (act_v == nullptr))
+            || ((out_dims && out_dims[0] == 0) && (act_v == nullptr))
+                )
+                return vx_false_e;
+        }
+    }
+    return vx_true_e;
 }
 
 }  /* anonymous namespace */

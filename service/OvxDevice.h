@@ -42,6 +42,7 @@
 #include "VX/vx.h"
 
 #include <string>
+#include <sys/system_properties.h>
 
 using android::sp;
 
@@ -120,17 +121,21 @@ public:
     OvxPreparedModel(const Model& model)
           : // Make a copy of the model, as we need to preserve it.
             mModel(model) {}
-    ~OvxPreparedModel() override {mExecutor->deinitializeRunTimeInfo();}
-    bool initialize(vx_context* context, pthread_mutex_t* mutex);
+    ~OvxPreparedModel() override {mExecutor = nullptr;}
+    bool initialize(vx_context* context, pthread_mutex_t* mutex, vx_bool async);
     Return<ErrorStatus> execute(const Request& request,
                                 const sp<IExecutionCallback>& callback) override;
 
 private:
     void asyncExecute(const Request& request, const sp<IExecutionCallback>& callback);
 
+    void env();
+
     Model mModel;
     std::vector<VxRunTimePoolInfo> mPoolInfos;
     sp<OvxExecutor> mExecutor = nullptr;
+
+    vx_bool mAsyncMode = vx_true_e;
 };
 
 } // namespace ovx_driver

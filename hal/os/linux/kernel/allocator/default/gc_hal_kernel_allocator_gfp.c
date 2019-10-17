@@ -461,14 +461,9 @@ _GFPAlloc(
         SetPageReserved(page);
 
         phys = page_to_phys(page);
-        /*
-		if (!phys) 
-		{
-			 pr_info("\n\n\n +++++++%s, %d, page:%p, pfn:%lx, mem_map:%lx\n", __func__, __LINE__, page, page_to_pfn(page), (unsigned long)mem_map);
-		}
 
-        BUG_ON(!phys);
-        */
+        /*BUG_ON(!phys);*/
+
         if (PageHighMem(page))
         {
             high++;

@@ -1269,7 +1269,7 @@ _SetupIsr(
      * Add by 1 here and subtract by 1 in isr to fix the issue.
      */
     ret = request_irq(
-        Device->irqLines[Core], handler, gcdIRQF_FLAG|0x04,
+        Device->irqLines[Core], handler, gcdIRQF_FLAG,
         isrNames[Core], (void *)(uintptr_t)(Core + 1)
         );
 
