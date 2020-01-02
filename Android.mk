@@ -21,7 +21,7 @@ API_PATH=nnapi/lib/lib32
 Target=lib
 endif
 
-ifeq ($(TARGET_PRODUCT), galilei)
+ifeq ($(PRODUCT_CHIP_ID), PID0x88)
 RRODUCT_PATH := $(LIB_PATH)/PID0x88
 else
 RRODUCT_PATH := $(LIB_PATH)/PID0x99
