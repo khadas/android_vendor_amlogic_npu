@@ -21,6 +21,7 @@
 *    DEALINGS IN THE SOFTWARE.
 *
 *****************************************************************************/
+/** @file */
 #ifndef _VSI_NN_VERSION_H_
 #define _VSI_NN_VERSION_H_
 
@@ -30,12 +31,21 @@ extern "C"{
 
 #define VSI_NN_VERSION_MAJOR 1
 #define VSI_NN_VERSION_MINOR 1
-#define VSI_NN_VERSION_PATCH 1
+#define VSI_NN_VERSION_PATCH 18
 #define VSI_NN_VERSION \
     (VSI_NN_VERSION_MAJOR * 10000 + VSI_NN_VERSION_MINOR * 100 + VSI_NN_VERSION_PATCH)
 
+/**
+ * Ovxlib version check
+ * Ovxlib will check the suitable version at compile time.
+ * @note Ovxlib version should be always greater or equal to case version.
+ */
 #define _version_assert _compiler_assert
 
+/**
+ * Get ovxlib version
+ * Get ovxlib version string.
+ */
 OVXLIB_API const char *vsi_nn_GetVersion(void);
 
 #if defined(__cplusplus)

@@ -21,7 +21,7 @@
 
 #if gcdENABLE_3D
 
-#define _GC_OBJ_ZONE      gcvZONE_SHADER
+#define _GC_OBJ_ZONE      gcdZONE_SHADER
 
 gceSTATUS gcQueryShaderCompilerHwCfg(
     IN  gcoHAL Hal,
@@ -49,22 +49,22 @@ gceSTATUS gcQueryShaderCompilerHwCfg(
 **      gcoHAL Hal
 **          Pointer to a gcoHAL object.
 **
-**      gcsPROGRAM_STATE ProgramState
+**      gcsPROGRAM_STATE *ProgramState
 **          program state.
 */
 gceSTATUS
 gcLoadShaders(
     IN gcoHAL Hal,
-    IN gcsPROGRAM_STATE ProgramState
+    IN gcsPROGRAM_STATE *ProgramState
     )
 {
     gceSTATUS status;
 
     gcmHEADER_ARG("Hal=0x%x StateBufferSize=%u StateBuffer=0x%x Hints=0x%x",
-        Hal, ProgramState.stateBufferSize, ProgramState.stateBuffer, ProgramState.hints);
+        Hal, ProgramState->stateBufferSize, ProgramState->stateBuffer, ProgramState->hints);
 
     /* Call down to the hardware object. */
-    status = gcoHARDWARE_LoadProgram(gcvNULL, ProgramState.hints->stageBits, &ProgramState);
+    status = gcoHARDWARE_LoadProgram(gcvNULL, ProgramState->hints->stageBits, ProgramState);
 
     gcmFOOTER();
     return status;

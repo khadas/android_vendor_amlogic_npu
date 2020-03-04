@@ -37,6 +37,7 @@ typedef struct _vsi_nn_lrn_param
     float      alpha;
     float      beta;
     float      bias;
+    int32_t    axis;
 } vsi_nn_lrn_param;
 
 #ifdef __cplusplus

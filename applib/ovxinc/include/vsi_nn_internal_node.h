@@ -32,25 +32,146 @@
 #include "vsi_nn_types.h"
 #include "vsi_nn_rnn.h"
 #include "utils/vsi_nn_map.h"
+#include "utils/vsi_nn_link_list.h"
+
+/**********************************************************
+* MACROS
+**********************************************************/
+#define INTERNAL_NODE_DEBUG FALSE
+
+/**********************************************************
+* TYPES
+**********************************************************/
+typedef struct _vsi_nn_internal_node_param_t
+{
+    vsi_nn_link_list_t link_list;
+    uint8_t param[1];
+} vsi_nn_internal_node_param_t;
 
 typedef struct _vsi_nn_internal_node_t
 {
+    vsi_nn_link_list_t link_list;
+
     vsi_nn_node_t* node;
     vsi_nn_tensor_t** inputs;
     vsi_nn_tensor_t** outputs;
+    vsi_nn_internal_node_param_t* param;
+
+    #if( INTERNAL_NODE_DEBUG )
+    char name[32];
+    #endif
 } vsi_nn_internal_node_t;
 
-vsi_nn_internal_node_t* vsi_nn_internal_create_node
+typedef struct _vsi_nn_internal_tensor_t
+{
+    vsi_nn_link_list_t link_list;
+
+    vsi_nn_tensor_t* t;
+
+    #if( INTERNAL_NODE_DEBUG )
+    char name[32];
+    #endif
+} vsi_nn_internal_tensor_t;
+
+typedef struct _vsi_nn_internal_node_wksp_t
+{
+    vsi_nn_internal_node_t* nodes;
+    vsi_nn_internal_tensor_t* tensors;
+    int curr_node_uid;
+} vsi_nn_internal_node_wksp_t;
+
+/**********************************************************
+* PUBLIC FUNCTIONS
+**********************************************************/
+vsi_status vsi_nn_init_internal_node_wksp
     (
-    vsi_nn_graph_t* graph,
+    vsi_nn_node_t* node
+    );
+
+vsi_status vsi_nn_deinit_internal_node_wksp
+    (
+    vsi_nn_node_t* node
+    );
+
+vsi_nn_internal_node_t* vsi_nn_new_internal_node
+    (
+    vsi_nn_node_t* node,
     vsi_nn_op_t op,
     uint32_t input_num,
     uint32_t output_num
     );
 
-vsi_status vsi_nn_internal_release_node
+void* vsi_nn_new_internal_node_param
+    (
+    vsi_nn_internal_node_t* inode,
+    size_t size /* in bytes */
+    );
+
+vsi_nn_internal_tensor_t* vsi_nn_new_internal_tensor
+    (
+    vsi_nn_node_t*          node,
+    vsi_nn_tensor_attr_t*   attr,
+    float                   default_value
+    );
+
+vsi_bool vsi_nn_setup_internal_node_op
+    (
+    vsi_nn_node_t* node,
+    vsi_nn_internal_node_t* inode
+    );
+
+vsi_status vsi_nn_compute_internal_node
+    (
+    vsi_nn_node_t * node
+    );
+
+vsi_status vsi_nn_optimize_internal_node
+    (
+    vsi_nn_node_t * node,
+    vsi_nn_opt_direction_e direction
+    );
+
+vsi_status vsi_nn_deinit_internal_node
+    (
+    vsi_nn_node_t * node
+    );
+
+vsi_status vsi_nn_release_internal_node
     (
     vsi_nn_internal_node_t** node
+    );
+
+vsi_status vsi_nn_release_internal_tensor
+    (
+    vsi_nn_internal_tensor_t** tensor
+    );
+
+vsi_nn_internal_tensor_t* vsi_nn_create_zero_bias_tensor
+    (
+    vsi_nn_node_t * node,
+    vsi_nn_tensor_attr_t* input_attr,
+    vsi_nn_tensor_attr_t* weight_attr
+    );
+
+/**
+* Init the attr
+* Init the attr for internal node.
+*
+* @param[out] dst attr.
+* @param[in] src dtype.
+* @param[in] use virtual tensor.
+*/
+void vsi_nn_internal_node_init_attr
+    (
+    vsi_nn_tensor_attr_t* attr,
+    const vsi_nn_dtype_t* dtype,
+    vsi_bool use_virtual_tensor
+    );
+
+vsi_nn_internal_node_t* vsi_nn_get_internal_node_by_uid
+    (
+    vsi_nn_node_t* node,
+    int uid
     );
 
 #endif /* _VSI_NN_INTRNAL_NODE_H */

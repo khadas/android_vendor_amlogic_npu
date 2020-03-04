@@ -29,13 +29,37 @@
 
 typedef struct _vsi_nn_stack_lcl_data
 {
-    vx_object_array array;
+    vsi_nn_link_list_t link_list;
+    union
+    {
+        /* used for optimze concat to tensor view */
+        struct
+        {
+            vx_node            cp_node;
+            vx_tensor          src_tensor;
+            vx_tensor          dst_tensor;
+            vsi_nn_tensor_t *  src_in;
+        };
+        /* used for vxConcatIndefiniteLayer */
+        struct
+        {
+            vx_object_array    array;
+        };
+    };
 } vsi_nn_stack_lcl_data;
+
+typedef struct _vsi_nn_stack_lcl
+{
+    uint32_t block_size;
+    uint32_t block_num;
+    vx_tensor local_tensor[VSI_NN_STACK_MAX_INPUTS];
+} vsi_nn_stack_lcl;
 
 typedef struct _vsi_nn_stack_param
 {
     /* local data must be the first. */
     vsi_nn_stack_lcl_data * lcl_data;
+    vsi_nn_stack_lcl local;
     uint32_t axis;
 } vsi_nn_stack_param;
 

@@ -380,6 +380,16 @@ VX_API_ENTRY vx_image VX_API_CALL vxCreateImageFromHandle(vx_context context, vx
 
 VX_API_ENTRY vx_status VX_API_CALL vxSwapImageHandle(vx_image image, void* const new_ptrs[], void* prev_ptrs[], vx_size num_planes);
 
+
+/*! \brief Swaps the image created from handle.
+ *\details This function swap image logical and physical address.
+ *\these tensors must have the same proterties expect memory related content.
+ *\Attention: APP should make sure the cache and memory cohensive for the first call vxSwapImage
+ *\version 0.4
+ */
+VX_API_ENTRY vx_status VX_API_CALL vxSwapImage(vx_image image0, vx_image image1);
+
+
 /*! \brief Retrieves various attributes of an image.
  * \param [in] image The reference to the image to query.
  * \param [in] attribute The attribute to query. Use a <tt>\ref vx_image_attribute_e</tt>.
@@ -1140,6 +1150,30 @@ VX_API_ENTRY vx_parameter VX_API_CALL vxGetGraphParameterByIndex(vx_graph graph,
  * \ingroup group_graph
  */
 VX_API_ENTRY vx_bool VX_API_CALL vxIsGraphVerified(vx_graph graph);
+
+/*! \brief Specify the inputs and outputs of graph explicitly.
+ * \param [in] graph The graph.
+ * \param [in] num_of_inputs Number of input reference.
+ * \param [in] inputs The array of input reference.
+ * \param [in] num_of_outputs Number of output reference.
+ * \param [in] ouputs The array of output reference.
+ * \return A <tt>\ref vx_status</tt> value.
+ * \ingroup group_graph
+ */
+VX_API_ENTRY vx_status VX_API_CALL vxIdentifyGraphInputsAndOutputs(vx_graph graph,
+                                                                   vx_uint32 num_of_inputs,
+                                                                   vx_reference *inputs,
+                                                                   vx_uint32 num_of_outputs,
+                                                                   vx_reference *outputs);
+
+/*! \brief Get the size of binary graph and generate binary graph into buffer.
+ * \param [in] graph The graph.
+ * \param [in] buffer Generate binary graph into buffer if *size value is the size of actual NBG.
+ * \param [in] size Get the size of binary graph if buffer is NULL.
+ * \return A <tt>\ref vx_status</tt> value.
+ * \ingroup group_graph
+ */
+VX_API_ENTRY vx_status VX_API_CALL vxGenerateNBG(vx_graph graph, void *buffer, vx_size *size);
 
 /*==============================================================================
  NODE
@@ -3026,23 +3060,6 @@ VX_API_ENTRY vx_status VX_API_CALL vxSetMetaFormatAttribute(vx_meta_format meta,
  * or exemplar is not a valid <tt>\ref vx_reference</tt> reference.
  */
 VX_API_ENTRY vx_status VX_API_CALL vxSetMetaFormatFromReference(vx_meta_format meta, vx_reference exemplar);
-
-VX_API_ENTRY vx_status VX_API_CALL
-vxMapWeightsBiasesParameter(
-    vx_weights_biases_parameter     weights_biases,
-    vx_map_id *                     map_id,
-    vx_uint32 *                     stride,
-    void **                         ptr,
-    vx_enum                         usage,
-    vx_enum                         mem_type,
-    vx_uint32                       flags
-    );
-
-VX_API_ENTRY vx_status VX_API_CALL
-vxUnmapWeightsBiasesParameter(
-    vx_weights_biases_parameter     weights_biases,
-    vx_map_id                       map_id
-    );
 
 VX_API_ENTRY vx_status VX_API_CALL
 vxConfigTarget(

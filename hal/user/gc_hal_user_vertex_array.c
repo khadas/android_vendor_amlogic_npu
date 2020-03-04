@@ -17,7 +17,7 @@
 
 #if gcdNULL_DRIVER < 2
 
-#define _GC_OBJ_ZONE            gcvZONE_VERTEX
+#define _GC_OBJ_ZONE            gcdZONE_VERTEXARRAY
 #define WCLIP_DATA_LIMIT        5000
 #define SPILIT_INDEX_OFFSET       48
 #define SPILIT_INDEX_CHUNCK_BYTE  64
@@ -89,7 +89,7 @@ computeWLimit(gctFLOAT_PTR Logical,
     {
         gctFLOAT value;
 
-        gcmTRACE_ZONE(gcvLEVEL_WARNING, gcvZONE_VERTEX,
+        gcmTRACE_ZONE(gcvLEVEL_WARNING, _GC_OBJ_ZONE,
                       "Logical address is not 4 byte aligned.");
 
         /* Initialize bbox to first entry. */
@@ -1116,7 +1116,7 @@ gcoVERTEXARRAY_StreamBind_Ex(
 
             /* Set stream attribute. */
             gcmONERROR(gcoSTREAM_SetAttribute(streamPtr->stream,
-                                              gcmPTR2INT32(vertexPtr->pointer),
+                                              gcmPTR2SIZE(vertexPtr->pointer),
                                               attributePtr->bytes,
                                               vertexPtr->stride,
                                               vertexPtr->divisor,
@@ -1260,7 +1260,7 @@ gcoVERTEXARRAY_StreamBind_Ex(
             /* Get the index range. */
             gcmONERROR(gcoINDEX_GetIndexRange(IndexInfo->u.es11.indexBuffer,
                                               IndexInfo->indexType,
-                                              gcmPTR2INT32(IndexInfo->indexMemory),
+                                              gcmPTR2SIZE(IndexInfo->indexMemory),
                                               count32,
                                               &minIndex, &maxIndex));
 
@@ -1353,7 +1353,7 @@ gcoVERTEXARRAY_StreamBind_Ex(
                 if (gcmIS_ERROR(status))
                 {
                     /* Error rebuilding. */
-                    gcmTRACE_ZONE(gcvLEVEL_WARNING, gcvZONE_VERTEX,
+                    gcmTRACE_ZONE(gcvLEVEL_WARNING, _GC_OBJ_ZONE,
                                   "gcoSTREAM_Rebuild returned status=%d",
                                   status);
                 }
@@ -1899,7 +1899,14 @@ gceSTATUS gcoVERTEXARRAY_MergeClientStreams(IN gcsVERTEXARRAY_BUFOBJ_PTR Streams
                     if (first->divisor == streamPtr->divisor)
                     {
                         /* Merge streams */
-                        lastAttr->next = streamPtr->attributePtr;
+                        if (lastAttr != gcvNULL)
+                        {
+                            lastAttr->next = streamPtr->attributePtr;
+                        }
+                        else
+                        {
+                            lastAttr = streamPtr->attributePtr;
+                        }
 
                         /* Update last attribute */
                         while ((lastAttr != gcvNULL) && (lastAttr->next != gcvNULL))
@@ -2005,7 +2012,14 @@ gceSTATUS gcoVERTEXARRAY_MergeAllStreams(IN gcsVERTEXARRAY_BUFOBJ_PTR Streams,
             if (streamLoopPtr->divisor == streamPtr->divisor)
             {
                 /* Merge streams */
-                lastAttr->next = streamPtr->attributePtr;
+                if (lastAttr != gcvNULL)
+                {
+                    lastAttr->next = streamPtr->attributePtr;
+                }
+                else
+                {
+                    lastAttr = streamPtr->attributePtr;
+                }
 
                 if (streamPtr->stream == gcvNULL)
                 {
@@ -2081,8 +2095,9 @@ gcoVERTEXARRAY_IndexBind(
         /* Bind the index buffer to the hardware. */
         gcmONERROR(gcoBUFOBJ_IndexBind(IndexInfo->u.es30.indexBuffer,
                                        IndexInfo->indexType,
-                                       gcmPTR2INT32(IndexInfo->indexMemory),
-                                       count32));
+                                       gcmPTR2SIZE(IndexInfo->indexMemory),
+                                       count32,
+                                       IndexInfo->restartElement));
     }
     /* Test if there are client indices. */
     else if (IndexInfo->indexMemory != gcvNULL)
@@ -2438,7 +2453,7 @@ gcoVERTEXARRAY_StreamBind(
             /* Get the index range. */
             gcmONERROR(gcoBUFOBJ_IndexGetRange(IndexInfo->u.es30.indexBuffer,
                                                IndexInfo->indexType,
-                                               gcmPTR2INT32(IndexInfo->indexMemory),
+                                               gcmPTR2SIZE(IndexInfo->indexMemory),
                                                count32,
                                                &minIndex,
                                                &maxIndex));

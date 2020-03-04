@@ -28,7 +28,9 @@
 extern "C"{
 #endif
 
-typedef long long vsi_nn_binary_tree_key_t;
+#include <stdint.h>
+
+typedef int64_t vsi_nn_binary_tree_key_t;
 
 #define vsi_nn_BinaryTreeInitRoot(n) do{n = NULL;} while (0);
 

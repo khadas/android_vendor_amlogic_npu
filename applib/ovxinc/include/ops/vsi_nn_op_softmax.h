@@ -26,7 +26,6 @@
 
 #include "vsi_nn_types.h"
 #include "vsi_nn_platform.h"
-#include "utils/vsi_nn_link_list.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,15 +33,16 @@ extern "C" {
 
 typedef struct _vsi_nn_softmax_lcl_data
 {
-    vsi_nn_link_list_t link_list;
-    vx_node            node;
-    vx_tensor          src_tensor;
-    vx_tensor          dst_tensor;
+    vsi_nn_tensor_t *reshaped_input;
+    vsi_nn_tensor_t *reshaped_output;
 } vsi_nn_softmax_lcl_data;
 
 typedef struct _vsi_nn_softmax_param
 {
-    vsi_nn_softmax_lcl_data *data;
+    void* placeholder;/* reserved field for ABI test */
+    float beta;
+    int32_t axis;
+    vsi_nn_softmax_lcl_data local;
 } vsi_nn_softmax_param;
 
 #ifdef __cplusplus

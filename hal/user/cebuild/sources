@@ -47,8 +47,7 @@ SOURCES = $(SOURCES) \
     ../gc_hal_user_texture.c \
     ../gc_hal_user_vertex.c \
     ../gc_hal_user_vertex_array.c \
-    ../gc_hal_user_statistics.c \
-    ../gc_hal_user_resource.c
+    ../gc_hal_user_statistics.c
 
 !ELSE
 !    IF "$(VIVANTE_ENABLE_VG)" == "1"

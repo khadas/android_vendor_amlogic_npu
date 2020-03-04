@@ -17,7 +17,7 @@
 
 #if gcdNULL_DRIVER < 2
 
-#define _GC_OBJ_ZONE            gcvZONE_STREAM
+#define _GC_OBJ_ZONE            gcdZONE_STREAM
 #define gcdDEBUG_REBUILD        0
 
 /*******************************************************************************
@@ -2246,14 +2246,15 @@ gcoSTREAM_Flush(
 gceSTATUS
 gcoSTREAM_SetAttribute(
     IN gcoSTREAM Stream,
-    IN gctUINT Offset,
+    IN gctSIZE_T Offset,
     IN gctUINT Bytes,
     IN gctUINT Stride,
     IN gctUINT Divisor,
     IN OUT gcsSTREAM_SUBSTREAM_PTR * SubStream
     )
 {
-    gctUINT end, sub;
+    gctSIZE_T end;
+    gctUINT sub;
     gcsSTREAM_SUBSTREAM_PTR subPtr;
     gceSTATUS status;
 
@@ -3518,6 +3519,11 @@ gcoSTREAM_DynamicCacheAttributes(
     cache->offset += Bytes;
     cache->free   -= Bytes;
 
+    if (!cache->dynamicNode)
+    {
+        gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
+    }
+
     /* Copy the data. */
     gcmONERROR(_copyBuffers(BufferCount,
                             Buffers,
@@ -3611,6 +3617,11 @@ gcoSTREAM_DynamicCacheAttributesEx(
     offset         = cache->offset;
     cache->offset += TotalBytes;
     cache->free   -= TotalBytes;
+
+    if (!cache->dynamicNode)
+    {
+        gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
+    }
 
     gcmGETHARDWAREADDRESS(*(cache->dynamicNode), address);
 
@@ -4110,7 +4121,7 @@ gcoSTREAM_MergeStreams(
         /* Construct a new stream. */
         gcmONERROR(gcoSTREAM_Construct(gcvNULL, &merged));
 
-        gcmTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_STREAM,
+        gcmTRACE_ZONE(gcvLEVEL_INFO, gcdZONE_STREAM,
                       "Created a new merged stream 0x%x",
                       merged);
 
@@ -4134,13 +4145,13 @@ gcoSTREAM_MergeStreams(
             {
                 if (merged->dirty)
                 {
-                    gcmTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_STREAM,
+                    gcmTRACE_ZONE(gcvLEVEL_INFO, gcdZONE_STREAM,
                                   "Merged stream 0x%x is dirty",
                                   merged);
                 }
                 else
                 {
-                    gcmTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_STREAM,
+                    gcmTRACE_ZONE(gcvLEVEL_INFO, gcdZONE_STREAM,
                                   "Merged stream 0x%x now holds %u vertices",
                                   merged, count);
                 }
@@ -4161,7 +4172,7 @@ gcoSTREAM_MergeStreams(
                 /* We need to copy. */
                 copy = gcvTRUE;
 
-                gcmTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_STREAM,
+                gcmTRACE_ZONE(gcvLEVEL_INFO, gcdZONE_STREAM,
                               "Merged stream 0x%x now holds %u streams",
                               merged, index);
             }
@@ -4291,8 +4302,8 @@ gcoSTREAM_MergeStreams(
 
                 if(pack)
                 {
-                    mergeStride[index] = Streams[i].stream->subStreams[sortMap[j]].end
-                        - Streams[i].stream->subStreams[sortMap[j]].start;
+                    mergeStride[index] = (gctUINT)(Streams[i].stream->subStreams[sortMap[j]].end
+                        - Streams[i].stream->subStreams[sortMap[j]].start);
                 }
                 else
                 {
@@ -4357,7 +4368,7 @@ gcoSTREAM_MergeStreams(
 
                     if(pack)
                     {
-                        mergeStride[index] = sub->end - sub->start;
+                        mergeStride[index] = (gctUINT)(sub->end - sub->start);
                     }
                     else
                     {
@@ -4474,8 +4485,7 @@ gcoSTREAM_MergeStreams(
                 )
                 {
                     /* Adjust offset of the attribute. */
-                    attribute->offset = attribute->offset - sub->start
-                                      + sub->minStart;
+                    attribute->offset = attribute->offset - (gctUINT)(sub->start - sub->minStart);
                     break;
                 }
             }
@@ -4723,7 +4733,7 @@ gceSTATUS gcoVERTEX_Bind(
 
 gceSTATUS gcoSTREAM_SetAttribute(
     IN gcoSTREAM Stream,
-    IN gctUINT Offset,
+    IN gctSIZE_T Offset,
     IN gctUINT Bytes,
     IN gctUINT Stride,
     IN gctUINT Divisor,

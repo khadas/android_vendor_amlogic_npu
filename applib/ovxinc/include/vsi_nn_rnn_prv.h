@@ -44,6 +44,8 @@ typedef struct
     vsi_nn_link_list_t link_list;
     vsi_nn_rnn_external_connection_t connection;
     vsi_nn_rnn_internal_buffer_t buffer;
+    uint32_t connection_inputs_count;
+    vsi_bool tensor_swappable;
 } vsi_nn_rnn_connection_t;
 
 typedef struct

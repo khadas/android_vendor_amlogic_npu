@@ -520,8 +520,6 @@ clSetKernelExecInfoARM(cl_kernel            /* kernel */,
 /*********************************
 * cl_vivante_device_attribute_query
 *********************************/
-#define CL_MEM_USE_DEVICE_VIV                       (1 << 27)
-
 #define CL_MEM_USE_UNCACHED_HOST_MEMORY_VIV         (1 << 28)
 /*for CL_MEM_USE_HOST_PHYSICAL_ADDR_VIV, application must make sure the physical address passed in is a 40 bit address*/
 #define CL_MEM_USE_HOST_PHYSICAL_ADDR_VIV           (1 << 29)

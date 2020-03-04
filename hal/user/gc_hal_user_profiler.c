@@ -16,7 +16,7 @@
 */
 #include "gc_hal_user_precomp.h"
 
-#define _GC_OBJ_ZONE            gcvZONE_HAL
+#define _GC_OBJ_ZONE            gcdZONE_PROFILER
 
 #if gcdENABLE_3D
 #if VIVANTE_PROFILER
@@ -164,15 +164,13 @@ _RecordCounters(
     OUT gcsPROFILER_COUNTERS * Counters
     )
 {
-    gctUINT64_PTR memory = gcvNULL;
+    gctUINT32_PTR memory = gcvNULL;
     gctUINT32 offset = 0;
-    gctINT32 clusterMaxID = -1;
+    gctUINT32 clusterIDWidth = 0;
 
-    gcoHARDWARE_QueryCluster(gcvNULL, gcvNULL, &clusterMaxID, gcvNULL);
+    gcoHARDWARE_QueryCluster(gcvNULL, gcvNULL, gcvNULL, gcvNULL, &clusterIDWidth);
 
-    clusterMaxID = (gcoHAL_IsFeatureAvailable(gcvNULL, gcvFEATURE_MULTI_CLUSTER) == gcvSTATUS_TRUE) ? clusterMaxID + 1 : 1;
-
-    memory = (gctUINT64_PTR)Logical;
+    memory = (gctUINT32_PTR)Logical;
 
     gcoOS_ZeroMemory(&Counters->counters_part1, gcmSIZEOF(gcsPROFILER_COUNTERS_PART1));
     gcoOS_ZeroMemory(&Counters->counters_part2, gcmSIZEOF(gcsPROFILER_COUNTERS_PART2));
@@ -626,6 +624,9 @@ _WriteCounters(
                     counters->counters_part2.hi_total_read_8B_count = counters->counters_part2.hi0_total_read_8B_count + counters->counters_part2.hi1_total_read_8B_count;
                     counters->counters_part2.hi_total_write_8B_count = counters->counters_part2.hi0_total_write_8B_count + counters->counters_part2.hi1_total_write_8B_count;
                 }
+
+                counters->counters_part2.hi_total_readOCB_16B_count = 0xdeaddead;
+                counters->counters_part2.hi_total_writeOCB_16B_count = 0xdeaddead;
             }
             /*non probe mode */
             else if (Profiler->axiBus128bits)
@@ -653,6 +654,8 @@ _WriteCounters(
             gcmRECORD_COUNTER(VPNC_HIIDLECYCLES, gcmGETCOUNTER(counters_part2.hi_total_idle_cycle_count));
             gcmRECORD_COUNTER(VPNC_HIREAD8BYTE, gcmGETCOUNTER(counters_part2.hi_total_read_8B_count));
             gcmRECORD_COUNTER(VPNC_HIWRITE8BYTE, gcmGETCOUNTER(counters_part2.hi_total_write_8B_count));
+            gcmRECORD_COUNTER(VPNC_HIOCBREAD16BYTE, gcmGETCOUNTER(counters_part2.hi_total_readOCB_16B_count));
+            gcmRECORD_COUNTER(VPNC_HIOCBWRITE16BYTE, gcmGETCOUNTER(counters_part2.hi_total_writeOCB_16B_count));
             gcmRECORD_CONST(VPG_END);
 
             gcmRECORD_CONST(VPNG_L2);
@@ -1201,7 +1204,7 @@ gcoPROFILER_Initialize(
         gctUINT32 physicalAddress;
         gctPOINTER logicalAddress;
         gctUINT32 size;
-        gctINT32 clusterMaxID = -1;
+        gctUINT32 clusterIDWidth = 0;
         gcoBUFOBJ counterBufobj;
 
         gcoHAL_ConfigPowerManagement(gcvTRUE);
@@ -1217,11 +1220,9 @@ gcoPROFILER_Initialize(
             &iface, gcmSIZEOF(iface),
             &iface, gcmSIZEOF(iface)));
 
-        gcmONERROR(gcoHARDWARE_QueryCluster(gcvNULL, gcvNULL, &clusterMaxID, gcvNULL));
+        gcmONERROR(gcoHARDWARE_QueryCluster(gcvNULL, gcvNULL, gcvNULL, gcvNULL, &clusterIDWidth));
 
-        clusterMaxID = (gcoHAL_IsFeatureAvailable(gcvNULL, gcvFEATURE_MULTI_CLUSTER) == gcvSTATUS_TRUE) ? clusterMaxID + 1 : 1;
-
-        size = gcmSIZEOF(gctUINT64) * TOTAL_PROBE_NUMBER * Profiler->coreCount * clusterMaxID;
+        size = gcmSIZEOF(gctUINT32) * TOTAL_PROBE_NUMBER * Profiler->coreCount * (gctUINT32)(1 << clusterIDWidth);
 
         counterBuffer = Profiler->counterBuf;
 
@@ -1281,7 +1282,15 @@ gcoPROFILER_Initialize(
     Profiler->enable = gcvTRUE;
 
     gcmWRITE_CONST(VPHEADER);
-    gcmWRITE_BUFFER(4, "VP12");
+    gcmWRITE_BUFFER(4, VPHEADER_VERSION);
+    if (Profiler->profilerClient <= gcvCLIENT_OPENGL)
+    {
+        gcmWRITE_BUFFER(2, VPFILETYPE_GL);
+    }
+    else
+    {
+        gcmWRITE_BUFFER(2, VPFILETYPE_CL);
+    }
 
     /* Success. */
     gcmFOOTER_ARG("Profiler=0x%x", Profiler);

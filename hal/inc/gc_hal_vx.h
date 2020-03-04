@@ -94,6 +94,8 @@ typedef struct _gcsVX_KERNEL_PARAMETERS
 gcsVX_KERNEL_PARAMETERS;
 #endif
 
+#define MAX_GPU_CORE_COUNT 8
+
 /******************************************************************************\
 ****************************** API Declarations *****************************
 \******************************************************************************/
@@ -163,6 +165,11 @@ gcoVX_KernelConstruct(
     IN OUT gcoVX_Hardware_Context   *Context
     );
 
+gceSTATUS
+gcoVX_SetHardwareType(
+    IN gceHARDWARE_TYPE Type
+    );
+
 
 gceSTATUS
 gcoVX_LockKernel(
@@ -176,7 +183,7 @@ gcoVX_BindKernel(
 
 gceSTATUS
 gcoVX_LoadKernelShader(
-    IN gcsPROGRAM_STATE ProgramState
+    IN gcsPROGRAM_STATE *ProgramState
     );
 
 gceSTATUS
@@ -189,7 +196,8 @@ gcoVX_InvokeKernelShader(
     IN size_t              LocalWorkSize[3],
     IN gctUINT             ValueOrder,
     IN gctBOOL             BarrierUsed,
-    IN gctUINT32           MemoryAccessFlag
+    IN gctUINT32           MemoryAccessFlag,
+    IN gctBOOL             bDual16
     );
 
 gceSTATUS
@@ -204,7 +212,8 @@ gcoVX_TriggerAccelerator(
     IN gctUINT32              EventId,
     IN gctBOOL                waitEvent,
     IN gctUINT32              gpuId,
-    IN gctBOOL                sync
+    IN gctBOOL                sync,
+    IN gctUINT32              syncEventID
     );
 
 gceSTATUS
@@ -223,8 +232,18 @@ gcoVX_SetNNImage(
 
 gceSTATUS
 gcoVX_QueryDeviceCount(
-    OUT gctUINT32 * DeviceCount,
-    OUT gctUINT32 * GPUCountPerDevice
+    OUT gctUINT32 * DeviceCount
+    );
+
+gceSTATUS
+gcoVX_QueryCoreCount(
+    IN gctUINT32  DeviceID,
+    OUT gctUINT32 *CoreCount
+    );
+
+gceSTATUS
+gcoVX_QueryMultiCore(
+    OUT gctBOOL *IsMultiCore
     );
 
 gceSTATUS
@@ -248,6 +267,7 @@ gcoVX_FlushCache(
     IN gctBOOL      FlushPSSHL1Cache,
     IN gctBOOL      FlushNNL1Cache,
     IN gctBOOL      FlushTPL1Cache,
+    IN gctBOOL      FlushSHL1Cache,
     IN gctBOOL      Stall
     );
 
@@ -255,12 +275,24 @@ gceSTATUS
 gcoVX_AllocateMemoryEx(
     IN OUT gctUINT *        Bytes,
     IN  gceSURF_TYPE        Type,
+    IN  gcePOOL             Pool,
     IN  gctUINT32           alignment,
     OUT gctUINT32 *         Physical,
     OUT gctPOINTER *        Logical,
     OUT gcsSURF_NODE_PTR *  Node
     );
 
+gceSTATUS
+gcoVX_AllocateMemoryExAddAllocflag(
+    IN OUT gctUINT *        Bytes,
+    IN  gceSURF_TYPE        Type,
+    IN  gctUINT32           alignment,
+    IN  gctUINT32           allocflag,
+    OUT gctUINT32 *         Physical,
+    OUT gctPOINTER *        Logical,
+    OUT gctUINT32 * CpuPhysicalAddress,
+    OUT gcsSURF_NODE_PTR *  Node
+    );
 
 gceSTATUS
 gcoVX_FreeMemoryEx(
@@ -276,11 +308,6 @@ gcoVX_GetMemorySize(
 
 gceSTATUS
 gcoVX_ZeroMemorySize();
-
-gceSTATUS
-gcoVX_GetHWConfigGpuCount(
-    OUT gctUINT32 *count
-    );
 
 gceSTATUS
 gcoVX_SwitchContext(
@@ -333,7 +360,10 @@ gcoVX_ProgrammYUV2RGBScale(
 
 gceSTATUS
 gcoVX_CreateHW(
-    IN gctUINT32    DeviceId,
+    IN gctUINT32  DeviceID,
+    IN gctUINT32  CoreCountPerDevice,
+    IN gctUINT32  LocalCoreIndexs[],
+    IN gctUINT32  GlobalCoreIndexs[],
     OUT gcoHARDWARE * Hardware
     );
 

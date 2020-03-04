@@ -40,7 +40,7 @@ typedef struct _vsi_nn_depth2space_param
     /* local data must be the first. */
     vsi_nn_depth2space_lcl_data_t local;
 
-    uint32_t block_size;
+    int32_t block_size;
 } vsi_nn_depth2space_param;
 
 #ifdef __cplusplus

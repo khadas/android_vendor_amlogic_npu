@@ -38,13 +38,13 @@ gceSTATUS gcQueryShaderCompilerHwCfg(
 **        gcoHAL Hal
 **            Pointer to a gcoHAL object.
 **
-**        gcsPROGRAM_STATE ProgramState
+**        gcsPROGRAM_STATE *ProgramState
 **            Program state.
 */
 gceSTATUS
 gcLoadShaders(
     IN gcoHAL Hal,
-    IN gcsPROGRAM_STATE ProgramState
+    IN gcsPROGRAM_STATE *ProgramState
     );
 
 gceSTATUS

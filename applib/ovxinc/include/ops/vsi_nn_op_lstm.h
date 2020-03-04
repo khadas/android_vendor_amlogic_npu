@@ -45,7 +45,7 @@ typedef struct _vsi_nn_lstm_param
 
     float cell_clip;
     float proj_clip;
-    vsi_nn_lstmunit_activation_e activation;
+    vsi_nn_activation_e activation;
     float forget_bias;
 
     uint32_t weights;

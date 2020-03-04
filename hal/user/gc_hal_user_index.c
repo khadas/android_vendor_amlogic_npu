@@ -17,7 +17,7 @@
 
 #if gcdNULL_DRIVER < 2
 
-#define _GC_OBJ_ZONE            gcvZONE_INDEX
+#define _GC_OBJ_ZONE            gcdZONE_INDEX
 
 /******************************************************************************\
 ********************************** Structures **********************************
@@ -34,7 +34,7 @@
 /* Index buffer range information. */
 typedef struct _gcsINDEXRANGE
 {
-    gctUINT32                   offset;
+    gctSIZE_T                   offset;
     gctUINT32                   count;
     gctUINT32                   minIndex;
     gctUINT32                   maxIndex;
@@ -515,7 +515,8 @@ gcoINDEX_Load(
                                      address,
                                      endAddress,
                                      IndexType,
-                                     Index->bytes));
+                                     Index->bytes,
+                                     0xFFFFFFFF));
 
     /* Success. */
     gcmFOOTER_NO();
@@ -589,7 +590,8 @@ gcoINDEX_Bind(
                                    address,
                                    endAddress,
                                    Type,
-                                   Index->bytes);
+                                   Index->bytes,
+                                   0xFFFFFFFF);
     gcmFOOTER();
     return status;
 }
@@ -642,7 +644,8 @@ gcoINDEX_BindOffset(
                                    address + Offset,
                                    endAddress,
                                    Type,
-                                   Index->bytes - Offset);
+                                   Index->bytes - Offset,
+                                   0xFFFFFFFF);
     gcmFOOTER();
     return status;
 }
@@ -1152,7 +1155,7 @@ gceSTATUS
 gcoINDEX_GetIndexRange(
     IN gcoINDEX Index,
     IN gceINDEX_TYPE Type,
-    IN gctUINT32 Offset,
+    IN gctSIZE_T Offset,
     IN gctUINT32 Count,
     OUT gctUINT32 * MinimumIndex,
     OUT gctUINT32 * MaximumIndex
@@ -1966,7 +1969,7 @@ gcoINDEX_UploadDynamicEx(
         status = gcoOS_WaitSignal(gcvNULL, dynamic->signal, 0);
         if (status == gcvSTATUS_TIMEOUT)
         {
-            gcmTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_INDEX,
+            gcmTRACE_ZONE(gcvLEVEL_INFO, gcdZONE_INDEX,
                           "Waiting for index buffer 0x%x",
                           dynamic);
 
@@ -2173,7 +2176,7 @@ gcoINDEX_UploadDynamicEx2(
             {
                 if (Index->dynamicAllocatedCount == Index->dynamicCount)
                 {
-                    gcmTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_INDEX,
+                    gcmTRACE_ZONE(gcvLEVEL_INFO, gcdZONE_INDEX,
                         "Waiting for index buffer 0x%x",
                         dynamic);
 
@@ -2316,7 +2319,8 @@ gcoINDEX_BindDynamic(
                                      (Index->dynamicHead->physical + Index->dynamicHead->lastStart),
                                      endAddress,
                                      Type,
-                                     (Index->dynamicHead->lastEnd - Index->dynamicHead->lastStart)));
+                                     (Index->dynamicHead->lastEnd - Index->dynamicHead->lastStart),
+                                     0xFFFFFFFF));
 
     /* Success. */
     gcmFOOTER_NO();
@@ -2462,7 +2466,7 @@ gceSTATUS gcoINDEX_QueryCaps(
 gceSTATUS gcoINDEX_GetIndexRange(
     IN gcoINDEX Index,
     IN gceINDEX_TYPE Type,
-    IN gctUINT32 Offset,
+    IN gctSIZE_T Offset,
     IN gctUINT32 Count,
     OUT gctUINT32 * MinimumIndex,
     OUT gctUINT32 * MaximumIndex

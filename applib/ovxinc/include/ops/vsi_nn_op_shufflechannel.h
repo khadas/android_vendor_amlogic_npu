@@ -30,9 +30,17 @@
 extern "C" {
 #endif
 
+typedef struct _vsi_nn_shufflechannel_lcl_data_t
+{
+    vx_tensor input_tensor;
+    vx_tensor output_tensor;
+} vsi_nn_shufflechannel_lcl_data_t;
+
 typedef struct _vsi_nn_shufflechannel_param
 {
     int32_t group_number;
+    int32_t axis;
+    vsi_nn_shufflechannel_lcl_data_t *local;
 } vsi_nn_shufflechannel_param;
 
 #ifdef __cplusplus

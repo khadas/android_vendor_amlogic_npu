@@ -37,6 +37,9 @@ typedef vx_uint32 vsi_nn_reduce_t; enum
     VSI_NN_REDUCE_MAX,
     VSI_NN_REDUCE_MIN,
     VSI_NN_REDUCE_SUM,
+    VSI_NN_REDUCE_ALL,
+    VSI_NN_REDUCE_ANY,
+    VSI_NN_REDUCE_PROD,
 };
 
 typedef struct _vsi_nn_reduce_lcl_data_t
@@ -44,15 +47,23 @@ typedef struct _vsi_nn_reduce_lcl_data_t
     vsi_nn_tensor_t *axis_tensor;
 } vsi_nn_reduce_lcl_data_t;
 
+typedef struct _vsi_nn_reduce_lcl2_data_t
+{
+    vsi_nn_tensor_t *reshaped_input;
+    vsi_nn_tensor_t *reshaped_output;
+    vsi_nn_tensor_t *reshaped_tmp;
+    vsi_nn_tensor_t *axis_tensor2;
+} vsi_nn_reduce_lcl2_data_t;
+
 typedef struct _vsi_nn_reduce_param
 {
     /* local data must be the first. */
     vsi_nn_reduce_lcl_data_t local;
-
     vx_enum     type;
     vx_uint32   *axis;
     vx_uint32   axis_num;
     vx_bool     keep_dim;
+    vsi_nn_reduce_lcl2_data_t* local2;
 } vsi_nn_reduce_param;
 
 #ifdef __cplusplus

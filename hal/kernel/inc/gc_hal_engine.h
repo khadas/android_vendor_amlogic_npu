@@ -124,13 +124,14 @@ typedef struct _gcoBUFOBJ *             gcoBUFOBJ;
 
 typedef enum _gcePROGRAM_STAGE
 {
-    gcvPROGRAM_STAGE_VERTEX   = 0x0,
-    gcvPROGRAM_STAGE_TCS      = 0x1,
-    gcvPROGRAM_STAGE_TES      = 0x2,
-    gcvPROGRAM_STAGE_GEOMETRY = 0x3,
-    gcvPROGRAM_STAGE_FRAGMENT = 0x4,
-    gcvPROGRAM_STAGE_COMPUTE  = 0x5,
-    gcvPROGRAM_STAGE_OPENCL   = 0x6,
+    gcvPROGRAM_STAGE_VERTEX         = 0x0,
+    gcvPROGRAM_STAGE_TCS            = 0x1,
+    gcvPROGRAM_STAGE_TES            = 0x2,
+    gcvPROGRAM_STAGE_GEOMETRY       = 0x3,
+    gcvPROGRAM_STAGE_FRAGMENT       = 0x4,
+    gcvPROGRAM_STAGE_GRAPHICS_COUNT = 0x5,
+    gcvPROGRAM_STAGE_COMPUTE        = 0x5,
+    gcvPROGRAM_STAGE_OPENCL         = 0x6,
     gcvPROGRAM_STAGE_LAST
 }
 gcePROGRAM_STAGE;
@@ -240,6 +241,7 @@ typedef struct _gcsSURF_BLIT_ARGS
     gcsRECT     scissor;
     gctUINT     flags;
     gctUINT     srcNumSlice, dstNumSlice;
+    gctBOOL     needDecode;
 }
 gcsSURF_BLIT_ARGS;
 
@@ -318,6 +320,7 @@ typedef enum _gceSPLIT_DRAW_TYPE
     gcvSPLIT_DRAW_1,
     gcvSPLIT_DRAW_2,
     gcvSPLIT_DRAW_3,
+    gcvSPLIT_DRAW_4,
     gcvSPLIT_DRAW_XFB,
     gcvSPLIT_DRAW_INDEX_FETCH,
     gcvSPLIT_DRAW_TCS,
@@ -466,7 +469,8 @@ depr_gcoSURF_ResolveRect(
 gceSTATUS
 gcoSURF_Resample(
     IN gcoSURF SrcSurf,
-    IN gcoSURF DstSurf
+    IN gcoSURF DstSurf,
+    IN gctBOOL sRGBDecode
     );
 
 /* Resolve rectangular area of a surface. */
@@ -677,7 +681,7 @@ gceSTATUS
 gcoINDEX_GetIndexRange(
     IN gcoINDEX Index,
     IN gceINDEX_TYPE Type,
-    IN gctUINT32 Offset,
+    IN gctSIZE_T Offset,
     IN gctUINT32 Count,
     OUT gctUINT32 * MinimumIndex,
     OUT gctUINT32 * MaximumIndex
@@ -1534,7 +1538,8 @@ gco3D_SetQuery(
     IN gco3D Engine,
     IN gctUINT32 QueryHeader,
     IN gceQueryType Type,
-    IN gctBOOL Enable
+    IN gctBOOL Enable,
+    IN gctUINT32 Index
     );
 
 gceSTATUS
@@ -1544,6 +1549,7 @@ gco3D_GetQuery(
     IN gcsSURF_NODE_PTR Node,
     IN gctUINT32    Size,
     IN gctPOINTER   Locked,
+    IN gctUINT32    IndexedId,
     OUT gctINT32 * Index
     );
 
@@ -1644,6 +1650,7 @@ typedef struct _gcsTHREAD_WALKER_INFO
     gctBOOL     indirect;
     gctUINT32   groupNumberUniformIdx;
     gctUINT32   baseAddress;
+    gctBOOL     bDual16;
 }
 gcsTHREAD_WALKER_INFO;
 
@@ -2188,6 +2195,7 @@ gcoTEXTURE_AddMipMap(
     IN gctSIZE_T Depth,
     IN gctUINT Faces,
     IN gcePOOL Pool,
+    IN gctBOOL Filterable,
     OUT gcoSURF * Surface
     );
 
@@ -2204,6 +2212,7 @@ gcoTEXTURE_AddMipMapEx(
     IN gcePOOL Pool,
     IN gctUINT32 Samples,
     IN gctBOOL Protected,
+    IN gctBOOL Filterable,
     OUT gcoSURF * Surface
     );
 
@@ -2377,7 +2386,8 @@ gceSTATUS
 gcoTEXTURE_GenerateMipMap(
     IN gcoTEXTURE Texture,
     IN gctINT   BaseLevel,
-    IN gctINT   MaxLevel
+    IN gctINT   MaxLevel,
+    IN gctBOOL  sRGBDecode
     );
 
 /******************************************************************************\
@@ -2705,6 +2715,7 @@ typedef struct _gcsVERTEXARRAY_INDEX_INFO
     gctSIZE_T        count;
     gceINDEX_TYPE    indexType;
     gctPOINTER       indexMemory;
+    gctUINT          restartElement;
 
     union _gcsVERTEXARRAY_INDEX_INFO_UNION
     {
@@ -2885,8 +2896,9 @@ gceSTATUS
 gcoBUFOBJ_IndexBind (
     IN gcoBUFOBJ Index,
     IN gceINDEX_TYPE Type,
-    IN gctUINT32 Offset,
-    IN gctSIZE_T Count
+    IN gctSIZE_T Offset,
+    IN gctSIZE_T Count,
+    IN gctUINT   RestartElement
     );
 
 /* Find min and max index for the index buffer */
@@ -2894,7 +2906,7 @@ gceSTATUS
 gcoBUFOBJ_IndexGetRange(
     IN gcoBUFOBJ Index,
     IN gceINDEX_TYPE Type,
-    IN gctUINT32 Offset,
+    IN gctSIZE_T Offset,
     IN gctUINT32 Count,
     OUT gctUINT32 * MinimumIndex,
     OUT gctUINT32 * MaximumIndex

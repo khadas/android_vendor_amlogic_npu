@@ -34,7 +34,7 @@ typedef struct _vsi_nn_crop_param
 {
     int32_t  axis;
     uint32_t dims;
-    uint32_t offset[4];
+    uint32_t offset[VSI_NN_MAX_DIM_NUM];
 } vsi_nn_crop_param;
 
 #ifdef __cplusplus

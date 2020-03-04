@@ -76,7 +76,7 @@ _MultiGPUSync(
 
     gcmBEGINSTATEBUFFER_NEW(Hardware, reserve, stateDelta, memory, Memory);
 
-    if (Engine == gcvENGINE_RENDER && Hardware->config->gpuCoreCount > 1)
+    if (Engine == gcvENGINE_RENDER && Hardware->config->coreCount > 1)
     {
         if (BeforeBlt == gcvTRUE)
         {
@@ -86,7 +86,7 @@ _MultiGPUSync(
             if (forceSingle)
             {
                 /* Select GPU 3D_0. */
-                { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -108,7 +108,7 @@ _MultiGPUSync(
             if (forceSingle)
             {
                 /* Enable all 3D GPUs. */
-                { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -211,8 +211,7 @@ _BltGeneralControl(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502E, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  0:0) - (0 ?
  0:0) + 1) == 32) ?
@@ -277,8 +276,7 @@ _BltGeneralControl(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x50CE) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x50CE, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  7:0) - (0 ?
  7:0) + 1) == 32) ?
@@ -343,8 +341,7 @@ _BltGeneralControl(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502E, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  0:0) - (0 ?
  0:0) + 1) == 32) ?
@@ -762,44 +759,6 @@ _ConvertBlitFormat(
     return gcvSTATUS_OK;
 }
 
-static gctUINT32
-_GetEndianControl(
-    IN gcoHARDWARE Hardware,
-    IN gctUINT32 hwFormat
-    )
-{
-    gctUINT32 endianCtrl = 0x0;
-
-    if (Hardware->bigEndian)
-    {
-        switch (hwFormat)
-        {
-        case 0x00:
-        case 0x01:
-        case 0x02:
-        case 0x03:
-        case 0x04:
-        case 0x18:
-        case 0x1C:
-            endianCtrl = 0x1;
-            break;
-        case 0x16:
-        case 0x17:
-        case 0x19:
-        case 0x1A:
-        case 0x25:
-        case 0x26:
-        case 0x27:
-            endianCtrl = 0x2;
-            break;
-        default:
-            break;
-        }
-    }
-
-    return endianCtrl;
-}
-
 static void
 _ConfigMSAA(
     IN gcsSAMPLES *SampleInfo,
@@ -940,8 +899,7 @@ _3DBlitExecute(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x502B) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502B, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  1:1) - (0 ?
  1:1) + 1) == 32) ?
@@ -1014,8 +972,7 @@ _3DBlitExecute(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5018) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5018, data );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -1068,8 +1025,7 @@ _3DBlitExecute(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x502B) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502B, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  1:1) - (0 ?
  1:1) + 1) == 32) ?
@@ -1095,69 +1051,7 @@ _3DBlitExecute(
 };
 
 
-    {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
-    gcmASSERT((gctUINT32)1 <= 1024);
-    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502E, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))));    gcmENDSTATEBATCH_NEW(reserve, memory);
-};
- _MultiGPUSync(Hardware, Engine, forceSingle, gcvFALSE, &memory);
- ;
-
+    _BltGeneralControl(Hardware, Engine, forceSingle, gcvFALSE, &memory); _MultiGPUSync(Hardware, Engine, forceSingle, gcvFALSE, &memory); ;
 
     /* Validate the state buffer. */
     gcmENDSTATEBUFFER_NEW(Hardware, reserve, memory, Memory);
@@ -1263,6 +1157,8 @@ gcoHARDWARE_CopyData(
 **      gctSIZE_T Bytes
 **          Number of byte to copy.
 **
+**      gctBOOL forceSingle
+**          Force single gpu and single cluster
 **  OUTPUT:
 **
 **      Nothing
@@ -1273,7 +1169,8 @@ gcoHARDWARE_3DBlitCopy(
     IN gceENGINE Engine,
     IN gctUINT32 SrcAddress,
     IN gctUINT32 DestAddress,
-    IN gctUINT32 CopySize
+    IN gctUINT32 CopySize,
+    IN gctBOOL forceSingle
     )
 {
     gceSTATUS status;
@@ -1282,8 +1179,6 @@ gcoHARDWARE_3DBlitCopy(
     gctUINT32 gpuCount = 0;
     gctUINT32 clusterCount = 0;
     gctUINT32 clusterMask = 0;
-    /*force single gpu and single cluster*/
-    gctBOOL forceSingle = gcvFALSE;
 
     /* Define state buffer variables. */
     gcmDEFINESTATEBUFFER_NEW(reserve, stateDelta, memory);
@@ -1293,7 +1188,7 @@ gcoHARDWARE_3DBlitCopy(
     CurrentEngine = Engine;
     clusterMask = Hardware->config->clusterAliveMask;
     clusterCount = Hardware->config->clusterCount;
-    gpuCount = Hardware->config->gpuCoreCount;
+    gpuCount = Hardware->config->coreCount;
 
     if (clusterMask == 0)
     {
@@ -1303,7 +1198,8 @@ gcoHARDWARE_3DBlitCopy(
 
     if (forceSingle)
     {
-        clusterMask = 0x1;
+        gctINT32 clusterMinID = Hardware->config->clusterMinID;
+        clusterMask = 1 << (gctUINT32)clusterMinID;
         clusterCount = 1;
         gpuCount = 1;
     }
@@ -1320,69 +1216,7 @@ gcoHARDWARE_3DBlitCopy(
     /* Reserve space in the command buffer. */
     gcmBEGINSTATEBUFFER_NEW(Hardware, reserve, stateDelta, memory, outside);
 
-     _MultiGPUSync(Hardware, Engine, forceSingle, gcvTRUE, &memory);
- {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
-    gcmASSERT((gctUINT32)1 <= 1024);
-    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502E, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))));    gcmENDSTATEBATCH_NEW(reserve, memory);
-};
-;
-
+    _MultiGPUSync(Hardware, Engine, forceSingle, gcvTRUE, &memory); _BltGeneralControl(Hardware, Engine, forceSingle, gcvTRUE, &memory); ;
 
     /* base on core/cluster count to splite blt window */
     {
@@ -1399,7 +1233,7 @@ gcoHARDWARE_3DBlitCopy(
 
             if (gpuCount > 1)
             {
-                { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -1470,8 +1304,7 @@ gcoHARDWARE_3DBlitCopy(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x50CE) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x50CE, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  7:0) - (0 ?
  7:0) + 1) == 32) ?
@@ -1534,8 +1367,7 @@ gcoHARDWARE_3DBlitCopy(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5000) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5000, srcAddr );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -1589,8 +1421,7 @@ gcoHARDWARE_3DBlitCopy(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5006) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5006, dstAddr );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -1644,8 +1475,7 @@ gcoHARDWARE_3DBlitCopy(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5015) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5015, copyBytes );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -1700,8 +1530,7 @@ gcoHARDWARE_3DBlitCopy(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x503D) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x503D, srcAddr + copyBytes - 1 );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -1754,8 +1583,7 @@ gcoHARDWARE_3DBlitCopy(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x50CD) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x50CD, dstAddr + copyBytes - 1 );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -1821,8 +1649,7 @@ gcoHARDWARE_3DBlitCopy(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x50CE) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x50CE, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  7:0) - (0 ?
  7:0) + 1) == 32) ?
@@ -1840,7 +1667,7 @@ gcoHARDWARE_3DBlitCopy(
 
         if (gpuCount > 1)
         {
-            { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+            { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -1951,6 +1778,8 @@ OnError:
 **      gcsSURF_RESOLVE_ARGS *Args
 **          Pointer to the resolve arguments.
 **
+**      gctBOOL forceSingle
+**          Force single gpu or single cluster
 **  OUTPUT:
 **
 **      Nothing
@@ -1960,7 +1789,8 @@ gcoHARDWARE_3DBlitBlt(
     IN gcoHARDWARE Hardware,
     IN gcsSURF_VIEW *SrcView,
     IN gcsSURF_VIEW *DstView,
-    IN gcsSURF_RESOLVE_ARGS *Args
+    IN gcsSURF_RESOLVE_ARGS *Args,
+    IN gctBOOL forceSingle
     )
 {
     gceSTATUS   status;
@@ -2003,8 +1833,6 @@ gcoHARDWARE_3DBlitBlt(
     gctUINT32 gpuCount = 0;
     gctUINT32 clusterCount = 0;
     gctUINT32 clusterMask = 0;
-    /*force single gpu or single cluster*/
-    gctBOOL forceSingle = gcvFALSE;
     gcsSURF_FORMAT_INFO_PTR fmtInfo = &srcSurf->formatInfo;
     gctUINT srcWidth  = srcSurf->allocedW / srcSurf->sampleInfo.x;
     gctUINT srcHeight = srcSurf->allocedH / srcSurf->sampleInfo.y;
@@ -2057,7 +1885,7 @@ gcoHARDWARE_3DBlitBlt(
     }
 
     CurrentEngine = Args->uArgs.v2.engine;
-    gpuCount = Hardware->config->gpuCoreCount;
+    gpuCount = Hardware->config->coreCount;
     clusterMask = Hardware->config->clusterAliveMask;
     clusterCount = Hardware->config->clusterCount;
 
@@ -2069,7 +1897,8 @@ gcoHARDWARE_3DBlitBlt(
 
     if (forceSingle)
     {
-        clusterMask = 0x1;
+        gctINT32 clusterMinID = Hardware->config->clusterMinID;
+        clusterMask = 1 << (gctUINT32)clusterMinID;
         clusterCount = 1;
         gpuCount = 1;
     }
@@ -2118,7 +1947,7 @@ gcoHARDWARE_3DBlitBlt(
     }
 
     bScale = (srcSurf->sampleInfo.x != dstSurf->sampleInfo.x) || (srcSurf->sampleInfo.y != dstSurf->sampleInfo.y);
-    if((bSrcFake || bDstFake)                                         &&
+    if ((bSrcFake || bDstFake)                                 &&
         (srcSurfFmt != dstSurf->format                         ||
          (bScale && srcDownsampleMode != gcvMSAA_DOWNSAMPLE_SAMPLE))
        )
@@ -2648,7 +2477,7 @@ gcoHARDWARE_3DBlitBlt(
  ~0U : (~(~0U << ((1 ?
  2:1) - (0 ?
  2:1) + 1))))))) << (0 ?
- 2:1))) | (((gctUINT32) ((gctUINT32) (_GetEndianControl(Hardware, srcFormat)) & ((gctUINT32) ((((1 ?
+ 2:1))) | (((gctUINT32) ((gctUINT32) (srcSurf->formatInfo.endian) & ((gctUINT32) ((((1 ?
  2:1) - (0 ?
  2:1) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 2:1) - (0 ? 2:1) + 1))))))) << (0 ? 2:1)))
@@ -2658,19 +2487,13 @@ gcoHARDWARE_3DBlitBlt(
  ~0U : (~(~0U << ((1 ?
  4:3) - (0 ?
  4:3) + 1))))))) << (0 ?
- 4:3))) | (((gctUINT32) ((gctUINT32) (_GetEndianControl(Hardware, dstFormat)) & ((gctUINT32) ((((1 ?
+ 4:3))) | (((gctUINT32) ((gctUINT32) (dstSurf->formatInfo.endian) & ((gctUINT32) ((((1 ?
  4:3) - (0 ?
  4:3) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 4:3) - (0 ? 4:3) + 1))))))) << (0 ? 4:3)));
 
     if (Hardware->features[gcvFEATURE_128BTILE])
     {
-        if (srcTileStatusPhysical &&
-            srcFastClear &&
-            srcSurf->cacheMode == gcvCACHE_NONE)
-        {
-            srcSurf->cacheMode = DEFAULT_CACHE_MODE;
-        }
 
         if ((Hardware->features[gcvFEATURE_COMPRESSION_V4] || Hardware->features[gcvFEATURE_COMPRESSION_DEC400])
         &&  srcSurf->compressed
@@ -2836,69 +2659,7 @@ gcoHARDWARE_3DBlitBlt(
     gcsSURF_NODE_Lock(&srcSurf->node, CurrentEngine, gcvNULL, gcvNULL);
     gcsSURF_NODE_Lock(&dstSurf->node, CurrentEngine, gcvNULL, gcvNULL);
 
-     _MultiGPUSync(Hardware, Args->uArgs.v2.engine, forceSingle, gcvTRUE, &memory);
- {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
-    gcmASSERT((gctUINT32)1 <= 1024);
-    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502E, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))));    gcmENDSTATEBATCH_NEW(reserve, memory);
-};
-;
-
+    _MultiGPUSync(Hardware, Args->uArgs.v2.engine, forceSingle, gcvTRUE, &memory); _BltGeneralControl(Hardware, Args->uArgs.v2.engine, forceSingle, gcvTRUE, &memory); ;
 
     /* BltGeneralConfig. */
     {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
@@ -2948,8 +2709,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5019) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5019, generalConfig );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -3003,8 +2763,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5002) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5002, srcConfig );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -3058,8 +2817,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5003) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5003, srcConfigEx );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -3113,8 +2871,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x502F) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502F, swizzleConfig );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -3168,8 +2925,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5028) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5028, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -3243,8 +2999,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5027) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5027, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -3272,6 +3027,9 @@ gcoHARDWARE_3DBlitBlt(
 
     if (srcFastClear)
     {
+        gctUINT32 fcValue      = srcSurf->fcValue[SrcView->firstSlice];
+        gctUINT32 fcValueUpper = srcSurf->fcValueUpper[SrcView->firstSlice];
+
         /* BltSrcTileStatusAddress. */
         {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
     gcmASSERT((gctUINT32)1 <= 1024);
@@ -3320,8 +3078,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5004) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5004, srcTileStatusPhysical );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -3375,10 +3132,9 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x500D) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500D, srcSurf->fcValue[SrcView->firstSlice] );
-    gcmENDSTATEBATCH_NEW(reserve, memory);
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500D, (srcSurf->formatInfo.endian != gcvENDIAN_NO_SWAP) ?
+ gcmBSWAP32(fcValue) : fcValue );    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
 
@@ -3432,10 +3188,9 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x500E) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500E, srcSurf->fcValueUpper[SrcView->firstSlice] );
-    gcmENDSTATEBATCH_NEW(reserve, memory);
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500E, (srcSurf->formatInfo.endian != gcvENDIAN_NO_SWAP) ?
+ gcmBSWAP32(fcValueUpper) : fcValueUpper );    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
         }
@@ -3489,8 +3244,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5000) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5000, srcAddress );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -3546,8 +3300,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5000 + 1) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5000 + 1, srcAddress + srcSurf->bottomBufferOffset );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -3602,8 +3355,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5009) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5009, dstConfig );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -3657,8 +3409,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x500A) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500A, dstConfigEx );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -3712,8 +3463,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5006) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5006, dstAddress );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -3769,8 +3519,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5006 + 1) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5006 + 1, dstAddress + dstSurf->bottomBufferOffset );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -3829,8 +3578,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x50CF) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x50CF, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -3873,7 +3621,7 @@ gcoHARDWARE_3DBlitBlt(
 
             if (gpuCount > 1)
             {
-                { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -3948,8 +3696,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x50CE) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x50CE, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  7:0) - (0 ?
  7:0) + 1) == 32) ?
@@ -4012,8 +3759,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5005) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5005, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -4087,8 +3833,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x500B) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500B, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -4162,8 +3907,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x500C) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500C, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -4249,8 +3993,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x50CE) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x50CE, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  7:0) - (0 ?
  7:0) + 1) == 32) ?
@@ -4268,7 +4011,7 @@ gcoHARDWARE_3DBlitBlt(
 
         if (gpuCount > 1)
         {
-            { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+            { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -4336,8 +4079,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5016) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5016, ~0U );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -4391,8 +4133,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5017) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5017, ~0U );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -4454,8 +4195,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x503D) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x503D, endAddress );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -4511,8 +4251,7 @@ gcoHARDWARE_3DBlitBlt(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x50CD) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x50CD, endAddress );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -4591,6 +4330,8 @@ OnError:
 **      gcsPOINT_PTR RectSize
 **          The size of the rectangular area to be cleared.
 **
+**      gctBOOL forceSingle
+**          Force single gpu or single cluster
 **  OUTPUT:
 **
 **      Nothing
@@ -4602,7 +4343,8 @@ gcoHARDWARE_3DBlitClear(
     IN gcsSURF_VIEW *DstView,
     IN gcs3DBLIT_INFO_PTR Info,
     IN gcsPOINT_PTR DstOrigin,
-    IN gcsPOINT_PTR RectSize
+    IN gcsPOINT_PTR RectSize,
+    IN gctBOOL forceSingle
     )
 {
     gceSTATUS       status;
@@ -4628,7 +4370,6 @@ gcoHARDWARE_3DBlitClear(
     gctPOINTER*     outside = gcvNULL;
     gcoSURF         DstSurf = DstView->surf;
     gctUINT         gpuCount = 0;
-    gctBOOL         forceSingle = gcvFALSE;
     gcsSURF_FORMAT_INFO_PTR fmtInfo = &DstSurf->formatInfo;
     gctUINT32       clusterCount = 0;
     gctUINT32       clusterMask = 0;
@@ -4648,7 +4389,7 @@ gcoHARDWARE_3DBlitClear(
     gcmASSERT(DstView->numSlices == 1);
 
     CurrentEngine = Engine;
-    gpuCount = Hardware->config->gpuCoreCount;
+    gpuCount = Hardware->config->coreCount;
     clusterMask = Hardware->config->clusterAliveMask;
     clusterCount = Hardware->config->clusterCount;
 
@@ -4660,18 +4401,14 @@ gcoHARDWARE_3DBlitClear(
 
     if (forceSingle)
     {
-        clusterMask = 0x1;
+        gctINT32 clusterMinID = Hardware->config->clusterMinID;
+        clusterMask = 1 << (gctUINT32)clusterMinID;
         clusterCount = 1;
         gpuCount = 1;
     }
 
     destFastClear = (Info->destTileStatusAddress != 0);
 
-    if (destFastClear &&
-        DstSurf->cacheMode == gcvCACHE_NONE)
-    {
-        DstSurf->cacheMode = DEFAULT_CACHE_MODE;
-    }
 
     commandInfo.dither = gcvFALSE;
 
@@ -5072,69 +4809,7 @@ gcoHARDWARE_3DBlitClear(
     /* lock surface on the execute engine */
     gcsSURF_NODE_Lock(&DstSurf->node, CurrentEngine, gcvNULL, gcvNULL);
 
-     _MultiGPUSync(Hardware, Engine, forceSingle, gcvTRUE, &memory);
- {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
-    gcmASSERT((gctUINT32)1 <= 1024);
-    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502E, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))));    gcmENDSTATEBATCH_NEW(reserve, memory);
-};
-;
-
+    _MultiGPUSync(Hardware, Engine, forceSingle, gcvTRUE, &memory); _BltGeneralControl(Hardware, Engine, forceSingle, gcvTRUE, &memory); ;
 
     /* BltGeneralConfig. */
     {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
@@ -5184,8 +4859,7 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5019) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5019, generalConfig );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -5239,8 +4913,7 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5009) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5009, destConfig );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -5294,8 +4967,7 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x500A) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500A, destConfigEx );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -5349,8 +5021,7 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5006) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5006, destAddress );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -5404,8 +5075,7 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5002) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5002, destConfig );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -5459,8 +5129,7 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5003) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5003, srcConfigEx );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -5514,8 +5183,7 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5000) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5000, destAddress );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -5536,7 +5204,7 @@ gcoHARDWARE_3DBlitClear(
 
             if (gpuCount > 1)
             {
-                { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -5611,8 +5279,7 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x50CE) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x50CE, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  7:0) - (0 ?
  7:0) + 1) == 32) ?
@@ -5675,8 +5342,7 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x500B) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500B, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -5750,8 +5416,7 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x500C) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500C, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -5836,8 +5501,7 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x50CE) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x50CE, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  7:0) - (0 ?
  7:0) + 1) == 32) ?
@@ -5855,7 +5519,7 @@ gcoHARDWARE_3DBlitClear(
 
         if (gpuCount > 1)
         {
-            { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+            { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -5920,10 +5584,9 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5011) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5011, Info->clearValue[0] );
-    gcmENDSTATEBATCH_NEW(reserve, memory);
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5011, (fmtInfo->endian != gcvENDIAN_NO_SWAP) ?
+ gcmBSWAP32(Info->clearValue[0]) : Info->clearValue[0] );    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
 
@@ -5974,10 +5637,9 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5012) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5012, Info->clearValue[1] );
-    gcmENDSTATEBATCH_NEW(reserve, memory);
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5012, (fmtInfo->endian != gcvENDIAN_NO_SWAP) ?
+ gcmBSWAP32(Info->clearValue[1]) : Info->clearValue[1] );    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
 
@@ -6029,10 +5691,9 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5013) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5013, Info->clearBitMask );
-    gcmENDSTATEBATCH_NEW(reserve, memory);
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5013, (fmtInfo->endian != gcvENDIAN_NO_SWAP) ?
+ gcmBSWAP32(Info->clearBitMask) : Info->clearBitMask );    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
 
@@ -6083,10 +5744,9 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5014) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5014, Info->clearBitMaskUpper );
-    gcmENDSTATEBATCH_NEW(reserve, memory);
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5014, (fmtInfo->endian != gcvENDIAN_NO_SWAP) ?
+ gcmBSWAP32(Info->clearBitMaskUpper) : Info->clearBitMaskUpper );    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
 
@@ -6140,8 +5800,7 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5006 + 1) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5006 + 1, destAddress + DstSurf->bottomBufferOffset );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -6195,8 +5854,7 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5000 + 1) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5000 + 1, destAddress + DstSurf->bottomBufferOffset );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -6253,8 +5911,7 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5008) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5008, tileStatusPhysical );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -6308,8 +5965,7 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5004) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5004, tileStatusPhysical );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -6363,10 +6019,9 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x500F) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500F, Info->fcClearValue[0] );
-    gcmENDSTATEBATCH_NEW(reserve, memory);
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500F, (fmtInfo->endian != gcvENDIAN_NO_SWAP) ?
+ gcmBSWAP32(Info->fcClearValue[0]) : Info->fcClearValue[0] );    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
 
@@ -6417,10 +6072,9 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5010) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5010, Info->fcClearValue[1] );
-    gcmENDSTATEBATCH_NEW(reserve, memory);
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5010, (fmtInfo->endian != gcvENDIAN_NO_SWAP) ?
+ gcmBSWAP32(Info->fcClearValue[1]) : Info->fcClearValue[1] );    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
 
@@ -6472,10 +6126,9 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x500D) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500D, Info->fcClearValue[0] );
-    gcmENDSTATEBATCH_NEW(reserve, memory);
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500D, (fmtInfo->endian != gcvENDIAN_NO_SWAP) ?
+ gcmBSWAP32(Info->fcClearValue[0]) : Info->fcClearValue[0] );    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
 
@@ -6526,10 +6179,9 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x500E) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500E, Info->fcClearValue[1] );
-    gcmENDSTATEBATCH_NEW(reserve, memory);
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500E, (fmtInfo->endian != gcvENDIAN_NO_SWAP) ?
+ gcmBSWAP32(Info->fcClearValue[1]) : Info->fcClearValue[1] );    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
     }
@@ -6591,8 +6243,7 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x503D) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x503D, endAddress );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -6645,8 +6296,7 @@ gcoHARDWARE_3DBlitClear(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x50CD) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x50CD, endAddress );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -6708,6 +6358,8 @@ OnError:
 **      gcs3DBLIT_INFO_PTR Info
 **          Pointer to the 3DBLIT arguements.
 **
+**      gctBOOL forceSingle
+**          Force single gpu or single cluster
 **  OUTPUT:
 **
 **      Nothing
@@ -6716,7 +6368,8 @@ gceSTATUS
 gcoHARDWARE_3DBlitTileFill(
     IN gcoHARDWARE Hardware,
     IN gceENGINE Engine,
-    IN gcsSURF_VIEW *DstView
+    IN gcsSURF_VIEW *DstView,
+    IN gctBOOL forceSingle
     )
 {
     gceSTATUS status;
@@ -6734,8 +6387,6 @@ gcoHARDWARE_3DBlitTileFill(
     gctUINT gpuCount = 0;
     gctUINT clusterMask = 0;
     gctUINT clusterCount = 0;
-    /*force single gpu or single cluster*/
-    gctBOOL forceSingle = gcvFALSE;
 
     /* Define state buffer variables. */
     gcmDEFINESTATEBUFFER_NEW(reserve, stateDelta, memory);
@@ -6745,7 +6396,7 @@ gcoHARDWARE_3DBlitTileFill(
     gcmGETHARDWARE(Hardware);
 
     CurrentEngine = Engine;
-    gpuCount = Hardware->config->gpuCoreCount;
+    gpuCount = Hardware->config->coreCount;
     clusterMask = Hardware->config->clusterAliveMask;
     clusterCount = Hardware->config->clusterCount;
 
@@ -6757,7 +6408,8 @@ gcoHARDWARE_3DBlitTileFill(
 
     if (forceSingle)
     {
-        clusterMask = 0x1;
+        gctINT32 clusterMinID = Hardware->config->clusterMinID;
+        clusterMask = 1 << (gctUINT32)clusterMinID;
         clusterCount = 1;
         gpuCount = 1;
     }
@@ -6890,73 +6542,10 @@ gcoHARDWARE_3DBlitTileFill(
 #endif
 
     /* Flush tile status buffer */
-    {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
-    gcmASSERT((gctUINT32)1 <= 1024);
-    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0594) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0594, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))) );    gcmENDSTATEBATCH_NEW(reserve, memory);
-};
-
-
-    /* lock surface on the execute engine */
-    gcsSURF_NODE_Lock(&DstSurf->node, CurrentEngine, gcvNULL, gcvNULL);
-
-     _MultiGPUSync(Hardware, Engine, forceSingle, gcvTRUE, &memory);
- {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    if (!Hardware->features[gcvFEATURE_PE_TILE_CACHE_FLUSH_FIX] &&
+        Hardware->features[gcvFEATURE_BLT_ENGINE])
+    {
+        {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
     gcmASSERT((gctUINT32)1 <= 1024);
     *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
@@ -7003,8 +6592,7 @@ gcoHARDWARE_3DBlitTileFill(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502E, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  0:0) - (0 ?
  0:0) + 1) == 32) ?
@@ -7016,8 +6604,198 @@ gcoHARDWARE_3DBlitTileFill(
  0:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))));    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
-;
 
+
+        {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502B) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502B, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))) );    gcmENDSTATEBATCH_NEW(reserve, memory);
+};
+
+
+        {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502E, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))));    gcmENDSTATEBATCH_NEW(reserve, memory);
+};
+
+    }
+    else
+    {
+        {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0594) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0594, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))) );    gcmENDSTATEBATCH_NEW(reserve, memory);
+};
+
+    }
+
+    /* lock surface on the execute engine */
+    gcsSURF_NODE_Lock(&DstSurf->node, CurrentEngine, gcvNULL, gcvNULL);
+
+    _MultiGPUSync(Hardware, Engine, forceSingle, gcvTRUE, &memory); _BltGeneralControl(Hardware, Engine, forceSingle, gcvTRUE, &memory); ;
 
     /* GeneralConfig. */
     {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
@@ -7067,8 +6845,7 @@ gcoHARDWARE_3DBlitTileFill(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5019) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5019, generalConfig );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -7122,10 +6899,10 @@ gcoHARDWARE_3DBlitTileFill(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x500F) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500F, DstSurf->fcValue[DstView->firstSlice];
- );
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500F, (DstSurf->formatInfo.endian != gcvENDIAN_NO_SWAP) ?
+ gcmBSWAP32(DstSurf->fcValue[DstView->firstSlice]) :
+ DstSurf->fcValue[DstView->firstSlice]; );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
@@ -7178,10 +6955,10 @@ gcoHARDWARE_3DBlitTileFill(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5010) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5010, DstSurf->fcValueUpper[DstView->firstSlice] );
-    gcmENDSTATEBATCH_NEW(reserve, memory);
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5010, (DstSurf->formatInfo.endian != gcvENDIAN_NO_SWAP) ?
+ gcmBSWAP32(DstSurf->fcValueUpper[DstView->firstSlice]) :
+ DstSurf->fcValueUpper[DstView->firstSlice] );    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
 
@@ -7201,7 +6978,7 @@ gcoHARDWARE_3DBlitTileFill(
 
              if (gpuCount > 1)
             {
-                { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -7272,8 +7049,7 @@ gcoHARDWARE_3DBlitTileFill(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x50CE) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x50CE, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  7:0) - (0 ?
  7:0) + 1) == 32) ?
@@ -7336,8 +7112,7 @@ gcoHARDWARE_3DBlitTileFill(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5006) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5006, dstAddr );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -7391,8 +7166,7 @@ gcoHARDWARE_3DBlitTileFill(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5008) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5008, dstTsAddr );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -7446,8 +7220,7 @@ gcoHARDWARE_3DBlitTileFill(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x501A) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x501A, (gctUINT32)tileFillCount );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -7512,8 +7285,7 @@ gcoHARDWARE_3DBlitTileFill(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x50CE) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x50CE, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  7:0) - (0 ?
  7:0) + 1) == 32) ?
@@ -7531,7 +7303,7 @@ gcoHARDWARE_3DBlitTileFill(
 
         if (gpuCount > 1)
         {
-            { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+            { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -7605,8 +7377,7 @@ gcoHARDWARE_3DBlitTileFill(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x50CD) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x50CD, endAddress );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -7806,69 +7577,7 @@ gcoHARDWARE_3DBlit420Tiler(
     gcsSURF_NODE_Lock(&SrcSurf->node, CurrentEngine, gcvNULL, gcvNULL);
     gcsSURF_NODE_Lock(&DstSurf->node, CurrentEngine, gcvNULL, gcvNULL);
 
-     _MultiGPUSync(Hardware, Engine, forceSingle, gcvTRUE, &memory);
- {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
-    gcmASSERT((gctUINT32)1 <= 1024);
-    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502E, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))));    gcmENDSTATEBATCH_NEW(reserve, memory);
-};
-;
-
+    _MultiGPUSync(Hardware, Engine, forceSingle, gcvTRUE, &memory); _BltGeneralControl(Hardware, Engine, forceSingle, gcvTRUE, &memory); ;
 
     {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
     gcmASSERT((gctUINT32)10  <= 1024);
@@ -7917,8 +7626,7 @@ gcoHARDWARE_3DBlit420Tiler(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x501B) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
 
 
         /* Set tiler configuration. */
@@ -8133,8 +7841,7 @@ gcoHARDWARE_3DBlit420Tiler(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x503D) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x503D, srcYEndAddress );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -8186,8 +7893,7 @@ gcoHARDWARE_3DBlit420Tiler(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x503E) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x503E, srcUEndAddress );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -8239,8 +7945,7 @@ gcoHARDWARE_3DBlit420Tiler(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x503F) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x503F, srcVEndAddress );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -8293,8 +7998,7 @@ gcoHARDWARE_3DBlit420Tiler(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x50CD) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x50CD, destEndAddress );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -8347,6 +8051,7 @@ gcoHARDWARE_3DBlitMipMap(
     IN gceENGINE Engine,
     IN gcs3DBLIT_INFO_PTR Info,
     IN gctUINT SliceIdx,
+    IN gctBOOL sRGBDecode,
     INOUT gctPOINTER * Memory
     )
 {
@@ -8377,6 +8082,7 @@ gcoHARDWARE_3DBlitMipMap(
     gctBOOL bSrcFake, bDstFake;
     /*force single gpu or single cluster*/
     gctBOOL forceSingle = gcvTRUE;
+    gcePATCH_ID patchId = gcvPATCH_INVALID;
 
     gcmDEFINESTATEBUFFER_NEW(reserve, stateDelta, memory);
 
@@ -8388,8 +8094,15 @@ gcoHARDWARE_3DBlitMipMap(
 
     gcmONERROR(_ConvertBlitFormat(gcvTRUE, srcSurf->format, &srcFormat, &srcSwizzle, gcvNULL, &bSrcFake));
     gcmONERROR(_ConvertBlitFormat(gcvFALSE, dstSurf->format, &destFormat, &destSwizzle, gcvNULL, &bDstFake));
-    srcSRGB = (srcSurf->colorSpace == gcvSURF_COLOR_SPACE_NONLINEAR) ? gcvTRUE : gcvFALSE;
-    dstSRGB = (dstSurf->colorSpace == gcvSURF_COLOR_SPACE_NONLINEAR) ? gcvTRUE : gcvFALSE;
+    srcSRGB = sRGBDecode && ((srcSurf->colorSpace == gcvSURF_COLOR_SPACE_NONLINEAR) ? gcvTRUE : gcvFALSE);
+    dstSRGB = sRGBDecode && ((dstSurf->colorSpace == gcvSURF_COLOR_SPACE_NONLINEAR) ? gcvTRUE : gcvFALSE);
+
+    /* For gcvSURF_A8_SRGB8 format, seems 3DBlitMipMap have precision issue */
+    gcoHARDWARE_GetPatchID(gcvNULL, &patchId);
+    if (patchId == gcvPATCH_SKIA_SKQP && gcvSURF_A8_SRGB8 == srcSurf->format)
+    {
+        gcmONERROR(gcvSTATUS_NOT_SUPPORTED);
+    }
 
     if (bSrcFake || bDstFake)
     {
@@ -8671,12 +8384,6 @@ gcoHARDWARE_3DBlitMipMap(
 
     if (Hardware->features[gcvFEATURE_128BTILE])
     {
-        if (srcFastClear &&
-            srcTileStatusPhysical &&
-            srcSurf->cacheMode == gcvCACHE_NONE)
-        {
-            srcSurf->cacheMode = DEFAULT_CACHE_MODE;
-        }
 
         if ((Hardware->features[gcvFEATURE_COMPRESSION_V4] || Hardware->features[gcvFEATURE_COMPRESSION_DEC400])
         &&  srcSurf->compressed
@@ -8908,7 +8615,7 @@ gcoHARDWARE_3DBlitMipMap(
  ~0U : (~(~0U << ((1 ?
  2:1) - (0 ?
  2:1) + 1))))))) << (0 ?
- 2:1))) | (((gctUINT32) ((gctUINT32) (_GetEndianControl(Hardware, srcFormat)) & ((gctUINT32) ((((1 ?
+ 2:1))) | (((gctUINT32) ((gctUINT32) (srcSurf->formatInfo.endian) & ((gctUINT32) ((((1 ?
  2:1) - (0 ?
  2:1) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 2:1) - (0 ? 2:1) + 1))))))) << (0 ? 2:1)))
@@ -8918,7 +8625,7 @@ gcoHARDWARE_3DBlitMipMap(
  ~0U : (~(~0U << ((1 ?
  4:3) - (0 ?
  4:3) + 1))))))) << (0 ?
- 4:3))) | (((gctUINT32) ((gctUINT32) (_GetEndianControl(Hardware, destFormat)) & ((gctUINT32) ((((1 ?
+ 4:3))) | (((gctUINT32) ((gctUINT32) (dstSurf->formatInfo.endian) & ((gctUINT32) ((((1 ?
  4:3) - (0 ?
  4:3) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 4:3) - (0 ? 4:3) + 1))))))) << (0 ? 4:3)));
@@ -8951,69 +8658,7 @@ gcoHARDWARE_3DBlitMipMap(
     /* lock surface on the execute engine */
     gcsSURF_NODE_Lock(&srcSurf->node, CurrentEngine, gcvNULL, gcvNULL);
 
-     _MultiGPUSync(Hardware, Engine, forceSingle, gcvTRUE, &memory);
- {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
-    gcmASSERT((gctUINT32)1 <= 1024);
-    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502E, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))));    gcmENDSTATEBATCH_NEW(reserve, memory);
-};
-;
-
+    _MultiGPUSync(Hardware, Engine, forceSingle, gcvTRUE, &memory); _BltGeneralControl(Hardware, Engine, forceSingle, gcvTRUE, &memory); ;
 
     /* BltSrcConfig. */
     {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
@@ -9063,8 +8708,7 @@ gcoHARDWARE_3DBlitMipMap(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5002) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5002, srcConfig );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -9118,8 +8762,7 @@ gcoHARDWARE_3DBlitMipMap(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5003) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5003, srcConfigEx );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -9127,6 +8770,9 @@ gcoHARDWARE_3DBlitMipMap(
 
     if (srcFastClear)
     {
+        gctUINT32 fcValue      = srcSurf->fcValue[SliceIdx];
+        gctUINT32 fcValueUpper = srcSurf->fcValueUpper[SliceIdx];
+
         /* BltSrcTileStatusAddress. */
         {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
     gcmASSERT((gctUINT32)1 <= 1024);
@@ -9175,8 +8821,7 @@ gcoHARDWARE_3DBlitMipMap(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5004) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5004, srcTileStatusPhysical );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -9230,10 +8875,9 @@ gcoHARDWARE_3DBlitMipMap(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x500D) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500D, srcSurf->fcValue[SliceIdx] );
-    gcmENDSTATEBATCH_NEW(reserve, memory);
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500D, (srcSurf->formatInfo.endian != gcvENDIAN_NO_SWAP) ?
+ gcmBSWAP32(fcValue) : fcValue );    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
 
@@ -9287,10 +8931,9 @@ gcoHARDWARE_3DBlitMipMap(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x500E) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500E, srcSurf->fcValueUpper[SliceIdx] );
-    gcmENDSTATEBATCH_NEW(reserve, memory);
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500E, (srcSurf->formatInfo.endian != gcvENDIAN_NO_SWAP) ?
+ gcmBSWAP32(fcValueUpper) : fcValueUpper );    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
         }
@@ -9344,8 +8987,7 @@ gcoHARDWARE_3DBlitMipMap(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5000) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5000, srcAddress + SliceIdx * Info->LODsSliceSize[0] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -9399,8 +9041,7 @@ gcoHARDWARE_3DBlitMipMap(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5009) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5009, destConfig );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -9454,8 +9095,7 @@ gcoHARDWARE_3DBlitMipMap(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x500A) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500A, destConfigEx );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -9509,8 +9149,7 @@ gcoHARDWARE_3DBlitMipMap(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x500C) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x500C, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -9584,8 +9223,7 @@ gcoHARDWARE_3DBlitMipMap(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x502F) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502F, swizzleConfig );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -9648,8 +9286,7 @@ gcoHARDWARE_3DBlitMipMap(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5030 + i - 1) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5030 + i - 1, destAddress + SliceIdx * Info->LODsSliceSize[i] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -9702,8 +9339,7 @@ gcoHARDWARE_3DBlitMipMap(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x50C0 + i - 1) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x50C0 + i - 1, Info->LODs[i]->stride );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -9763,8 +9399,7 @@ gcoHARDWARE_3DBlitMipMap(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x502C) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502C, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:4) - (0 ?
  4:4) + 1) == 32) ?
@@ -9862,8 +9497,7 @@ gcoHARDWARE_3DBlitMipMap(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5019) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5019, generalConfig );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -9924,8 +9558,7 @@ gcoHARDWARE_3DBlitMipMap(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x503D) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x503D, generalConfig );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -9989,8 +9622,7 @@ gcoHARDWARE_3DBlitMipMap(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x50D0 + i - 1) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x50D0 + i - 1, endAddress );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };

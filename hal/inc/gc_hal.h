@@ -14,7 +14,6 @@
 #ifndef __gc_hal_h_
 #define __gc_hal_h_
 
-#include "gc_hal_rename.h"
 #include "gc_hal_types.h"
 #include "gc_hal_enum.h"
 #include "gc_hal_base.h"
@@ -48,12 +47,6 @@ extern "C" {
 (\
     (gcmALIGN((n) & ~0ULL, (align) & ~0ULL) ^ gcmALIGN(n, align)) ?    \
          (n) : gcmALIGN(n, align)                                      \
-)
-
-#define gcmALIGN_CHECK_OVERFLOW(n, align)                              \
-(\
-    (gcmALIGN((n) & ~0ULL, (align) & ~0ULL) ^ gcmALIGN(n, align)) ?    \
-         gcvSTATUS_RESLUT_OVERFLOW : gcvSTATUS_OK                      \
 )
 
 #define gcmALIGN_BASE(n, align) \
@@ -168,6 +161,7 @@ typedef enum _gceOBJECT_TYPE
     gcvOBJ_VARIABLE             = gcmCC('V','A','R','I'),
     gcvOBJ_VERTEX               = gcmCC('V','R','T','X'),
     gcvOBJ_VIDMEM               = gcmCC('V','M','E','M'),
+    gcvOBJ_VIDMEM_BLOCK         = gcmCC('V','M','B','K'),
     gcvOBJ_VG                   = gcmCC('V','G',' ',' '),
     gcvOBJ_BUFOBJ               = gcmCC('B','U','F','O'),
     gcvOBJ_UNIFORM_BLOCK        = gcmCC('U','B','L','K'),
@@ -195,6 +189,10 @@ typedef struct _gckHARDWARE *       gckHARDWARE;
 #define gcdMAX_DRAW_BUFFERS            16
 
 #define gcdMAX_3DGPU_COUNT             8
+
+#define gcdMAX_MAJOR_CORE_COUNT        8
+
+#define gcdMAX_VERTEX_STREAM_COUNT     4
 /*******************************************************************************
 **
 **  gcmVERIFY_OBJECT
@@ -373,6 +371,19 @@ gckOS_MapPagesEx(
     IN gceVIDMEM_TYPE Type
     );
 
+/* Map 1M pages. */
+gceSTATUS
+gckOS_Map1MPages(
+    IN gckOS Os,
+    IN gceCORE Core,
+    IN gctPHYS_ADDR Physical,
+    IN gctSIZE_T PageCount,
+    IN gctUINT32 Address,
+    IN gctPOINTER PageTable,
+    IN gctBOOL Writable,
+    IN gceVIDMEM_TYPE Type
+    );
+
 gceSTATUS
 gckOS_UnmapPages(
     IN gckOS Os,
@@ -526,6 +537,20 @@ gckOS_WriteRegisterEx_NoDump(
     IN gctUINT32 Data
     );
 
+#ifdef __QNXNTO__
+static gcmINLINE gceSTATUS
+gckOS_WriteMemory(
+    IN gckOS Os,
+    IN gctPOINTER Address,
+    IN gctUINT32 Data
+    )
+{
+    /* Write memory. */
+    *(gctUINT32 *)Address = Data;
+    return gcvSTATUS_OK;
+}
+
+#else
 /* Write data to a 32-bit memory location. */
 gceSTATUS
 gckOS_WriteMemory(
@@ -533,6 +558,7 @@ gckOS_WriteMemory(
     IN gctPOINTER Address,
     IN gctUINT32 Data
     );
+#endif
 
 /* Map physical memory into the process space. */
 gceSTATUS
@@ -1525,7 +1551,6 @@ gckHEAP_ProfileEnd(
     IN gctCONST_STRING Title
     );
 
-
 typedef struct _gckVIDMEM *         gckVIDMEM;
 typedef struct _gckKERNEL *         gckKERNEL;
 typedef struct _gckDB *             gckDB;
@@ -1630,21 +1655,22 @@ gckKERNEL_MapVideoMemory(
     IN gckKERNEL Kernel,
     IN gctBOOL InUserSpace,
     IN gcePOOL Pool,
+    IN gctPHYS_ADDR Physical,
     IN gctUINT32 Offset,
     IN gctUINT32 Bytes,
     OUT gctPOINTER * Logical
     );
 
-#ifdef __QNXNTO__
 /* Unmap dedicated video memory. */
 gceSTATUS
 gckKERNEL_UnmapVideoMemory(
     IN gckKERNEL Kernel,
+    IN gcePOOL Pool,
+    IN gctPHYS_ADDR Physical,
     IN gctPOINTER Logical,
     IN gctUINT32 Pid,
-    IN gctUINT32 Bytes
+    IN gctSIZE_T Bytes
     );
-#endif
 
 /* Map memory. */
 gceSTATUS
@@ -1927,23 +1953,31 @@ gckHARDWARE_ReadInterrupt(
     OUT gctUINT32_PTR IDs
     );
 
+/*
+* State timer helper.
+*/
+gceSTATUS
+gckHARDWARE_StartTimerReset(
+    IN gckHARDWARE Hardware
+    );
+
 /* Power management. */
 gceSTATUS
-gckHARDWARE_SetPowerManagementState(
+gckHARDWARE_SetPowerState(
     IN gckHARDWARE Hardware,
     IN gceCHIPPOWERSTATE State
     );
 
 gceSTATUS
-gckHARDWARE_QueryPowerManagementState(
+gckHARDWARE_QueryPowerState(
     IN gckHARDWARE Hardware,
     OUT gceCHIPPOWERSTATE* State
     );
 
 gceSTATUS
-gckHARDWARE_SetPowerManagement(
+gckHARDWARE_EnablePowerManagement(
     IN gckHARDWARE Hardware,
-    IN gctBOOL PowerManagement
+    IN gctBOOL Enable
     );
 
 gceSTATUS
@@ -1956,7 +1990,8 @@ gckHARDWARE_SetGpuProfiler(
 gceSTATUS
 gckHARDWARE_SetFscaleValue(
     IN gckHARDWARE Hardware,
-    IN gctUINT32   FscaleValue
+    IN gctUINT32   FscaleValue,
+    IN gctUINT32   ShaderFscaleValue
     );
 
 gceSTATUS
@@ -1972,20 +2007,6 @@ gckHARDWARE_SetMinFscaleValue(
     IN gckHARDWARE Hardware,
     IN gctUINT MinFscaleValue
     );
-#endif
-
-#if gcdPOWEROFF_TIMEOUT
-gceSTATUS
-gckHARDWARE_SetPowerOffTimeout(
-    IN gckHARDWARE  Hardware,
-    IN gctUINT32    Timeout
-);
-
-gceSTATUS
-gckHARDWARE_QueryPowerOffTimeout(
-    IN gckHARDWARE  Hardware,
-    OUT gctUINT32*  Timeout
-);
 #endif
 
 gceSTATUS
@@ -2108,6 +2129,7 @@ gceSTATUS
 gckMMU_AllocatePages(
     IN gckMMU Mmu,
     IN gctSIZE_T PageCount,
+    IN gcePAGE_TYPE PageType,
     OUT gctPOINTER * PageTable,
     OUT gctUINT32 * Address
     );
@@ -2117,6 +2139,7 @@ gckMMU_AllocatePagesEx(
     IN gckMMU Mmu,
     IN gctSIZE_T PageCount,
     IN gceVIDMEM_TYPE Type,
+    IN gcePAGE_TYPE PageType,
     IN gctBOOL Secure,
     OUT gctPOINTER * PageTable,
     OUT gctUINT32 * Address
@@ -2127,6 +2150,7 @@ gceSTATUS
 gckMMU_FreePages(
     IN gckMMU Mmu,
     IN gctBOOL Secure,
+    IN gcePAGE_TYPE PageType,
     IN gctUINT32 Address,
     IN gctPOINTER PageTable,
     IN gctSIZE_T PageCount
@@ -2137,6 +2161,7 @@ gceSTATUS
 gckMMU_SetPage(
    IN gckMMU Mmu,
    IN gctPHYS_ADDR_T PageAddress,
+   IN gcePAGE_TYPE PageType,
    IN gctBOOL Writable,
    IN gctUINT32 *PageEntry
    );
@@ -2150,6 +2175,7 @@ gckMMU_Flush(
 gceSTATUS
 gckMMU_DumpPageTableEntry(
     IN gckMMU Mmu,
+    IN gceAREA_TYPE AreaType,
     IN gctUINT32 Address
     );
 
@@ -2163,10 +2189,17 @@ gckMMU_FillFlatMapping(
 gceSTATUS
 gckMMU_IsFlatMapped(
     IN gckMMU Mmu,
-    OUT gctUINT64 Physical,
+    IN gctUINT64 Physical,
+    IN gctUINT32 Address,
     OUT gctBOOL *In
     );
 
+gceSTATUS
+gckMMU_GetAreaType(
+    IN gckMMU Mmu,
+    IN gctUINT32 GpuAddress,
+    OUT gceAREA_TYPE *AreaType
+    );
 
 gceSTATUS
 gckHARDWARE_QueryContextProfile(

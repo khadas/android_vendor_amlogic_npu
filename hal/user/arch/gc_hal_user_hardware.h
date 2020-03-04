@@ -31,8 +31,6 @@ extern "C" {
 
 #define gcdMAX_XFB_BUFFERS          4
 
-#define gcdCLUSTER_COUNT            4
-
 #define gcvINVALID_TEXTURE_FORMAT   ((gctUINT)(gceSURF_FORMAT) -1)
 #define gcvINVALID_RENDER_FORMAT    ((gctUINT)(gceSURF_FORMAT) -1)
 
@@ -40,7 +38,7 @@ extern "C" {
 
 #define gcmENABLE3DCORE(Memory, CoreId) \
 { \
-    if (Hardware->config->gpuCoreCount > 1) \
+    if (Hardware->config->coreCount > 1) \
     { \
     *Memory++ = gcmSETFIELDVALUE(0, GCCMD_CHIP_ENABLE_COMMAND, OPCODE, CHIP_ENABLE) \
               | CoreId; \
@@ -249,6 +247,8 @@ typedef struct _gcsHARDWARE_CONFIG
 
     gceCHIP_FLAG                chipFlags;
 
+    gctUINT64                   platformFlagBits;
+
     /* hw features fields. */
     gctUINT32                   chipFeatures;
     gctUINT32                   chipMinorFeatures;
@@ -271,10 +271,11 @@ typedef struct _gcsHARDWARE_CONFIG
 #endif
     gctUINT32                   pixelPipes;
     gctUINT32                   resolvePipes;
-    gctUINT32                   gpuCoreCount;
+    gctUINT32                   coreCount;
     gctUINT32                   clusterCount;
     gctINT32                    clusterMaxID;
     gctINT32                    clusterMinID;
+    gctUINT32                   clusterIDWidth;
     gctUINT32                   clusterAliveMask; /* physical cluster mask really enabled, may not all clusters */
     gctUINT32                   uscCacheControllers;
     gctUINT32                   uscBanks;
@@ -321,11 +322,11 @@ typedef struct _gcsHARDWARE_CONFIG
 
     gctUINT32                   superTileMode;
 
-    gctUINT32                   sRAMSizes[gcvSRAM_COUNT];
 #if gcdENABLE_3D && gcdUSE_VX
     vx_nn_config                nnConfig;
     vx_hw_chip_info             hwChipInfo;
 #endif
+    gctBOOL                     parallelNoFix;
 }
 gcsHARDWARE_CONFIG;
 
@@ -851,11 +852,13 @@ typedef union _gcsXFBDIRTY
 
 /********* QUERY States *******************************
 */
+/* XFB_WRITTEN and PRIM_GENERATED can support multi-stream. */
+#define gcvMAX_QUERY_SIZE       gcdMAX_VERTEX_STREAM_COUNT
 typedef struct _gcsQUERYSTATES
 {
-    gceQueryStatus              queryStatus[gcvQUERY_MAX_NUM];
-    gctUINT32                   queryHeaderPhysical[gcvQUERY_MAX_NUM];
-    gctINT32                    queryHeaderIndex[gcvQUERY_MAX_NUM];
+    gceQueryStatus              queryStatus[gcvQUERY_MAX_NUM][gcvMAX_QUERY_SIZE];
+    gctUINT32                   queryHeaderPhysical[gcvQUERY_MAX_NUM][gcvMAX_QUERY_SIZE];
+    gctINT32                    queryHeaderIndex[gcvQUERY_MAX_NUM][gcvMAX_QUERY_SIZE];
 }gcsQUERYSTATES;
 
 
@@ -872,9 +875,6 @@ struct _gcoHARDWARE
 
     /* Hardware is robust and automatically do OOB check */
     gctBOOL                     robust;
-
-    /* Core array. */
-    gceCORE                     core[4];
 
     /* Handle of gckCONTEXT object. */
     gctUINT32                   context;
@@ -895,6 +895,7 @@ struct _gcoHARDWARE
     gcsSTATE_DELTA_PTR          delta;
 
     gcsSTATE_DELTA_PTR          *deltas;
+    gcsSTATE_DELTA_PTR          tempDelta;
 
     /* Count of deltas it is needed because gpuCoreCount will be changed. */
     gctUINT32                    deltasCount;
@@ -1148,11 +1149,12 @@ struct _gcoHARDWARE
 
     gctPOINTER                  featureDatabase;
 
-    /* Chip ID of multiple GPUs. */
+    /* Chip ID of multiple cores. */
     gctUINT                     chipIDs[gcvCORE_COUNT];
 
-    /* Core Index of multiple GPUs. */
+    /* Core Index of multiple cores. */
     gctUINT                     coreIndexs[gcvCORE_COUNT];
+    gctUINT                     localCoreIndexs[gcvCORE_COUNT];
 
     gceHARDWARE_TYPE            constructType;
 
@@ -1255,6 +1257,12 @@ gcoHARDWARE_FlushUniform(
     IN OUT gctPOINTER *Memory
     );
 
+/* Initialize some video memories that allocated by compiler. */
+gceSTATUS
+gcoHARDWARE_InitVidMemAllocatedByCompiler(
+    IN gcoHARDWARE Hardware
+    );
+
 gceSTATUS
 gcoHARDWARE_FlushShaders(
     IN gcoHARDWARE Hardware,
@@ -1277,6 +1285,7 @@ gcoHARDWARE_FlushXfb(
 gceSTATUS
 gcoHARDWARE_FlushDrawID(
     IN gcoHARDWARE Hardware,
+    IN gctBOOL ForComputing,
     INOUT gctPOINTER *Memory
     );
 
@@ -2056,6 +2065,62 @@ gcoHARDWARE_UpdateDelta(
         recordEntry->data &= ~Mask;
         recordEntry->data |= (Data & Mask);
     }
+}
+
+static gcmINLINE void
+gcoHARDWARE_UpdateTempDelta(
+    IN gcoHARDWARE Hardware
+    )
+{
+    gcsSTATE_DELTA_PTR tempDelta = Hardware->tempDelta;
+    gcsSTATE_DELTA_PTR currentDelta = Hardware->delta;
+    gctUINT count;
+    gctUINT i;
+    gcsSTATE_DELTA_RECORD_PTR record;
+
+    if (tempDelta == NULL)
+        return;
+
+    /* Get the record count. */
+    count = tempDelta->recordCount;
+
+    /* Set the first record. */
+    record = (gcsSTATE_DELTA_RECORD_PTR)gcmUINT64_TO_PTR(tempDelta->recordArray);
+
+    /* Go through all records. */
+    for (i = 0; i < count; i += 1)
+    {
+        /* Update the delta. */
+        gcoHARDWARE_UpdateDelta(
+            currentDelta, record->address, record->mask, record->data
+            );
+
+        /* Advance to the next state. */
+        record += 1;
+    }
+    /* Update the element count. */
+    if (tempDelta->elementCount != 0)
+    {
+        currentDelta->elementCount = tempDelta->elementCount;
+    }
+
+    /* Reset tempDelta*/
+    tempDelta->id += 1;
+
+    if (tempDelta->id == 0)
+    {
+        /* Reset the map to avoid erroneous ID matches. */
+        gcoOS_ZeroMemory(gcmUINT64_TO_PTR(tempDelta->mapEntryID), tempDelta->mapEntryIDSize);
+
+        /* Increment the main ID to avoid matches after reset. */
+        tempDelta->id += 1;
+    }
+
+    /* Reset the vertex element count. */
+    tempDelta->elementCount = 0;
+
+    /* Reset the record count. */
+    tempDelta->recordCount = 0;
 }
 
 static gcmINLINE void

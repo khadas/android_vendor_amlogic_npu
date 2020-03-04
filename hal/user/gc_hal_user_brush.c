@@ -21,5 +21,5 @@
 #include "gc_hal_user_brush.h"
 
 /* Zone used for header/footer. */
-#define _GC_OBJ_ZONE    gcvZONE_2D
+#define _GC_OBJ_ZONE    gcdZONE_2D
 

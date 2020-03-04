@@ -420,6 +420,7 @@ enum vx_type_e {
     VX_TYPE_TENSOR_MEM      = 0x819,/*!< \brief A <tt>\ref vx_tensor_alloc_info</tt>. */
 
     /* \todo add new object types here */
+    VX_TYPE_BFLOAT16        = 0x81A,/*!< \brief A <tt>\ref vx_bfloat16</tt>. */
 
 };
 

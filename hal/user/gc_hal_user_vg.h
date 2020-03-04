@@ -1129,6 +1129,7 @@ gcoVGHARDWARE_SetRGB2YUVParameters(
     IN gctBOOL          *cfg
 );
 
+
 /* VG RS feature. */
 gceSTATUS
 gcoVGHARDWARE_ResolveRect(

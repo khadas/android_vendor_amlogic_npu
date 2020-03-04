@@ -21,7 +21,7 @@
 #include "gc_hal_user_brush.h"
 
 /* Zone used for header/footer. */
-#define _GC_OBJ_ZONE    gcvZONE_2D
+#define _GC_OBJ_ZONE    gcdZONE_2D
 
 /******************************************************************************\
 ********************************** Structures **********************************
@@ -46,7 +46,7 @@ struct _gco2D
         /* Free the array. */                                                  \
         if(gcmIS_ERROR(gcoOS_Free(gcvNULL, KernelInfo.kernelStates)))          \
         {                                                                      \
-            gcmTRACE_ZONE(gcvLEVEL_ERROR, gcvZONE_2D,                          \
+            gcmTRACE_ZONE(gcvLEVEL_ERROR, gcdZONE_2D,                          \
                 "2D Engine: Failed to free kernel table.");                    \
         }                                                                      \
         else                                                                   \
@@ -656,6 +656,30 @@ gco2D_SetColorSourceEx(
     return status;
 }
 
+/* Same as gco2D_SetColorSourceEx, but with better 64bit SW-path support.
+** Please do NOT export the API now.
+*/
+gceSTATUS
+gco2D_SetColorSource64(
+    IN gco2D Engine,
+    IN gctUINT32 Address,
+    IN gctPOINTER Logical,
+    IN gctUINT32 Stride,
+    IN gceSURF_FORMAT Format,
+    IN gceSURF_ROTATION Rotation,
+    IN gctUINT32 SurfaceWidth,
+    IN gctUINT32 SurfaceHeight,
+    IN gctBOOL CoordRelative,
+    IN gceSURF_TRANSPARENCY Transparency,
+    IN gctUINT32 TransparencyColor
+    )
+{
+    gceSTATUS status = gcvSTATUS_NOT_SUPPORTED;
+
+
+    return status;
+}
+
 /*******************************************************************************
 **
 **  gco2D_SetColorSourceAdvanced
@@ -802,6 +826,29 @@ gceSTATUS
 gco2D_SetMaskedSourceEx(
     IN gco2D Engine,
     IN gctUINT32 Address,
+    IN gctUINT32 Stride,
+    IN gceSURF_FORMAT Format,
+    IN gctBOOL CoordRelative,
+    IN gceSURF_MONOPACK MaskPack,
+    IN gceSURF_ROTATION Rotation,
+    IN gctUINT32 SurfaceWidth,
+    IN gctUINT32 SurfaceHeight
+    )
+{
+    gceSTATUS status = gcvSTATUS_NOT_SUPPORTED;
+
+
+    return status;
+}
+
+/* Same as gco2D_SetMaskedSourceEx, but with better 64bit SW-path support.
+** Please do NOT export the API now.
+*/
+gceSTATUS
+gco2D_SetMaskedSource64(
+    IN gco2D Engine,
+    IN gctUINT32 Address,
+    IN gctPOINTER Logical,
     IN gctUINT32 Stride,
     IN gceSURF_FORMAT Format,
     IN gctBOOL CoordRelative,
@@ -982,6 +1029,26 @@ gceSTATUS
 gco2D_SetTargetEx(
     IN gco2D Engine,
     IN gctUINT32 Address,
+    IN gctUINT32 Stride,
+    IN gceSURF_ROTATION Rotation,
+    IN gctUINT32 SurfaceWidth,
+    IN gctUINT32 SurfaceHeight
+    )
+{
+    gceSTATUS status = gcvSTATUS_NOT_SUPPORTED;
+
+
+    return status;
+}
+
+/* Same as gco2D_SetTargetEx, but with better 64bit SW-path support.
+** Please do NOT export the API now.
+*/
+gceSTATUS
+gco2D_SetTarget64(
+    IN gco2D Engine,
+    IN gctUINT32 Address,
+    IN gctPOINTER Logical,
     IN gctUINT32 Stride,
     IN gceSURF_ROTATION Rotation,
     IN gctUINT32 SurfaceWidth,

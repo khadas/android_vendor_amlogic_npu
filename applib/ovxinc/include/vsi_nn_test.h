@@ -25,6 +25,7 @@
 #define _VSI_NN_TEST_H
 
 #include "vsi_nn_log.h"
+#include "utils/vsi_nn_util.h"
 
 #if defined(__cplusplus)
 extern "C"{
@@ -46,7 +47,7 @@ extern "C"{
 
 #define TEST_CHECK_STATUS( stat, lbl )  do {\
     if( VSI_SUCCESS != stat ) {\
-        VSILOGE("CHECK STATUS %d", __LINE__);\
+        VSILOGE("CHECK STATUS(%d:%s)", (stat), vsi_nn_DescribeStatus(stat));\
         goto lbl;\
     }\
 } while(0)

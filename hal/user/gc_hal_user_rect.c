@@ -19,7 +19,7 @@
 
 #include "gc_hal_user_precomp.h"
 
-#define _GC_OBJ_ZONE        gcvZONE_HAL
+#define _GC_OBJ_ZONE        gcdZONE_RECT
 
 /******************************************************************************\
 ******************************** gcsRECT_PTR API Code ******************************

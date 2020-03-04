@@ -17,7 +17,7 @@
 
 #include "gc_hal_mem.h"
 
-#define _GC_OBJ_ZONE    gcvZONE_HAL
+#define _GC_OBJ_ZONE    gcdZONE_MEM
 
 /******************************************************************************\
 |************************* Memory management Functions ************************|

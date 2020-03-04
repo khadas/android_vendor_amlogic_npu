@@ -21,6 +21,7 @@
 *    DEALINGS IN THE SOFTWARE.
 *
 *****************************************************************************/
+/** @file */
 #ifndef _VSI_NN_CONTEXT_H
 #define _VSI_NN_CONTEXT_H
 
@@ -30,34 +31,60 @@
 extern "C" {
 #endif
 
+/** Max size of HW target name */
 #define VSI_NN_MAX_TARGET_NAME 32
-typedef enum _vsi_nn_hw_evis_version_e
+
+/**
+ * Hardware evis version.
+ */
+typedef enum
 {
     VSI_NN_HW_EVIS_NONE,
     VSI_NN_HW_EVIS_1,
     VSI_NN_HW_EVIS_2
-}vsi_nn_hw_evis_version_e;
+} vsi_nn_hw_evis_version_e;
 
+/**
+ * Structure to store hardware evis version.
+ */
 typedef struct _vsi_nn_hw_evis_t
 {
     vsi_nn_hw_evis_version_e ver;
-}vsi_nn_hw_evis_t;
+} vsi_nn_hw_evis_t;
 
+/**
+ * Hardware config.
+ * It stores hardware name and evis version.
+ */
 typedef struct _vsi_nn_hw_config_t
 {
     char target_name[VSI_NN_MAX_TARGET_NAME];
     vsi_nn_hw_evis_t evis;
-}vsi_nn_hw_config_t;
+} vsi_nn_hw_config_t;
 
+/**
+ * Ovxlib NN runtime context.
+ */
 typedef struct _vsi_nn_context_t
 {
     vx_context c;
     vsi_nn_hw_config_t config;
 } *vsi_nn_context_t;
 
+/**
+ * Create context
+ * Create ovxlib NN runtime context.
+ * @return Context handle on success, or NULL otherwise.
+ */
 OVXLIB_API vsi_nn_context_t vsi_nn_CreateContext
     ( void );
 
+/**
+ * Release context
+ * Release ovxlib NN runtime resource and reset context handle to NULL.
+ *
+ * @param[in] ctx Pointer to context handle.
+ */
 OVXLIB_API void vsi_nn_ReleaseContext
     ( vsi_nn_context_t * ctx );
 

@@ -19,7 +19,7 @@
 
 #include "gc_hal_user_precomp.h"
 
-#define _GC_OBJ_ZONE        gcvZONE_SURFACE
+#define _GC_OBJ_ZONE        gcdZONE_SURFACE
 
 gcsFORMAT_COMPONENT gcvPIXEL_COMP_XXX8 = {  0, 8 };
 gcsFORMAT_COMPONENT gcvPIXEL_COMP_XX8X = {  8, 8 };
@@ -94,7 +94,7 @@ gcoSURF_ComputeColorMask(
 }
 
 #undef  _GC_OBJ_ZONE
-#define _GC_OBJ_ZONE        gcvZONE_HAL
+#define _GC_OBJ_ZONE        gcdZONE_HAL_API
 
 /*******************************************************************************
 **
@@ -158,6 +158,45 @@ gceSTATUS gcoHAL_QueryChipIdentity(
 
     return status;
 }
+
+/*******************************************************************************
+**
+**  gcoHAL_QueryChipIdentityEx
+**
+**  Query the identity of the hardware.
+**
+**  INPUT:
+**
+**      gcoHAL Hal
+**          Pointer to an gcoHAL object.
+**
+**  OUTPUT:
+**
+**
+**
+*/
+gceSTATUS gcoHAL_QueryChipIdentityEx(
+    IN gcoHAL Hal,
+    IN gctUINT32 SizeOfParam,
+    OUT gcsHAL_CHIPIDENTITY *ChipIdentity
+    )
+{
+    gceSTATUS status;
+
+    gcmHEADER();
+
+    /* Query identity from hardware object. */
+    status = gcoHARDWARE_QueryChipIdentityEx(
+                                       gcvNULL,
+                                       SizeOfParam,
+                                       ChipIdentity);
+
+
+    /* Return status. */
+    gcmFOOTER();
+    return status;
+}
+
 
 
 /*******************************************************************************
@@ -958,6 +997,72 @@ OnError:
     return status;
 }
 
+gceSTATUS
+gcoHAL_ConvertCoreIndexGlobal(
+    IN gcoHAL Hal,
+    IN gceHARDWARE_TYPE Type,
+    IN gctUINT32 CoreCount,
+    IN gctUINT32 *LocalCoreIndexs,
+    OUT gctUINT32 *GlobalCoreIndexs
+    )
+{
+    gceSTATUS status = gcvSTATUS_OK;
+    gctUINT i, j = 0;
+    gctUINT local = 0;
+
+    gcmHEADER_ARG("Hal=0x%08X Type=%d, CoreCount=%d", Hal, Type, CoreCount);
+
+    gcmVERIFY_ARGUMENT(Hal != gcvNULL);
+    gcmVERIFY_ARGUMENT(CoreCount > 0);
+    gcmVERIFY_ARGUMENT(LocalCoreIndexs != gcvNULL);
+    gcmVERIFY_ARGUMENT(GlobalCoreIndexs != gcvNULL);
+
+    for (i = 0; i < CoreCount; i++)
+    {
+        for (; j < gcvCORE_COUNT; j++)
+        {
+            if (Type == Hal->hwTypes[j] && local++ == LocalCoreIndexs[i])
+            {
+                GlobalCoreIndexs[i] = Hal->coreIndexs[j++];
+                break;
+            }
+        }
+    }
+
+    Hal->globalCoreOffsets[Type] = GlobalCoreIndexs[0] - LocalCoreIndexs[0];
+
+    gcmFOOTER();
+    return status;
+}
+
+gceSTATUS
+gcoHAL_ConvertCoreIndexLocal(
+    IN gcoHAL Hal,
+    IN gceHARDWARE_TYPE Type,
+    IN gctUINT32 CoreCount,
+    IN gctUINT32 *GlobalCoreIndexs,
+    OUT gctUINT32 *LocalCoreIndexs
+    )
+{
+    gceSTATUS status = gcvSTATUS_OK;
+    gctUINT i;
+
+    gcmHEADER_ARG("Hal=0x%08X Type=%d, CoreCount=%d", Hal, Type, CoreCount);
+
+    gcmVERIFY_ARGUMENT(Hal != gcvNULL);
+    gcmVERIFY_ARGUMENT(CoreCount > 0);
+    gcmVERIFY_ARGUMENT(LocalCoreIndexs != gcvNULL);
+    gcmVERIFY_ARGUMENT(GlobalCoreIndexs != gcvNULL);
+
+    for (i = 0; i < CoreCount; i++)
+    {
+        LocalCoreIndexs[i] = GlobalCoreIndexs[i] - Hal->globalCoreOffsets[Type];
+    }
+
+    gcmFOOTER();
+    return status;
+}
+
 
 gceSTATUS
 gcoHAL_QueryChipCount(
@@ -1010,13 +1115,14 @@ gcoHAL_QueryCluster(
     IN gcoHAL       Hal,
     OUT gctINT32   *ClusterMinID,
     OUT gctINT32   *ClusterMaxID,
-    OUT gctUINT32  *ClusterCount
+    OUT gctUINT32  *ClusterCount,
+    OUT gctUINT32  *ClusterIDWidth
     )
 {
     gceSTATUS status;
     gcmHEADER();
 
-    status = gcoHARDWARE_QueryCluster(gcvNULL, ClusterMinID, ClusterMaxID, ClusterCount);
+    status = gcoHARDWARE_QueryCluster(gcvNULL, ClusterMinID, ClusterMaxID, ClusterCount, ClusterIDWidth);
 
     gcmFOOTER_NO();
     return status;
@@ -1054,7 +1160,7 @@ gcoHAL_QueryCoreCount(
 
     for (i = 0; i < gcdCHIP_COUNT; i++)
     {
-        if (gcPLS.hal->chipTypes[i] == Type)
+        if (gcPLS.hal->hwTypes[i] == Type)
         {
             /* Get chip ID of nth GPU of this Type. */
             ChipIDs[*Count] = gcPLS.hal->chipIDs[i];
@@ -1134,7 +1240,7 @@ _GetHardwareType(
     if (Chip >= gcdCHIP_COUNT)
         return gcvHARDWARE_INVALID;
 
-    return gcPLS.hal->chipTypes[Chip];
+    return gcPLS.hal->hwTypes[Chip];
 }
 
 gceSTATUS
@@ -1164,6 +1270,7 @@ gcoHAL_QueryChipLimits(
     case gcvHARDWARE_3D2D:
     case gcvHARDWARE_3D:
     case gcvHARDWARE_2D:
+    case gcvHARDWARE_VIP:
         gcmONERROR(gcoHARDWARE_QueryChipIdentity(
             gcvNULL, &chipModel,
             gcvNULL));
@@ -1337,7 +1444,7 @@ gcoHAL_QueryMultiGPUAffinityConfig(
 
     gcmASSERT(Mode && CoreIndex);
 
-    if (Type != gcvHARDWARE_3D && Type != gcvHARDWARE_3D2D)
+    if (Type != gcvHARDWARE_3D && Type != gcvHARDWARE_3D2D && Type != gcvHARDWARE_VIP)
     {
         mode = *Mode = gcvMULTI_GPU_MODE_COMBINED;
         *CoreIndex = 0 ;
@@ -1354,6 +1461,26 @@ gcoHAL_QueryMultiGPUAffinityConfig(
     else
     {
         queriedOnce = gcvTRUE;
+    }
+
+    gcoOS_GetEnv(gcvNULL, "VIV_ENABLE_OPENCV_WORKGROUPSIZE", &affinity);
+
+    if (affinity && (gcoOS_StrCmp(affinity, "1") == 0))
+    {
+        gceCHIPMODEL chipModel;
+        gctUINT32 chipRevision;
+
+        gcoHARDWARE_QueryChipIdentity(
+                                    gcvNULL,
+                                    &chipModel,
+                                    &chipRevision);
+
+        if ((chipModel == gcv7000) && (chipRevision == 0x6009))
+        {
+            mode = *Mode = gcvMULTI_GPU_MODE_INDEPENDENT;
+            *CoreIndex = 0;
+            return gcvSTATUS_OK;
+        }
     }
 
     gcoOS_GetEnv(gcvNULL, "VIV_MGPU_AFFINITY", &affinity);
@@ -1404,11 +1531,14 @@ gcoHAL_QueryMultiGPUAffinityConfig(
 gceSTATUS
 gcoHAL_QuerySRAM(
     IN gcoHAL Hal,
-    IN gceSRAM Type,
+    IN gcePOOL Type,
     OUT gctUINT32 *Base,
-    OUT gctUINT32 *Size
+    OUT gctUINT32 *Size,
+    OUT gctPHYS_ADDR_T *gpuPhysical,
+    OUT gctUINT32 *gpuPhysicalName,
+    OUT gctPHYS_ADDR_T *cpuPhysical
     )
 {
-    return gcoHARDWARE_QuerySRAM(gcvNULL, Type, Base, Size);
+    return gcoHARDWARE_QuerySRAM(gcvNULL, Type, Base, Size, gpuPhysical, gpuPhysicalName, cpuPhysical);
 }
 

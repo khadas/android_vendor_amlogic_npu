@@ -59,6 +59,7 @@ TARGETTYPE=LIBRARY
 
 SOURCES= \
     ../gc_hal_kernel_hardware.c \
+    ../gc_hal_kernel_hardware_func.c \
     ../gc_hal_kernel_hardware_async_fe.c \
     ../gc_hal_kernel_hardware_mc_fe.c \
     ../gc_hal_kernel_hardware_waitlink_fe.c \

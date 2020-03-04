@@ -36,4 +36,11 @@ vsi_nn_tensor_t* vsi_nn_Concat
     uint32_t axis
     );
 
+vsi_nn_tensor_t* vsi_nn_ConvertTensorDtype
+    (
+    vsi_nn_graph_t* graph,
+    vsi_nn_tensor_t* tensor,
+    const vsi_nn_dtype_t* dst_dtype
+    );
+
 #endif

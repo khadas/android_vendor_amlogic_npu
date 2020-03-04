@@ -5884,7 +5884,7 @@ _UploadTextureTiled(
     }
 
     gcmTRACE_ZONE(
-        gcvLEVEL_WARNING, gcvZONE_TEXTURE,
+        gcvLEVEL_WARNING, _GC_OBJ_ZONE,
         "Slow path: SourceFormat=%d trgFormat=%d",
         SourceFormat, trgFormat
         );

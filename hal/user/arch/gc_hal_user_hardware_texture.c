@@ -108,7 +108,7 @@ static gctINT _GetTextureFormat(
 
     if (FormatInfo->txFormat == gcvINVALID_TEXTURE_FORMAT)
     {
-        gcmTRACE_ZONE(gcvLEVEL_WARNING, gcvZONE_TEXTURE,
+        gcmTRACE_ZONE(gcvLEVEL_WARNING, _GC_OBJ_ZONE,
                       "Unknown color format.");
 
         /* Format is not supported. */
@@ -265,21 +265,6 @@ static gctINT _GetTextureFormat(
  ~0U : (~(~0U << ((1 ? 19:18) - (0 ? 19:18) + 1))))))) << (0 ? 19:18)));
             }
         }
-    }
-
-    if (Hardware->features[gcvFEATURE_128BTILE] &&
-        cacheMode == gcvCACHE_128)
-    {
-        *SampleMode2 |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 23:23) - (0 ?
- 23:23) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 23:23) - (0 ?
- 23:23) + 1))))))) << (0 ?
- 23:23))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 23:23) - (0 ?
- 23:23) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 23:23) - (0 ? 23:23) + 1))))))) << (0 ? 23:23)));
     }
 
     /*
@@ -926,7 +911,7 @@ static gctINT _GetYUVControl(
  ~0U : (~(~0U << ((1 ? 18:16) - (0 ? 18:16) + 1))))))) << (0 ? 18:16)));
 
     default:
-        gcmTRACE_ZONE(gcvLEVEL_WARNING, gcvZONE_TEXTURE,
+        gcmTRACE_ZONE(gcvLEVEL_WARNING, _GC_OBJ_ZONE,
                       "Unknown yuv format.");
         break;
     }
@@ -1044,7 +1029,7 @@ gcoHARDWARE_QueryTexture(
     if (Tiling == gcvLINEAR)
     {
         /* Is HW support linear texture? */
-        if (!Hardware->features[gcvFEATURE_TEXTURE_LINEAR])
+        if (!Hardware->features[gcvFEATURE_TEXTURE_LINEAR] && (Format != gcvSURF_L8_RAW) && (Format != gcvSURF_A8L8_RAW) )
         {
             gcmONERROR(gcvSTATUS_NOT_SUPPORTED);
         }
@@ -2394,21 +2379,6 @@ gcoHARDWARE_BindTexture(
         gcmONERROR(gcvSTATUS_NOT_SUPPORTED);
     }
 
-    if (Hardware->features[gcvFEATURE_128BTILE] &&
-        SamplerInfo->cacheMode == gcvCACHE_128)
-    {
-        sampleMode2 |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 23:23) - (0 ?
- 23:23) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 23:23) - (0 ?
- 23:23) + 1))))))) << (0 ?
- 23:23))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
- 23:23) - (0 ?
- 23:23) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 23:23) - (0 ? 23:23) + 1))))))) << (0 ? 23:23)));
-    }
-
     /* Swap U,V for YVYU and VYUY. */
     swapUV = SamplerInfo->format == gcvSURF_YVYU
           || SamplerInfo->format == gcvSURF_VYUY;
@@ -2718,21 +2688,6 @@ gcoHARDWARE_BindTexture(
  25:25) - (0 ?
  25:25) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 25:25) - (0 ? 25:25) + 1))))))) << (0 ? 25:25)));
-    }
-
-    if (Hardware->features[gcvFEATURE_128BTILE])
-    {
-        sampleModeEx |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 23:23) - (0 ?
- 23:23) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 23:23) - (0 ?
- 23:23) + 1))))))) << (0 ?
- 23:23))) | (((gctUINT32) ((gctUINT32) (SamplerInfo->cacheMode == gcvCACHE_256 ?
- 0x1 : 0x0) & ((gctUINT32) ((((1 ?
- 23:23) - (0 ?
- 23:23) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 23:23) - (0 ? 23:23) + 1))))))) << (0 ? 23:23)));
     }
 
     /* Set the gcregTXSize register value. */
@@ -3552,7 +3507,9 @@ gcoHARDWARE_BindTextureTS(
                 /* Can't find the slot */
                 if (texTSSlot == -1)
                 {
+#if gcdDEBUG_OPTION
                     gcmPRINT("texture TS has to be disabled as out of slots");
+#endif
                     gcmONERROR(gcoHARDWARE_DisableTileStatus(Hardware, &texView, gcvTRUE));
                     enableTexTS = gcvFALSE;
                 }
@@ -3701,6 +3658,12 @@ gcoHARDWARE_BindTextureTS(
 
             sampleTSClearValue = surface->fcValue[0];
             sampleTSClearValueUpper = surface->fcValueUpper[0];
+            if (surface->formatInfo.endian != gcvENDIAN_NO_SWAP)
+            {
+                sampleTSClearValue = gcmBSWAP32(sampleTSClearValue);
+                sampleTSClearValueUpper = gcmBSWAP32(sampleTSClearValueUpper);
+            }
+
             gcmGETHARDWAREADDRESS(surface->tileStatusNode, sampleTSBuffer);
             gcmGETHARDWAREADDRESS(surface->node, sampleTexBaseBuffer);
 
@@ -4101,8 +4064,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E02, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:0) - (0 ?
  4:0) + 1) == 32) ?
@@ -4235,8 +4197,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E03) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E03, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:4) - (0 ?
  4:4) + 1) == 32) ?
@@ -4327,8 +4288,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E03) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E03, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  12:12) - (0 ?
  12:12) + 1) == 32) ?
@@ -4421,8 +4381,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x022D) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x022D, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  0:0) - (0 ?
  0:0) + 1) == 32) ?
@@ -4485,8 +4444,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0218) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0218, ((((gctUINT32) (shaderConfigData)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  16:16) - (0 ?
  16:16) + 1) == 32) ?
@@ -4553,8 +4511,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x022D) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x022D, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  0:0) - (0 ?
  0:0) + 1) == 32) ?
@@ -4617,8 +4574,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0218) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0218, ((((gctUINT32) (shaderConfigData)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  16:16) - (0 ?
  16:16) + 1) == 32) ?
@@ -4691,8 +4647,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x4000 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x4000 + sampler, Hardware->TXStates->hwTxSamplerMode[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -4750,8 +4705,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x40E0 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x40E0 + sampler, Hardware->TXStates->hwTxSamplerModeEx[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -4811,8 +4765,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x41E0 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x41E0 + sampler, Hardware->TXStates->hwTxSamplerMode2[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -4875,8 +4828,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x4020 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x4020 + sampler, Hardware->TXStates->hwTxSamplerSize[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -4938,8 +4890,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x4040 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x4040 + sampler, Hardware->TXStates->hwTxSamplerSizeLog[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -5001,8 +4952,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x40C0 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x40C0 + sampler, Hardware->TXStates->hwTxSampler3D[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -5063,8 +5013,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x4060 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x4060 + sampler, Hardware->TXStates->hwTxSamplerLOD[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -5128,8 +5077,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x41C0 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x41C0 + sampler, Hardware->TXStates->hwTxSamplerBaseLOD[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -5186,8 +5134,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E02, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:0) - (0 ?
  4:0) + 1) == 32) ?
@@ -5342,8 +5289,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x4200 + (sampler << 4) + i) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x4200 + (sampler << 4) + i, lodAddr );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -5410,8 +5356,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x40A0+ sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x40A0+ sampler, Hardware->TXStates->hwTxSamplerLinearStride[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -5474,8 +5419,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x4100 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x4100 + sampler, Hardware->TXStates->hwTxSamplerYUVControl[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -5537,8 +5481,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x4120 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x4120 + sampler, Hardware->TXStates->hwTxSamplerYUVStride[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -5606,8 +5549,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x4140 + i * 16 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x4140 + i * 16 + sampler, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  3:0) - (0 ?
  3:0) + 1) == 32) ?
@@ -5754,8 +5696,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x41A0 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x41A0 + sampler, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  3:0) - (0 ?
  3:0) + 1) == 32) ?
@@ -5863,8 +5804,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x4400 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x4400 + sampler, Hardware->TXStates->hwTxSamplerSizeLogExt[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -5924,8 +5864,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x4420 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x4420 + sampler, Hardware->TXStates->hwTxSampler3DExt[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -5985,8 +5924,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x4440 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x4440 + sampler, Hardware->TXStates->hwTxSamplerLodExt[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -6046,8 +5984,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x4460 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x4460 + sampler, Hardware->TXStates->hwTxSamplerLodBiasExt[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -6107,8 +6044,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x44C0 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x44C0 + sampler, Hardware->TXStates->hwTxSamplerAnisoCtrl[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -6171,8 +6107,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x44A0 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x44A0 + sampler, Hardware->TXStates->hwTxSamplerConfig3[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -6229,8 +6164,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x4480 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x4480 + sampler, Hardware->TXStates->hwTxSamplerSliceSize[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -6303,8 +6237,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0218) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0218, ((((gctUINT32) (shaderConfigData)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  16:16) - (0 ?
  16:16) + 1) == 32) ?
@@ -6368,8 +6301,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0218) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0218, ((((gctUINT32) (shaderConfigData)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  16:16) - (0 ?
  16:16) + 1) == 32) ?
@@ -6443,8 +6375,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0800 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0800 + sampler, Hardware->TXStates->hwTxSamplerMode[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -6502,8 +6433,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0870 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0870 + sampler, Hardware->TXStates->hwTxSamplerModeEx[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -6568,8 +6498,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0810 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0810 + sampler, Hardware->TXStates->hwTxSamplerSize[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -6633,8 +6562,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0820 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0820 + sampler, Hardware->TXStates->hwTxSamplerSizeLog[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -6698,8 +6626,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0860 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0860 + sampler, Hardware->TXStates->hwTxSampler3D[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -6763,8 +6690,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0830 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0830 + sampler, Hardware->TXStates->hwTxSamplerLOD[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -6820,8 +6746,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E02, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:0) - (0 ?
  4:0) + 1) == 32) ?
@@ -6976,8 +6901,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (address[i] + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, address[i] + sampler, lodAddr );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -7043,8 +6967,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0B00 + (sampler * 16)) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0B00 + (sampler * 16), Hardware->TXStates->hwTxSamplerLinearStride[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -7112,8 +7035,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x08A0 + i * 16 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x08A0 + i * 16 + sampler, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  3:0) - (0 ?
  3:0) + 1) == 32) ?
@@ -7260,8 +7182,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x08D0 + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x08D0 + sampler, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  3:0) - (0 ?
  3:0) + 1) == 32) ?
@@ -7316,6 +7237,139 @@ gcoHARDWARE_ProgramTexture(
             }
         }
 
+        if (samplerTSDirty)
+        {
+             {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E02, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8))) );    gcmENDSTATEBATCH_NEW(reserve, memory);
+};
+
+
+              /* Send FE-PE stall token. */
+              *memory++ =
+                   ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x09 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
+
+              *memory++ =
+                     ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                         | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
+
+               /* Dump the stall. */
+               gcmDUMP(gcvNULL, "#[stall 0x%08X 0x%08X]",
+                     ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0))),
+                     ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8))));
+        }
 
         for (samplerTSIndex = 0;
              samplerTSDirty;
@@ -7374,8 +7428,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x05C8 + samplerTSIndex) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x05C8 + samplerTSIndex, Hardware->MCStates->hwTXSampleTSConfig[samplerTSIndex] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -7427,8 +7480,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x05D0 + samplerTSIndex) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x05D0 + samplerTSIndex, Hardware->MCStates->hwTXSampleTSBuffer[samplerTSIndex] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -7480,8 +7532,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x05D8 + samplerTSIndex) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x05D8 + samplerTSIndex, Hardware->MCStates->hwTXSampleTSClearValue[samplerTSIndex] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -7536,8 +7587,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x05E0 + samplerTSIndex) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x05E0 + samplerTSIndex, Hardware->MCStates->hwTXSampleTSClearValueUpper[samplerTSIndex] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -7593,8 +7643,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x06A0 + samplerTSIndex) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x06A0 + samplerTSIndex, Hardware->MCStates->hwTxSamplerTxBaseBuffer[samplerTSIndex] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -7675,8 +7724,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E03) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E03, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  2:2) - (0 ?
  2:2) + 1) == 32) ?
@@ -7715,7 +7763,7 @@ gcoHARDWARE_ProgramTexture(
 
 
             if (Hardware->config->chipModel == gcv700
-                || Hardware->config->gpuCoreCount > 1
+                || Hardware->config->coreCount > 1
                 )
             {
                 /* Flush the L2 cache as well. */
@@ -7728,6 +7776,9 @@ gcoHARDWARE_ProgramTexture(
 
         if (semaStall)
         {
+            gcmASSERT(!Hardware->features[gcvFEATURE_BLT_ENGINE]
+                      || Hardware->features[gcvFEATURE_PE_TILE_CACHE_FLUSH_FIX]);
+
             {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
     gcmASSERT((gctUINT32)1 <= 1024);
     *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
@@ -7775,8 +7826,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0594) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0594, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  0:0) - (0 ?
  0:0) + 1) == 32) ?
@@ -7837,8 +7887,7 @@ gcoHARDWARE_ProgramTexture(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E02, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:0) - (0 ?
  4:0) + 1) == 32) ?
@@ -8293,16 +8342,6 @@ gcoHARDWARE_UpdateTextureDesc(
  31:31) - (0 ?
  31:31) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 31:31) - (0 ? 31:31) + 1))))))) << (0 ? 31:31)))
-        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 23:23) - (0 ?
- 23:23) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 23:23) - (0 ?
- 23:23) + 1))))))) << (0 ?
- 23:23))) | (((gctUINT32) ((gctUINT32) (baseSurf->cacheMode == gcvCACHE_256) & ((gctUINT32) ((((1 ?
- 23:23) - (0 ?
- 23:23) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 23:23) - (0 ? 23:23) + 1))))))) << (0 ? 23:23)))
         ;
 
 
@@ -8424,8 +8463,6 @@ gcoHARDWARE_UpdateTextureDesc(
 
     if (needYUVAssembler)
     {
-        pDesc->gcregTXAddress[0] = pDesc->gcregTXAddress[0];
-
         if (baseSurf->flags & gcvSURF_FLAG_MULTI_NODE)
         {
             /* Get u,v channel addresses from other nodes for multi-node surface. */
@@ -9230,8 +9267,11 @@ gcoHARDWARE_BindTextureDesc(
  ~0U : (~(~0U << ((1 ? 28:16) - (0 ? 28:16) + 1))))))) << (0 ? 28:16)));
 
 
-    samplerLODBias =
-        ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+    /* Enable LOD_BIAS when textureInfo->lodBias is not 0.0, else, disalbe LOD_BIAS */
+    if (0x0 != bias)
+    {
+        samplerLODBias =
+            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -9240,7 +9280,42 @@ gcoHARDWARE_BindTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (bias) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
+          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1))))))) << (0 ?
+ 16:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 16:16) - (0 ? 16:16) + 1))))))) << (0 ? 16:16)));
+    }
+    else
+    {
+        samplerLODBias =
+            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (bias) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)))
+          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1))))))) << (0 ?
+ 16:16))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
+ 16:16) - (0 ?
+ 16:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 16:16) - (0 ? 16:16) + 1))))))) << (0 ? 16:16)));
+    }
 
 
     samplerAnisCtrl =
@@ -9470,8 +9545,7 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x042C) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x042C, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  6:0) - (0 ?
  6:0) + 1) == 32) ?
@@ -9544,8 +9618,7 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x042D) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x042D, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  6:0) - (0 ?
  6:0) + 1) == 32) ?
@@ -9643,8 +9716,7 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E02, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:0) - (0 ?
  4:0) + 1) == 32) ?
@@ -9777,8 +9849,7 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E03) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E03, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:4) - (0 ?
  4:4) + 1) == 32) ?
@@ -9869,8 +9940,7 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E03) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E03, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  12:12) - (0 ?
  12:12) + 1) == 32) ?
@@ -9979,8 +10049,7 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (samplerCtrl0Reg + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, samplerCtrl0Reg + sampler, Hardware->TXStates->hwSamplerControl0[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -10041,8 +10110,7 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (samplerCtrl1Reg + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, samplerCtrl1Reg + sampler, Hardware->TXStates->hwSamplerControl1[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -10102,8 +10170,7 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (samplerLODMaxMinReg + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, samplerLODMaxMinReg + sampler, Hardware->TXStates->hwSamplerLodMinMax[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -10164,8 +10231,7 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (samplerLODBiasReg + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, samplerLODBiasReg + sampler, Hardware->TXStates->hwSamplerLODBias[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -10225,8 +10291,7 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (samplerAnisCtrlReg + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, samplerAnisCtrlReg + sampler, Hardware->TXStates->hwSamplerAnisCtrl[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -10286,8 +10351,7 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (texDescAddrReg + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, texDescAddrReg + sampler, Hardware->TXStates->hwTxDescAddress[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -10352,101 +10416,13 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (textureControlAddrReg + sampler) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, textureControlAddrReg + sampler, Hardware->TXStates->hwTextureControl[sampler] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
             }
         }
-    }
-
-    for (i = 0; i < prefetchCount; i++)
-    {
-        if (smallBatch ||
-            prefetchSamplers[i] >= Hardware->SHStates->programState.hints->unifiedStatus.samplerGPipeStart)
-        {
-            texCommandReg = 0x5311;
-        }
-        else
-        {
-            texCommandReg = 0x5312;
-        }
-
-        {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
-    gcmASSERT((gctUINT32)1 <= 1024);
-    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (texCommandReg) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, texCommandReg, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:28) - (0 ?
- 31:28) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:28) - (0 ?
- 31:28) + 1))))))) << (0 ?
- 31:28))) | (((gctUINT32) (0x2 & ((gctUINT32) ((((1 ?
- 31:28) - (0 ?
- 31:28) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:28) - (0 ?
- 31:28) + 1))))))) << (0 ?
- 31:28))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 6:0) - (0 ?
- 6:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 6:0) - (0 ?
- 6:0) + 1))))))) << (0 ?
- 6:0))) | (((gctUINT32) ((gctUINT32) (prefetchSamplers[i]) & ((gctUINT32) ((((1 ?
- 6:0) - (0 ?
- 6:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 6:0) - (0 ? 6:0) + 1))))))) << (0 ? 6:0))) );    gcmENDSTATEBATCH_NEW(reserve, memory);
-};
-
     }
 
 #if gcdSECURITY
@@ -10498,8 +10474,7 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E02, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:0) - (0 ?
  4:0) + 1) == 32) ?
@@ -10585,6 +10560,151 @@ gcoHARDWARE_ProgramTextureDesc(
     }
 #endif
 
+    if (samplerTSDirty)
+    {
+         {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E02, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8))) );    gcmENDSTATEBATCH_NEW(reserve, memory);
+};
+
+
+          /* Send FE-PE stall token. */
+          *memory++ =
+               ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x09 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
+
+          *memory++ =
+                 ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                     | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
+
+           /* Dump the stall. */
+           gcmDUMP(gcvNULL, "#[stall 0x%08X 0x%08X]",
+                 ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0))),
+                 ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8))));
+    }
+
+    Hardware->MCStates->hwTXSampleTSConfig[gcdSAMPLER_TS - 1] |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 1:0) - (0 ?
+ 1:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 1:0) - (0 ?
+ 1:0) + 1))))))) << (0 ?
+ 1:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 1:0) - (0 ?
+ 1:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 1:0) - (0 ? 1:0) + 1))))))) << (0 ? 1:0)));
+
     for (samplerTSIndex = 0;
          samplerTSDirty;
          samplerTSIndex++, samplerTSDirty >>=1)
@@ -10642,8 +10762,7 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x05C8 + samplerTSIndex) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x05C8 + samplerTSIndex, Hardware->MCStates->hwTXSampleTSConfig[samplerTSIndex] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -10695,8 +10814,7 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x05D0 + samplerTSIndex) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x05D0 + samplerTSIndex, Hardware->MCStates->hwTXSampleTSBuffer[samplerTSIndex] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -10748,8 +10866,7 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x05D8 + samplerTSIndex) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x05D8 + samplerTSIndex, Hardware->MCStates->hwTXSampleTSClearValue[samplerTSIndex] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -10802,8 +10919,7 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x05E0 + samplerTSIndex) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x05E0 + samplerTSIndex, Hardware->MCStates->hwTXSampleTSClearValueUpper[samplerTSIndex] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -10856,14 +10972,353 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x06A0 + samplerTSIndex) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x06A0 + samplerTSIndex, Hardware->MCStates->hwTxSamplerTxBaseBuffer[samplerTSIndex] );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
 
     }
+
+    if (Hardware->MCDirty->hwTxSamplerTSDirty || samplerTSIndex < (gcdSAMPLER_TS - 1))
+    {
+        if (samplerTSIndex < (gcdSAMPLER_TS - 1))
+        {
+            {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x05C8 + gcdSAMPLER_TS - 1) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x05C8 + gcdSAMPLER_TS - 1, Hardware->MCStates->hwTXSampleTSConfig[gcdSAMPLER_TS - 1] );
+    gcmENDSTATEBATCH_NEW(reserve, memory);
+};
+
+        }
+
+        {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E02, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8))) );    gcmENDSTATEBATCH_NEW(reserve, memory);
+};
+
+
+         /* Send FE-PE stall token. */
+        *memory++ =
+            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x09 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
+
+        *memory++ =
+            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
+
+               /* Dump the stall. */
+         gcmDUMP(gcvNULL, "#[stall 0x%08X 0x%08X]",
+            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0))),
+            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x07 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8))));
+    }
+
+    for (i = 0; i < prefetchCount; i++)
+    {
+        if (smallBatch || prefetchSamplers[i] >= Hardware->SHStates->programState.hints->unifiedStatus.samplerGPipeStart)
+        {
+            texCommandReg = 0x5311;
+        }
+        else
+        {
+            texCommandReg = 0x5312;
+        }
+
+        if (Hardware->features[gcvFEATURE_MULTI_CLUSTER])
+        {
+            {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x5310) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x5310, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))));    gcmENDSTATEBATCH_NEW(reserve, memory);
+};
+
+        }
+
+        {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (texCommandReg) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, texCommandReg, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:28) - (0 ?
+ 31:28) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:28) - (0 ?
+ 31:28) + 1))))))) << (0 ?
+ 31:28))) | (((gctUINT32) (0x2 & ((gctUINT32) ((((1 ?
+ 31:28) - (0 ?
+ 31:28) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:28) - (0 ?
+ 31:28) + 1))))))) << (0 ?
+ 31:28))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 6:0) - (0 ?
+ 6:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 6:0) - (0 ?
+ 6:0) + 1))))))) << (0 ?
+ 6:0))) | (((gctUINT32) ((gctUINT32) (prefetchSamplers[i]) & ((gctUINT32) ((((1 ?
+ 6:0) - (0 ?
+ 6:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 6:0) - (0 ? 6:0) + 1))))))) << (0 ? 6:0))) );    gcmENDSTATEBATCH_NEW(reserve, memory);
+};
+
+    }
+
     /* Check for texture cache flush. */
     if (Hardware->TXDirty->hwTxFlushPS)
     {
@@ -10915,8 +11370,7 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E03) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E03, Hardware->features[gcvFEATURE_MULTI_CLUSTER] ?
  ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:4) - (0 ?
@@ -10973,7 +11427,10 @@ gcoHARDWARE_ProgramTextureDesc(
 
     if (semaStall)
     {
-        {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+        if (!Hardware->features[gcvFEATURE_PE_TILE_CACHE_FLUSH_FIX] &&
+            Hardware->features[gcvFEATURE_BLT_ENGINE])
+        {
+            {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
     gcmASSERT((gctUINT32)1 <= 1024);
     *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
@@ -11017,12 +11474,72 @@ gcoHARDWARE_ProgramTextureDesc(
  ~0U : (~(~0U << ((1 ?
  15:0) - (0 ?
  15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0594) & ((gctUINT32) ((((1 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502E, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))));    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0594, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+
+
+            {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502B) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502B, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  0:0) - (0 ?
  0:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -11035,7 +11552,7 @@ gcoHARDWARE_ProgramTextureDesc(
 };
 
 
-        {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+            {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
     gcmASSERT((gctUINT32)1 <= 1024);
     *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
@@ -11082,8 +11599,262 @@ gcoHARDWARE_ProgramTextureDesc(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E02, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x10 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8))) );    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
+
+
+            /* Send FE-BLT stall token. */
+            *memory++ =
+                ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x09 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
+
+            *memory++ =
+                ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x10 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
+
+            /* Dump the stall. */
+            gcmDUMP(gcvNULL, "#[stall 0x%08X 0x%08X]",
+                ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0))),
+                ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1))))))) << (0 ?
+ 12:8))) | (((gctUINT32) (0x10 & ((gctUINT32) ((((1 ?
+ 12:8) - (0 ?
+ 12:8) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8))));
+
+            {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x502E) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x502E, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))));    gcmENDSTATEBATCH_NEW(reserve, memory);
+};
+
+        }
+        else
+        {
+            {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0594) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0594, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 0:0) - (0 ? 0:0) + 1))))))) << (0 ? 0:0))) );    gcmENDSTATEBATCH_NEW(reserve, memory);
+};
+
+
+            {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E02) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E02, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:0) - (0 ?
  4:0) + 1) == 32) ?
@@ -11109,9 +11880,9 @@ gcoHARDWARE_ProgramTextureDesc(
 };
 
 
-        /* Send FE-PE stall token. */
-        *memory++ =
-              ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+            /* Send FE-PE stall token. */
+            *memory++ =
+                ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -11122,8 +11893,8 @@ gcoHARDWARE_ProgramTextureDesc(
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
-        *memory++ =
-              ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+            *memory++ =
+                ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:0) - (0 ?
  4:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -11133,7 +11904,7 @@ gcoHARDWARE_ProgramTextureDesc(
  4:0) - (0 ?
  4:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0)))
-            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  12:8) - (0 ?
  12:8) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -11144,9 +11915,9 @@ gcoHARDWARE_ProgramTextureDesc(
  12:8) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8)));
 
-        /* Dump the stall. */
-        gcmDUMP(gcvNULL, "#[stall 0x%08X 0x%08X]",
-            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+            /* Dump the stall. */
+            gcmDUMP(gcvNULL, "#[stall 0x%08X 0x%08X]",
+                ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:0) - (0 ?
  4:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -11156,7 +11927,7 @@ gcoHARDWARE_ProgramTextureDesc(
  4:0) - (0 ?
  4:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0))),
-            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  12:8) - (0 ?
  12:8) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -11166,6 +11937,7 @@ gcoHARDWARE_ProgramTextureDesc(
  12:8) - (0 ?
  12:8) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 12:8) - (0 ? 12:8) + 1))))))) << (0 ? 12:8))));
+        }
     }
 
     gcmENDSTATEBUFFER_NEW(Hardware, reserve, memory, Memory);

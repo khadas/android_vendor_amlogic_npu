@@ -74,6 +74,7 @@ gcoHARDWARE_QueryShaderCompilerHwCfg(
     pVscHwCfg->productID                             = Hardware->config->productID;
     pVscHwCfg->customerID                            = Hardware->config->customerID;
     pVscHwCfg->maxCoreCount                          = Hardware->config->shaderCoreCount;
+    pVscHwCfg->maxClusterCount                       = (Hardware->config->clusterCount == 0) ? 1 : Hardware->config->clusterCount;
     pVscHwCfg->maxThreadCountPerCore                 = Hardware->config->threadCount/Hardware->config->shaderCoreCount;
     pVscHwCfg->maxVaryingCount                       = maxVaryingCount;
     pVscHwCfg->maxAttributeCount                     = maxAttribs;
@@ -201,10 +202,13 @@ gcoHARDWARE_QueryShaderCompilerHwCfg(
     pVscHwCfg->maxLocalMemSizeInByte                 = localStorageSizeInKbyte * 1024;
     pVscHwCfg->maxResultCacheWinSize                 = Hardware->config->resultWindowMaxSize;
 
+    pVscHwCfg->minPointSize                          = 0.5f;
+    pVscHwCfg->maxPointSize                          = 128.0f;
+
     /*
     ** 1) Use the DEVICE_MAX_WORK_GROUP_SIZE as the default workGroupSize for a shader.
     ** 2) When we need to use the workGroupSize to calculate the maxRegCount(e.g., use BARRIER in shader),
-    **    use 128 as the workGroupSize. And we may also reduce it to use more HW registers.
+    **    use initWorkGroupSizeToCalcRegCount as the workGroupSize. And we may also reduce it to use more HW registers.
     */
     if (gcmIS_SUCCESS(gcoOS_GetEnv(gcvNULL, "VIV_ENABLE_OPENCV_WORKGROUPSIZE", &env))
         && env
@@ -340,8 +344,11 @@ gcoHARDWARE_QueryShaderCompilerHwCfg(
     pVscHwCfg->hwFeatureFlags.hasScatteredMemAccess  = IS_HW_SUPPORT(gcvFEATURE_SH_SCATTER_GATHER);
     pVscHwCfg->hwFeatureFlags.supportSeparatedTex    = gcvFALSE;
     pVscHwCfg->hwFeatureFlags.supportMultiGPU        = gcvTRUE;
+    pVscHwCfg->hwFeatureFlags.hasPointSizeFix        = IS_HW_SUPPORT(gcvFEATURE_MAX_POINTSIZE_CLAMP);
+    pVscHwCfg->hwFeatureFlags.supportVectorB0        = gcvFALSE;
 
     pVscHwCfg->hwFeatureFlags.FEDrawDirect           = IS_HW_SUPPORT(gcvFEATURE_FE_DRAW_DIRECT);
+    pVscHwCfg->hwFeatureFlags.hasUSCAtomicFix2       = IS_HW_SUPPORT(gcvFEATURE_USC_ATOMIC_FIX2);
 
 OnError:
     gcmFOOTER();
@@ -585,12 +592,17 @@ _StallHw(
                                                     gcvNULL));
         }
 
-        gcmONERROR(
-            gcoHARDWARE_Semaphore(Hardware,
-                                  gcvWHERE_COMMAND,
-                                  gcvWHERE_PIXEL,
-                                  gcvHOW_SEMAPHORE_STALL,
-                                  gcvNULL));
+        if (Hardware->features[gcvFEATURE_SNAPPAGE_CMD] &&
+            Hardware->features[gcvFEATURE_SNAPPAGE_CMD_FIX])
+        {
+            gcmONERROR(
+                gcoHARDWARE_Semaphore(Hardware,
+                                      gcvWHERE_COMMAND,
+                                      gcvWHERE_PIXEL,
+                                      gcvHOW_SEMAPHORE_STALL,
+                                      gcvNULL));
+        }
+
 
         gcmONERROR(
             gcoHARDWARE_SnapPages(
@@ -720,7 +732,6 @@ gcoHARDWARE_InvokeThreadWalkerCL(
     gceSTATUS status;
     gctPOINTER *cmdBuffer = gcvNULL;
     gctUINT allocation;
-    gctUINT globalSize= 0;
     gctUINT groupNumberPerClusterEachGPU[gcdMAX_3DGPU_COUNT] = { 0 };
     gctUINT i;
     gctUINT localMemSizeInByte = 0;
@@ -738,7 +749,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
 
     gcmGETHARDWARE(Hardware);
 
-    gpuCount = Hardware->config->gpuCoreCount;
+    gpuCount = Hardware->config->coreCount;
     usedGPUCount = gpuCount;
     if ((gpuCount > 1) && !(Info->memoryAccessFlag & gceMA_FLAG_ATOMIC))
     {
@@ -860,6 +871,9 @@ gcoHARDWARE_InvokeThreadWalkerCL(
         gcmONERROR(gcoHARDWARE_FlushUniform(Hardware, cmdBuffer));
     }
 
+    /* Initialize some video memories that allocated by compiler. */
+    gcmONERROR(gcoHARDWARE_InitVidMemAllocatedByCompiler(Hardware));
+
     if (Hardware->SHDirty->shaderDirty)
     {
         /* Flush shader states. */
@@ -871,33 +885,37 @@ gcoHARDWARE_InvokeThreadWalkerCL(
         gcmONERROR(gcoHARDWARE_FlushPrefetchInst(Hardware, cmdBuffer));
     }
 
+    if (Hardware->features[gcvFEATURE_DRAW_ID])
+    {
+        gcmONERROR(gcoHARDWARE_FlushDrawID(Hardware, gcvTRUE, cmdBuffer));
+    }
+
     cmdBuffer = gcvNULL;
 
     /* Calculate thread allocation. */
-    for(i = 0 ;i < usedGPUCount; i++)
+    for(i = 0; i < usedGPUCount; i++)
     {
         allocation = eachGPUInfo[i].workGroupSizeX;
-        globalSize = Info->globalSizeX;
 
         if (eachGPUInfo[i].dimensions > 1)
         {
             allocation *= eachGPUInfo[i].workGroupSizeY;
-            globalSize *= eachGPUInfo[i].globalSizeY;
         }
 
         if (eachGPUInfo[i].dimensions > 2)
         {
             allocation *= eachGPUInfo[i].workGroupSizeZ;
-            globalSize *= eachGPUInfo[i].globalSizeZ;
         }
 
         eachGPUInfo[i].threadAllocation = gcmCEIL((gctFLOAT)allocation / (Hardware->config->shaderCoreCount * 4));
 
         if (Hardware->config->clusterAliveMask > 0)
         {
-         groupNumberPerClusterEachGPU[i] = (globalSize / (Hardware->config->shaderCoreCount * 4 * Hardware->config->clusterCount)) / allocation;
+            groupNumberPerClusterEachGPU[i] = (Hardware->config->shaderCoreCount * 4 * (eachGPUInfo[i].bDual16 ? 2 : 1)) / allocation;
 
             groupNumberPerClusterEachGPU[i] = groupNumberPerClusterEachGPU[i] > 1 ? groupNumberPerClusterEachGPU[i] -1 : 0;
+
+            groupNumberPerClusterEachGPU[i] = gcmMIN(63, groupNumberPerClusterEachGPU[i]);
         }
     }
 
@@ -916,9 +934,9 @@ gcoHARDWARE_InvokeThreadWalkerCL(
         {
             info = &eachGPUInfo[i];
 
-            if(gpuCount > 1)
+            if (gpuCount > 1)
             {
-                { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -982,8 +1000,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0240) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0240, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  1:0) - (0 ?
  1:0) + 1) == 32) ?
@@ -1145,8 +1162,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0249) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0249, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -1231,8 +1247,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0247) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0247, info->threadAllocation );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -1285,8 +1300,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x024B) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x024B, info->globalOffsetX );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -1339,8 +1353,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x024D) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x024D, info->globalOffsetY );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -1393,8 +1406,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x024F) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x024F, info->globalOffsetZ );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -1447,8 +1459,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0256) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0256, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  7:0) - (0 ?
  7:0) + 1) == 32) ?
@@ -1509,8 +1520,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0257) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0257, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  7:0) - (0 ?
  7:0) + 1) == 32) ?
@@ -1571,8 +1581,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0258) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0258, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  7:0) - (0 ?
  7:0) + 1) == 32) ?
@@ -1633,8 +1642,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0250) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
 
 
            gcmSETSTATEDATA_NEW(
@@ -1748,17 +1756,16 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0248) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0248, 0xBADABEEB );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
         }
 
-        if(gpuCount >1 )
+        if (gpuCount > 1)
         {
-             { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+             { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -1780,9 +1787,9 @@ gcoHARDWARE_InvokeThreadWalkerCL(
         {
             info = &eachGPUInfo[i];
 
-            if(gpuCount > 1)
+            if (gpuCount > 1)
             {
-                { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -1845,8 +1852,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0240) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
 
 
             gcmSETSTATEDATA_NEW(
@@ -2147,17 +2153,16 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0248) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0248, 0xBADABEEB );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
         }
 
-        if(gpuCount > 1)
+        if (gpuCount > 1)
         {
-            { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+            { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -2174,49 +2179,41 @@ gcoHARDWARE_InvokeThreadWalkerCL(
         }
     }
 
-#ifdef GCREG_MCFE_STD_DESC_RING_BUF_START_ADDR_Address
     if (Hardware->features[gcvFEATURE_MCFE])
     {
         /* SubmitJob. */
         *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
- MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_SUB_COMMAND & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)))
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x16 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
                   | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ?
- MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ?
- MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ?
- MCFE_COMMAND_SUB_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_SUB_OPCODE_SUBMIT_JOB & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ?
- MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ?
- MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_SUB_OPCODE)));
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) (0x001 & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
 
         *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
- MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_NOP & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)));
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x03 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
     }
-#endif
 
     /* Validate the state buffer. */
     gcmENDSTATEBUFFER_NEW(Hardware, reserve, memory, cmdBuffer);
@@ -2226,10 +2223,12 @@ gcoHARDWARE_InvokeThreadWalkerCL(
     if (!Hardware->features[gcvFEATURE_MCFE])
     {
         /* Flush the Shader L1 cache. */
-        gcmONERROR(gcoHARDWARE_LoadCtrlState(
-            Hardware,
-            0x0380C,
-                ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+        if (!Hardware->config->parallelNoFix || !Hardware->options.enableNNTPParallel || Hardware->options.enableSwtilingPhase1)
+        {
+            gcmONERROR(gcoHARDWARE_LoadCtrlState(
+                Hardware,
+                0x0380C,
+                    ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  5:5) - (0 ?
  5:5) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -2239,8 +2238,8 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  5:5) - (0 ?
  5:5) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)))
-              | (Hardware->features[gcvFEATURE_MULTI_CLUSTER] ?
-                 ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                  | (Hardware->features[gcvFEATURE_MULTI_CLUSTER] ?
+                     ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:4) - (0 ?
  4:4) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -2250,7 +2249,7 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  4:4) - (0 ?
  4:4) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 4:4) - (0 ? 4:4) + 1))))))) << (0 ? 4:4))) :
-                 ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                     ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  2:2) - (0 ?
  2:2) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -2260,12 +2259,51 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  2:2) - (0 ?
  2:2) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 2:2) - (0 ? 2:2) + 1))))))) << (0 ? 2:2))))
-            ));
+                ));
+        }
+        else
+        {
+            gcmONERROR(gcoHARDWARE_LoadCtrlState(
+                Hardware,
+                0x0380C,
+                    ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1))))))) << (0 ?
+ 5:5))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)))
+                  | (Hardware->features[gcvFEATURE_MULTI_CLUSTER] ?
+                     ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1))))))) << (0 ?
+ 4:4))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 4:4) - (0 ?
+ 4:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:4) - (0 ? 4:4) + 1))))))) << (0 ? 4:4))) :
+                     ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1))))))) << (0 ?
+ 2:2))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 2:2) - (0 ? 2:2) + 1))))))) << (0 ? 2:2))))
+                ));
+        }
 
         /* ICACHE need be invalidate when if the core is compute only and in combineMode */
         if(Hardware->features[gcvFEATURE_COMPUTE_ONLY] )
         {
-            if(Hardware->config->gpuCoreCount > 1)
+            if(Hardware->config->coreCount > 1)
             {
                 /* Invalidate Shader Icache. */
                 if (gcoHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_HALTI5))
@@ -2298,9 +2336,11 @@ gcoHARDWARE_InvokeThreadWalkerCL(
     else
     {
         /* Flush the Shader L1 cache. */
-        gcmONERROR(gcoHARDWARE_LoadCtrlState(
-            Hardware,
-            0x0380C, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+        if (!Hardware->config->parallelNoFix || !Hardware->options.enableNNTPParallel || Hardware->options.enableSwtilingPhase1)
+        {
+            gcmONERROR(gcoHARDWARE_LoadCtrlState(
+                Hardware,
+                0x0380C, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  5:5) - (0 ?
  5:5) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -2310,7 +2350,24 @@ gcoHARDWARE_InvokeThreadWalkerCL(
  5:5) - (0 ?
  5:5) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)))
-            ));
+                ));
+        }
+        else
+        {
+            gcmONERROR(gcoHARDWARE_LoadCtrlState(
+                Hardware,
+                0x0380C, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1))))))) << (0 ?
+ 5:5))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)))
+                ));
+        }
 
         /* Invalidate Shader Icache. */
         if (gcoHARDWARE_IsFeatureAvailable(Hardware, gcvFEATURE_HALTI5))
@@ -2366,9 +2423,8 @@ gcoHARDWARE_InvokeThreadWalkerGL(
     gceSTATUS status;
     gctPOINTER  *outSide = gcvNULL;
     gctUINT allocation;
-    gctUINT globalSize= 0;
-    gctUINT localMemSizeInByte = 0;
     gctUINT groupNumberPerCluster = 0;
+    gctUINT localMemSizeInByte = 0;
     gctBOOL bEnableWGPack = gcvFALSE;
 
     /* Define state buffer variables. */
@@ -2381,7 +2437,6 @@ gcoHARDWARE_InvokeThreadWalkerGL(
     gcmGETHARDWARE(Hardware);
     /* Calculate thread allocation. */
     allocation = Info->workGroupSizeX *Info->workGroupSizeY * Info->workGroupSizeZ;
-    globalSize = Info->workGroupCountX * Info->workGroupCountY * Info->workGroupCountZ * allocation;
 
     Info->threadAllocation = gcmCEIL((gctFLOAT)allocation / (Hardware->config->shaderCoreCount * 4));
     Info->valueOrder = Hardware->SHStates->programState.hints->valueOrder;
@@ -2393,6 +2448,12 @@ gcoHARDWARE_InvokeThreadWalkerGL(
     }
 
     gcmBEGINSTATEBUFFER_NEW(Hardware, reserve, stateDelta, memory, outSide);
+
+    /* If the previos pipe is graphic, sometimes the RT cache are forgot to flush */
+    if (!gcoHARDWARE_IsFeatureAvailable(gcvNULL, gcvFEATURE_FAST_CLEAR))
+    {
+        gcmONERROR(gcoHARDWARE_FlushPipe(Hardware, gcvNULL));
+    }
 
     /* Switch to the 3D pipe. */
     gcmONERROR(gcoHARDWARE_SelectPipe(gcvNULL, gcvPIPE_3D, (gctPOINTER*)&memory));
@@ -2407,6 +2468,9 @@ gcoHARDWARE_InvokeThreadWalkerGL(
     {
         gcmONERROR((*Hardware->funcPtr->programTexture)(Hardware, (gctPOINTER*)&memory));
     }
+
+    /* Initialize some video memories that allocated by compiler. */
+    gcmONERROR(gcoHARDWARE_InitVidMemAllocatedByCompiler(Hardware));
 
     if (Hardware->SHDirty->shaderDirty)
     {
@@ -2428,12 +2492,13 @@ gcoHARDWARE_InvokeThreadWalkerGL(
 
     if (Hardware->features[gcvFEATURE_DRAW_ID])
     {
-        gcmONERROR(gcoHARDWARE_FlushDrawID(Hardware, (gctPOINTER*)&memory));
+        gcmONERROR(gcoHARDWARE_FlushDrawID(Hardware, gcvFALSE, (gctPOINTER*)&memory));
     }
 
-    if (Hardware->config->gpuCoreCount > 1)
+    if (Hardware->config->coreCount > 1)
     {
-        gcmONERROR(gcoHARDWARE_FlushMultiGPURenderingMode(Hardware, (gctPOINTER*)&memory));
+        /* TODO: select optimum rendering mode for different statemetn */
+        gcmONERROR(gcoHARDWARE_FlushMultiGPURenderingMode(Hardware, (gctPOINTER*)&memory, gcvMULTI_GPU_RENDERING_MODE_INTERLEAVED_128x64));
     }
 
 #if gcdENABLE_TRUST_APPLICATION&&0
@@ -2502,8 +2567,7 @@ gcoHARDWARE_InvokeThreadWalkerGL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0240) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0240, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  1:0) - (0 ?
  1:0) + 1) == 32) ?
@@ -2615,8 +2679,11 @@ gcoHARDWARE_InvokeThreadWalkerGL(
 
     if (Hardware->config->clusterAliveMask > 0)
     {
-        groupNumberPerCluster = (globalSize / (Hardware->config->shaderCoreCount * 4 * Hardware->config->clusterCount)) / allocation;
+        groupNumberPerCluster = (Hardware->config->shaderCoreCount * 4 * (Info->bDual16 ? 2 : 1)) / allocation;
+
         groupNumberPerCluster = groupNumberPerCluster > 1 ? groupNumberPerCluster -1 : 0;
+
+        groupNumberPerCluster = gcmMIN(63, groupNumberPerCluster);
     }
 
     if (Hardware->features[gcvFEATURE_PSCS_THROTTLE] && Hardware->SHStates->programState.hints)
@@ -2671,8 +2738,7 @@ gcoHARDWARE_InvokeThreadWalkerGL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0249) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0249, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -2757,8 +2823,7 @@ gcoHARDWARE_InvokeThreadWalkerGL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0247) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0247, Info->threadAllocation );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -2811,8 +2876,7 @@ gcoHARDWARE_InvokeThreadWalkerGL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x024B) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x024B, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:16) - (0 ?
  31:16) + 1) == 32) ?
@@ -2873,8 +2937,7 @@ gcoHARDWARE_InvokeThreadWalkerGL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x024D) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x024D, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:16) - (0 ?
  31:16) + 1) == 32) ?
@@ -2935,8 +2998,7 @@ gcoHARDWARE_InvokeThreadWalkerGL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x024F) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x024F, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:16) - (0 ?
  31:16) + 1) == 32) ?
@@ -2999,8 +3061,7 @@ gcoHARDWARE_InvokeThreadWalkerGL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0253) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
 
 
         gcmSETSTATEDATA_NEW(
@@ -3098,8 +3159,7 @@ gcoHARDWARE_InvokeThreadWalkerGL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0250) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
 
 
         gcmSETSTATEDATA_NEW(
@@ -3169,7 +3229,7 @@ gcoHARDWARE_InvokeThreadWalkerGL(
     }
 
     gcoHARDWARE_MultiGPUSync(Hardware, &memory);
-    { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+    { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -3246,8 +3306,7 @@ gcoHARDWARE_InvokeThreadWalkerGL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0218) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0218, ((((gctUINT32) (Hardware->SHStates->programState.hints->shaderConfigData)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  16:16) - (0 ?
  16:16) + 1) == 32) ?
@@ -3310,8 +3369,7 @@ gcoHARDWARE_InvokeThreadWalkerGL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x01F3) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x01F3, constantBase + Info->groupNumberUniformIdx);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -3390,56 +3448,47 @@ gcoHARDWARE_InvokeThreadWalkerGL(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0248) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0248, 0xBADABEEB );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
 
-#ifdef GCREG_MCFE_STD_DESC_RING_BUF_START_ADDR_Address
         if (Hardware->features[gcvFEATURE_MCFE])
         {
             /* SubmitJob. */
             *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
- MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_SUB_COMMAND & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)))
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x16 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
                       | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ?
- MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ?
- MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ?
- MCFE_COMMAND_SUB_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_SUB_OPCODE_SUBMIT_JOB & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ?
- MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ?
- MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_SUB_OPCODE)));
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) (0x001 & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
 
             *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
- MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_NOP & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)));
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x03 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
         }
-#endif
 
         gcmDUMP(gcvNULL,
                 "#[compute (%d,%d,%d), workGroupNum(%d,%d,%d)]",
@@ -3447,7 +3496,7 @@ gcoHARDWARE_InvokeThreadWalkerGL(
                  Info->workGroupCountX, Info->workGroupCountY, Info->workGroupCountZ);
     }
 
-    { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+    { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -3462,10 +3511,6 @@ gcoHARDWARE_InvokeThreadWalkerGL(
  } };
 
     gcoHARDWARE_MultiGPUSync(Hardware, &memory);
-
-#if gcdFRAMEINFO_STATISTIC
-    gcmONERROR(gcoHARDWARE_FlushDrawID(Hardware, (gctPOINTER *)&memory));
-#endif
 
     /* Validate the state buffer. */
     gcmENDSTATEBUFFER_NEW(Hardware, reserve, memory, outSide);
@@ -3585,8 +3630,7 @@ gcoHARDWARE_ProgramUniform(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0218) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA(stateDelta, reserve, memory, gcvFALSE, 0x0218, shaderConfigData);
      gcmENDSTATEBATCH(reserve, memory);
 };
@@ -3646,8 +3690,7 @@ gcoHARDWARE_ProgramUniform(
  15:0))) | (((gctUINT32) ((gctUINT32) (address) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
 
 
         /* Walk all columns. */
@@ -3776,8 +3819,7 @@ gcoHARDWARE_FlushUniform(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x042B) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x042B, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  8:0) - (0 ?
  8:0) + 1) == 32) ?
@@ -3873,8 +3915,7 @@ gcoHARDWARE_FlushUniform(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0218) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0218, shaderConfigData);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -3931,8 +3972,7 @@ gcoHARDWARE_FlushUniform(
  15:0))) | (((gctUINT32) ((gctUINT32) (uniformState->address) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
 
 
                     for (j = 0; j < 4; j++)
@@ -3954,9 +3994,9 @@ gcoHARDWARE_FlushUniform(
             }
             else if(uniformState->info.dirty == 0xf && uniformState->combinedDirty == 0xf)
             {
-                for(k = 0; k < Hardware->config->gpuCoreCount; k++)
+                for(k = 0; k < Hardware->config->coreCount; k++)
                 {
-                    { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                    { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -4018,8 +4058,7 @@ gcoHARDWARE_FlushUniform(
  15:0))) | (((gctUINT32) ((gctUINT32) (uniformState->address) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
 
 
                     for (j = 0; j < 4; j++)
@@ -4040,7 +4079,7 @@ gcoHARDWARE_FlushUniform(
 
 
                 }
-                { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -4109,8 +4148,7 @@ gcoHARDWARE_FlushUniform(
  15:0))) | (((gctUINT32) ((gctUINT32) (uniformState->address + j) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, uniformState->address + j, uniformState->data[0][j]);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -4118,9 +4156,9 @@ gcoHARDWARE_FlushUniform(
                     }
                 }
 
-                for(k = 0; k < Hardware->config->gpuCoreCount; k++)  /*Flush Uniform data that is combined*/
+                for(k = 0; k < Hardware->config->coreCount; k++)  /*Flush Uniform data that is combined*/
                 {
-                    { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                    { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -4186,8 +4224,7 @@ gcoHARDWARE_FlushUniform(
  15:0))) | (((gctUINT32) ((gctUINT32) (uniformState->address + j) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, uniformState->address + j, uniformState->data[k][j]);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -4195,7 +4232,7 @@ gcoHARDWARE_FlushUniform(
                         }
                     }
                 }
-                { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+                { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -4299,7 +4336,7 @@ gcoHARDWARE_BindUniformEx(
 
     if(CombinedMode)
     {
-        for(k = 1; k < Hardware->config->gpuCoreCount; k++)
+        for(k = 1; k < Hardware->config->coreCount; k++)
         {
             pArray[k] = (gctUINT8_PTR) Values[k];
         }
@@ -4377,7 +4414,7 @@ gcoHARDWARE_BindUniformEx(
 
                 if(CombinedMode)
                 {
-                    for(k = 1; k < Hardware->config->gpuCoreCount; k++)
+                    for(k = 1; k < Hardware->config->coreCount; k++)
                     {
                          pData = IsRowMajor
                             ? pArray[k] + col * MatrixStride + (row << 2)
@@ -4409,7 +4446,7 @@ gcoHARDWARE_BindUniformEx(
                     pArray[0] += (col << 2);
                     if(CombinedMode)
                     {
-                        for(k = 1 ; k < Hardware->config->gpuCoreCount; k++)
+                        for(k = 1 ; k < Hardware->config->coreCount; k++)
                         {
                             pArray[k] += (col << 2);
                         }
@@ -4420,7 +4457,7 @@ gcoHARDWARE_BindUniformEx(
                 uniformState->data[0][shift + col] = dataPerGpu[0];
                  if(CombinedMode)
                     {
-                        for(k = 1 ; k < Hardware->config->gpuCoreCount; k++)
+                        for(k = 1 ; k < Hardware->config->coreCount; k++)
                         {
                            uniformState->data[k][shift + col]=  dataPerGpu[k];
                         }
@@ -4443,7 +4480,7 @@ gcoHARDWARE_BindUniformEx(
 
         if(CombinedMode)
         {
-            for(k = 1 ; k < Hardware->config->gpuCoreCount; k++)
+            for(k = 1 ; k < Hardware->config->coreCount; k++)
             {
                 pArray[k] +=  ArrayStride;
             }
@@ -4566,8 +4603,7 @@ gcoHARDWARE_ProgramUniformEx(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0218) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0218, shaderConfigData);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -4627,8 +4663,7 @@ gcoHARDWARE_ProgramUniformEx(
  15:0))) | (((gctUINT32) ((gctUINT32) (address) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
 
 
             /* Walk all columns. */
@@ -4779,8 +4814,7 @@ gcoHARDWARE_BindBufferBlock(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0218) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0218, shaderConfigData);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -4835,8 +4869,7 @@ gcoHARDWARE_BindBufferBlock(
  15:0))) | (((gctUINT32) ((gctUINT32) (address) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, address, Base + Offset );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };

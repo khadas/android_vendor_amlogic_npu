@@ -18,7 +18,7 @@
 #if gcdNULL_DRIVER < 2
 
 /* Zone used for header/footer. */
-#define _GC_OBJ_ZONE    gcvZONE_TEXTURE
+#define _GC_OBJ_ZONE    gcdZONE_TEXTURE
 
 /******************************************************************************\
 |********************************* Structures *********************************|
@@ -302,7 +302,7 @@ static gceSTATUS _uploadBlitBlt(
             gcvPOOL_DEFAULT
             ));
 
-        gcmTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_SURFACE,
+        gcmTRACE_ZONE(gcvLEVEL_INFO, gcdZONE_SURFACE,
                       "Allocated surface 0x%x: pool=%d size=%dx%dx%d bytes=%u",
                       &srcSurf->node,
                       srcSurf->node.pool,
@@ -347,7 +347,7 @@ static gceSTATUS _uploadBlitBlt(
         /* set the usage.*/
         rlvArgs.uArgs.v2.bUploadTex = gcvTRUE;
 
-        gcmERR_BREAK(gcoHARDWARE_3DBlitBlt(gcvNULL, &srcView, &dstView, &rlvArgs));
+        gcmERR_BREAK(gcoHARDWARE_3DBlitBlt(gcvNULL, &srcView, &dstView, &rlvArgs, gcvFALSE));
     } while (gcvFALSE);
 
     if (srcSurf)
@@ -1209,7 +1209,7 @@ gcoTEXTURE_UploadSub(
     if ((XOffset + Width > map->width) || (YOffset + Height > map->height))
     {
         /* Requested upload does not match the mip map. */
-        gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        gcmERR_RETURN(gcvSTATUS_INVALID_ARGUMENT);
     }
 
     /* Convert face into index. */
@@ -1228,7 +1228,7 @@ gcoTEXTURE_UploadSub(
             if (index >= map->depth)
             {
                 /* The specified slice is outside the allocated texture. */
-                gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
+                gcmERR_RETURN(gcvSTATUS_INVALID_ARGUMENT);
             }
             break;
         case gcvTEXTURE_2D:
@@ -1237,7 +1237,7 @@ gcoTEXTURE_UploadSub(
             if (index != 0)
             {
                 /* The specified slice is outside the allocated texture. */
-                gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
+                gcmERR_RETURN(gcvSTATUS_INVALID_ARGUMENT);
             }
             break;
 
@@ -1257,7 +1257,7 @@ gcoTEXTURE_UploadSub(
         if (index >= map->faces)
         {
             /* The specified face is outside the allocated texture faces. */
-            gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
+            gcmERR_RETURN(gcvSTATUS_INVALID_ARGUMENT);
         }
         break;
 
@@ -1273,7 +1273,7 @@ gcoTEXTURE_UploadSub(
     texView.firstSlice = index;
 
     /* Lock the surface. */
-    gcmONERROR(gcoSURF_Lock(map->surface, address, memory));
+    gcmERR_RETURN(gcoSURF_Lock(map->surface, address, memory));
 
     if (map->surface->hasStencilComponent)
     {
@@ -1352,6 +1352,7 @@ gcoTEXTURE_UploadSub(
 
     if (gcmIS_ERROR(status))
     {
+
         gcmONERROR(gcoSURF_WaitFence(map->surface));
 
         if (_UseAccurateUpload(Format, map->surface) == gcvFALSE)
@@ -1419,7 +1420,7 @@ gcoTEXTURE_UploadSub(
 
 OnError:
     /* Unlock the surface. */
-    if (memory[0] && map)
+    if (memory[0] && map && map->surface)
     {
         gcmVERIFY_OK(gcoSURF_Unlock(map->surface, memory[0]));
     }
@@ -1736,6 +1737,7 @@ gcoTEXTURE_AddMipMap(
     IN gctSIZE_T Depth,
     IN gctUINT Faces,
     IN gcePOOL Pool,
+    IN gctBOOL Filterable,
     OUT gcoSURF * Surface
     )
 {
@@ -1751,6 +1753,7 @@ gcoTEXTURE_AddMipMap(
         Pool,
         0,
         gcvFALSE,
+        Filterable,
         Surface
         );
 }
@@ -1822,6 +1825,7 @@ gcoTEXTURE_AddMipMapEx(
     IN gcePOOL Pool,
     IN gctUINT32 Samples,
     IN gctBOOL Protected,
+    IN gctBOOL Filterable,
     OUT gcoSURF * Surface
     )
 {
@@ -2045,8 +2049,9 @@ gcoTEXTURE_AddMipMapEx(
         }
 
         /* Set texture filterable property. */
-        Texture->filterable = !map->surface->formatInfo.fakedFormat ||
-                              map->surface->paddingFormat;
+        Texture->filterable = (!map->surface->formatInfo.fakedFormat ||
+                              map->surface->paddingFormat) &&
+                              Filterable;
 
         /* Update internal format no matter surface was reallocated or not */
         map->internalFormat = internalFormat;
@@ -3104,7 +3109,7 @@ gcoTEXTURE_UploadCompressed(
     gcmDUMP_BUFFER(gcvNULL, gcvDUMP_BUFFER_TEXTURE, address[0], memory[0], offset, map->sliceSize);
 
 OnError:
-    if (memory[0])
+    if (map && memory[0])
     {
         /* Unlock the surface. */
         gcmVERIFY_OK(gcoSURF_Unlock(map->surface, memory[0]));
@@ -3196,13 +3201,13 @@ gcoTEXTURE_UploadCompressedSub(
     if (!map || !map->surface)
     {
         /* Requested map might be too large, or not been created yet. */
-        gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        gcmERR_RETURN(gcvSTATUS_INVALID_ARGUMENT);
     }
 
     if ((XOffset + Width > map->width) || (YOffset + Height > map->height))
     {
         /* Requested upload does not match the mip map. */
-        gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        gcmERR_RETURN(gcvSTATUS_INVALID_ARGUMENT);
     }
 
     /* Convert face into index. */
@@ -3221,7 +3226,7 @@ gcoTEXTURE_UploadCompressedSub(
             if (index >= map->depth)
             {
                 /* The specified slice is outside the allocated texture. */
-                gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
+                gcmERR_RETURN(gcvSTATUS_INVALID_ARGUMENT);
             }
             break;
 
@@ -3231,7 +3236,7 @@ gcoTEXTURE_UploadCompressedSub(
             if (index != 0)
             {
                 /* The specified slice is outside the allocated texture. */
-                gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
+                gcmERR_RETURN(gcvSTATUS_INVALID_ARGUMENT);
             }
             break;
 
@@ -3251,7 +3256,7 @@ gcoTEXTURE_UploadCompressedSub(
         if (index >= map->faces)
         {
             /* The specified face is outside the allocated texture faces. */
-            gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
+            gcmERR_RETURN(gcvSTATUS_INVALID_ARGUMENT);
         }
         break;
 
@@ -3261,7 +3266,7 @@ gcoTEXTURE_UploadCompressedSub(
     }
 
     /* Lock the surface. */
-    gcmONERROR(gcoSURF_Lock(map->surface, address, memory));
+    gcmERR_RETURN(gcoSURF_Lock(map->surface, address, memory));
 
 
     /* Compute offset. */
@@ -3282,7 +3287,7 @@ gcoTEXTURE_UploadCompressedSub(
 
 OnError:
     /* Unlock the surface. */
-    if (memory[0])
+    if (map && map->surface && memory[0])
     {
         gcmVERIFY_OK(gcoSURF_Unlock(map->surface, memory[0]));
     }
@@ -4213,7 +4218,7 @@ _ReplaceSurfaceForBorderPatch(
         lockedSrcNode = &curSurf->node;
         gcmONERROR(gcoHARDWARE_LockEx(&surface->node, gcvENGINE_RENDER, &dstAddress, gcvNULL));
         lockedDstNode = &surface->node;
-        gcmONERROR(gcoHARDWARE_3DBlitCopy(gcvNULL, gcvENGINE_RENDER, srcAddress, dstAddress, (gctUINT32)curSurf->size));
+        gcmONERROR(gcoHARDWARE_3DBlitCopy(gcvNULL, gcvENGINE_RENDER, srcAddress, dstAddress, (gctUINT32)curSurf->size, gcvFALSE));
         gcmONERROR(gcoHARDWARE_UnlockEx(lockedSrcNode, gcvENGINE_RENDER, curSurf->type));
         lockedSrcNode = gcvNULL;
         gcmONERROR(gcoHARDWARE_UnlockEx(lockedDstNode, gcvENGINE_RENDER, surface->type));
@@ -4226,7 +4231,7 @@ _ReplaceSurfaceForBorderPatch(
             lockedSrcNode = &curSurf->tileStatusNode;
             gcmONERROR(gcoHARDWARE_LockEx(&surface->tileStatusNode, gcvENGINE_RENDER, &dstAddress, gcvNULL));
             lockedDstNode = &surface->tileStatusNode;
-            gcmONERROR(gcoHARDWARE_3DBlitCopy(gcvNULL, gcvENGINE_RENDER, srcAddress, dstAddress, (gctUINT32)curSurf->tileStatusNode.size));
+            gcmONERROR(gcoHARDWARE_3DBlitCopy(gcvNULL, gcvENGINE_RENDER, srcAddress, dstAddress, (gctUINT32)curSurf->tileStatusNode.size, gcvFALSE));
             gcmONERROR(gcoHARDWARE_UnlockEx(lockedSrcNode, gcvENGINE_RENDER, gcvSURF_TILE_STATUS));
             lockedSrcNode = gcvNULL;
             gcmONERROR(gcoHARDWARE_UnlockEx(lockedDstNode, gcvENGINE_RENDER, gcvSURF_TILE_STATUS));
@@ -5186,7 +5191,8 @@ gceSTATUS
 gcoTEXTURE_GenerateMipMap(
     IN gcoTEXTURE Texture,
     IN gctINT BaseLevel,
-    IN gctINT MaxLevel
+    IN gctINT MaxLevel,
+    IN gctBOOL sRGBDecode
     )
 {
     gctUINT maxLevel = gcmMIN(MaxLevel, Texture->levels - 1);
@@ -5266,6 +5272,7 @@ gcoTEXTURE_GenerateMipMap(
                 gcvENGINE_RENDER,
                 &info,
                 z,
+                sRGBDecode,
                 gcvNULL
                 ));
         }
@@ -5309,6 +5316,7 @@ gcoTEXTURE_GenerateMipMap(
                 gcvENGINE_RENDER,
                 &info,
                 i,
+                sRGBDecode,
                 gcvNULL
                 ));
         }
@@ -5341,8 +5349,19 @@ OnError:
 #endif
         {
             gcsMIPMAP_PTR prevMap;
+            gctBOOL sRGBDecodeEnable = gcvFALSE;
             prevMap = baseMipMap;
             map = baseMipMap->next;
+
+            if (sRGBDecode &&
+                ((baseMipMap->surface->format == gcvSURF_SBGR8) ||
+                (baseMipMap->surface->format == gcvSURF_A8_SBGR8) ||
+                (baseMipMap->surface->format == gcvSURF_X8_SBGR8) ||
+                (baseMipMap->surface->format == gcvSURF_A8_SRGB8) ||
+                (baseMipMap->surface->format == gcvSURF_X8_SRGB8)))
+            {
+                sRGBDecodeEnable = gcvTRUE;
+            }
 
             for (l = 0; l < genLevel; l++, map = map->next)
             {
@@ -5367,8 +5386,9 @@ OnError:
                 blitArgs.xReverse           = gcvFALSE;
                 blitArgs.yReverse           = gcvFALSE;
                 blitArgs.scissorTest        = gcvFALSE;
-                blitArgs.srcNumSlice        = 1;
+                blitArgs.srcNumSlice        = srcSurface->requestD;
                 blitArgs.dstNumSlice        = 1;
+                blitArgs.needDecode         = sRGBDecodeEnable;
                 status = gcoSURF_BlitCPU(&blitArgs);
                 prevMap = map;
             }
@@ -5521,6 +5541,7 @@ gceSTATUS gcoTEXTURE_AddMipMap(
     IN gctSIZE_T Depth,
     IN gctUINT Faces,
     IN gcePOOL Pool,
+    IN gctBOOL Filterable,
     OUT gcoSURF * Surface
     )
 {
@@ -5544,6 +5565,7 @@ gcoTEXTURE_AddMipMapEx(
     IN gcePOOL Pool,
     IN gctUINT32 Samples,
     IN gctBOOL Protected,
+    IN gctBOOL Filterable,
     OUT gcoSURF * Surface
     )
 {
@@ -5780,7 +5802,8 @@ gceSTATUS
 gcoTEXTURE_GenerateMipMap(
     IN gcoTEXTURE Texture,
     IN gctINT BaseLevel,
-    IN gctINT MaxLevel
+    IN gctINT MaxLevel,
+    IN gctBOOL sRGBDecode
     )
 {
     return gcvSTATUS_OK;

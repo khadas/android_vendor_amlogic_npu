@@ -31,9 +31,10 @@
 #include <VX/vx_compatibility.h>
 #include <VX/vx_khr_import_kernel.h>
 
-#ifdef VX_VERSION_1_2
-#include <VX/viv_nn_compatibility.h>
-#endif
+/*
+    This is a compatibility head file for backward compatibility OpenVX 1.1 spec
+*/
+#include "vsi_nn_compatibility.h"
 
 #if defined(__cplusplus)
 extern "C"{

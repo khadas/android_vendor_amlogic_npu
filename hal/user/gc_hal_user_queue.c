@@ -22,7 +22,7 @@
 
 #if (gcdENABLE_3D)
 /* Zone used for header/footer. */
-#define _GC_OBJ_ZONE    gcvZONE_BUFFER
+#define _GC_OBJ_ZONE    gcdZONE_BUFFER
 
 gceSTATUS
 gcoQUEUE_Construct(
@@ -254,6 +254,7 @@ gcoQUEUE_Commit(
         /* Initialize event commit command. */
         iface.ignoreTLS     = gcvFALSE;
         iface.command       = gcvHAL_EVENT_COMMIT;
+        iface.commitMutex   = gcvFALSE;
         iface.engine        = Queue->engine;
         iface.u.Event.queue = gcmPTR_TO_UINT64(Queue->head);
 

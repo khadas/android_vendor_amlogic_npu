@@ -112,11 +112,6 @@ OVXLIB_API void vsi_nn_VxResourceSetPath
     char* path
     );
 
-OVXLIB_API const char * vsi_nn_VxResourceGetResource
-    (
-    char* name
-    );
-
 OVXLIB_API const uint8_t * vsi_nn_VxBinResourceGetResource
     (
     char* name,

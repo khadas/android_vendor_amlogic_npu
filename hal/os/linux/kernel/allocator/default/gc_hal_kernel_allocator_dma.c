@@ -61,6 +61,9 @@
 #include <linux/mman.h>
 #include <asm/atomic.h>
 #include <linux/dma-mapping.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0)
+#include <linux/dma-direct.h>
+#endif
 #include <linux/slab.h>
 #include <linux/platform_device.h>
 
@@ -147,6 +150,7 @@ _DmaAlloc(
     gcmkHEADER_ARG("Mdl=%p NumPages=0x%zx Flags=0x%x", Mdl, NumPages, Flags);
 
     gcmkONERROR(gckOS_Allocate(os, sizeof(struct mdl_dma_priv), (gctPOINTER *)&mdlPriv));
+    mdlPriv->kvaddr = gcvNULL;
 
 #if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
     if (Flags & gcvALLOC_FLAG_4GB_ADDR)
@@ -159,14 +163,18 @@ _DmaAlloc(
 #if defined CONFIG_MIPS || defined CONFIG_CPU_CSKYV2 || defined CONFIG_PPC || defined CONFIG_ARM64
         = dma_alloc_coherent(galcore_device, NumPages * PAGE_SIZE, &mdlPriv->dmaHandle, gfp);
 #else
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0)
+        = dma_alloc_wc(galcore_device, NumPages * PAGE_SIZE,  &mdlPriv->dmaHandle, gfp);
+#else
         = dma_alloc_writecombine(galcore_device, NumPages * PAGE_SIZE,  &mdlPriv->dmaHandle, gfp);
+#endif
 #endif
 
 #ifdef CONFLICT_BETWEEN_BASE_AND_PHYS
     if ((os->device->baseAddress & 0x80000000) != (mdlPriv->dmaHandle & 0x80000000))
     {
         mdlPriv->dmaHandle = (mdlPriv->dmaHandle & ~0x80000000)
-                            | (os->device->baseAddress & 0x80000000);
+                           | (os->device->baseAddress & 0x80000000);
     }
 #endif
 
@@ -230,7 +238,14 @@ _DmaGetSGT(
         gcmkONERROR(gcvSTATUS_OUT_OF_MEMORY);
     }
 
+#if !defined(phys_to_page)
     page = virt_to_page(mdlPriv->kvaddr);
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(3,13,0)
+    page = phys_to_page(mdlPriv->dmaHandle);
+#else
+    page = phys_to_page(dma_to_phys(&Allocator->os->device->platform->device->dev, mdlPriv->dmaHandle));
+#endif
+
     for (i = 0; i < numPages; ++i)
     {
         pages[i] = nth_page(page, i + skipPages);
@@ -273,7 +288,11 @@ _DmaFree(
 #if defined CONFIG_MIPS || defined CONFIG_CPU_CSKYV2 || defined CONFIG_PPC || defined CONFIG_ARM64
     dma_free_coherent(galcore_device, Mdl->numPages * PAGE_SIZE, mdlPriv->kvaddr, mdlPriv->dmaHandle);
 #else
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0)
+    dma_free_wc(galcore_device, Mdl->numPages * PAGE_SIZE, mdlPriv->kvaddr, mdlPriv->dmaHandle);
+#else
     dma_free_writecombine(galcore_device, Mdl->numPages * PAGE_SIZE, mdlPriv->kvaddr, mdlPriv->dmaHandle);
+#endif
 #endif
 
     gckOS_Free(os, mdlPriv);
@@ -308,12 +327,21 @@ _DmaMmap(
             numPages << PAGE_SHIFT,
             pgprot_writecombine(vma->vm_page_prot)) < 0)
 #else
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0)
+    /* map kernel memory to user space.. */
+    if (dma_mmap_wc(galcore_device,
+            vma,
+            (gctINT8_PTR)mdlPriv->kvaddr + (skipPages << PAGE_SHIFT),
+            mdlPriv->dmaHandle + (skipPages << PAGE_SHIFT),
+            numPages << PAGE_SHIFT) < 0)
+#else
     /* map kernel memory to user space.. */
     if (dma_mmap_writecombine(galcore_device,
             vma,
             (gctINT8_PTR)mdlPriv->kvaddr + (skipPages << PAGE_SHIFT),
             mdlPriv->dmaHandle + (skipPages << PAGE_SHIFT),
             numPages << PAGE_SHIFT) < 0)
+#endif
 #endif
     {
         gcmkTRACE_ZONE(
@@ -420,8 +448,6 @@ _DmaMapUser(
         struct vm_area_struct *vma = find_vma(current->mm, (unsigned long)userLogical);
         if (vma == gcvNULL)
         {
-            up_write(&current->mm->mmap_sem);
-
             gcmkTRACE_ZONE(
                 gcvLEVEL_INFO, gcvZONE_OS,
                 "%s(%d): find_vma error",
@@ -575,7 +601,8 @@ _DmaAlloctorInit(
      * DMA allocator is only used for NonPaged memory
      * when NO_DMA_COHERENT is not defined.
      */
-    allocator->capability = gcvALLOC_FLAG_DMABUF_EXPORTABLE
+    allocator->capability = gcvALLOC_FLAG_CONTIGUOUS
+                          | gcvALLOC_FLAG_DMABUF_EXPORTABLE
 #if defined(CONFIG_ZONE_DMA32) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)
                           | gcvALLOC_FLAG_4GB_ADDR
 #endif

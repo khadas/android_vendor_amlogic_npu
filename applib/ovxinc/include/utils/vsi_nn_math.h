@@ -31,11 +31,16 @@ extern "C" {
 #endif
 
 #define vsi_nn_abs(x)               (((x) < 0)    ? -(x) :  (x))
-#define vsi_nn_max(a,b)             ((a > b) ? a : b)
-#define vsi_nn_min(a,b)             ((a < b) ? a : b)
+#define vsi_nn_max(a,b)             (((a) > (b)) ? (a) : (b))
+#define vsi_nn_min(a,b)             (((a) < (b)) ? (a) : (b))
 #define vsi_nn_clamp(x, min, max)   (((x) < (min)) ? (min) : \
                                  ((x) > (max)) ? (max) : (x))
 #define vsi_nn_float_compare(a,b,diff) (vsi_nn_abs((a) - (b)) < (diff) ? TRUE : FALSE)
+
+#define VSI_NN_FLOAT32_INF          (0x7F800000)
+#define VSI_NN_FLOAT32_NAN          (0x7FC00000)
+#define VSI_NN_FLOAT64_INF          (0x7FF0000000000000)
+#define VSI_NN_FLOAT64_NAN          (0x7FF8000000000000)
 
 OVXLIB_API void vsi_nn_Transpose
     (
@@ -78,6 +83,47 @@ OVXLIB_API void vsi_nn_InvertPermuteShape
 OVXLIB_API double vsi_nn_Rint
     (
     double x
+    );
+
+/**
+* Set Seeds for philox_4x32_10 algorithm
+* philox_4x32_10 algorithm need 2 uint32_t as seeds.
+*
+* @param[in] the low uint32_t of the seed.
+* @param[in] the high uint32_t of the seed.
+*/
+OVXLIB_API void vsi_nn_random_init_for_philox_4x32_10
+    (
+    uint32_t low,
+    uint32_t high
+    );
+
+/**
+* Random Number Generator By philox_4x32_10 algorithm
+* Random Number(uint32_t) Generator By philox_4x32_10 algorithm
+*
+* @param[out] the buffer for RNG output.
+* @param[in] the number of generated random numbers.
+*/
+OVXLIB_API void vsi_nn_random_generate_by_philox_4x32_10
+    (
+    uint32_t *random_buf,
+    uint32_t len
+    );
+
+/**
+* Uniform Transform
+* Transform the random uint32_t to Uniform float in [0, 1).
+*
+* @param[in] the buffer for random uint32_t.
+* @param[out] the buffer for uniform float in [0, 1).
+* @param[in] the number of random numbers.
+*/
+OVXLIB_API void vsi_nn_random_uniform_transform
+    (
+    uint32_t *random_buf,
+    float *uniform_buf,
+    uint32_t len
     );
 
 static inline double copy_sign

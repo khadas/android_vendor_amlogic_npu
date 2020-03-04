@@ -54,6 +54,8 @@ typedef struct _vsi_nn_resize_param
 
     /* resize layer local data structure */
     vsi_nn_resize_lcl_data local;
+    vx_bool_e    align_corners;
+    vx_bool_e    half_pixel_centers;
 } vsi_nn_resize_param;
 
 #ifdef __cplusplus

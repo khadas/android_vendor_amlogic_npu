@@ -21,6 +21,7 @@
 *    DEALINGS IN THE SOFTWARE.
 *
 *****************************************************************************/
+/** @file */
 #ifndef _VSI_NN_NODE_H
 #define _VSI_NN_NODE_H
 
@@ -41,40 +42,69 @@ extern "C"{
                 Macros
   -----------------------------------*/
 
+/** Node invalid id */
 #define VSI_NN_NODE_ID_NA           ((uint32_t)-1)
+/** Node invalid uid */
 #define VSI_NN_NODE_UID_NA          ((uint32_t)-1)
 
 /*------------------------------------
                 Types
   -----------------------------------*/
+/** Node structure */
 struct _vsi_nn_node
 {
-    /* VSI NN graph */
+    /**
+     * Graph handle
+     * @see vsi_nn_graph_t
+     */
     vsi_nn_graph_t * graph;
-    /* OpenVX node */
+    /** OpenVX node */
     vx_node          n;
-    /* VSI NN operation type */
+    /**
+     * Operation type
+     * @see vsi_nn_op_t
+     */
     vsi_nn_op_t      op;
+    /** Node inputs */
     struct
     {
         vsi_nn_tensor_id_t * tensors;
         uint32_t            num;
     } input;
+    /** Node outputs */
     struct
     {
         vsi_nn_tensor_id_t * tensors;
         uint32_t            num;
     } output;
-    /* Parameters */
+    /** Operation parameters */
     vsi_nn_nn_param_t nn_param;
+    /** Vx parameters */
     vsi_nn_vx_param_t vx_param;
-    /* uid - User specific ID, debug only*/
+    /**
+     * User specific ID
+     * This is for debug only.
+     */
     uint32_t uid;
+    /** Node's internal node wksp */
+    void* internal_node_wksp;
 };
 
 /*------------------------------------
               Functions
   -----------------------------------*/
+/**
+ * New node
+ * Create a new node with given input and output number.
+ *
+ * @param[in] graph Graph handle.
+ * @param[in] op Operation type.
+ * @param[in] input_num Input tensor number, set to 0 to use default value.
+ * @param[in] output_num Output tensor number, set to 0 to use default value.
+ * @see vei_nn_op_t
+ *
+ * @return Node handle on success, or NULL otherwise.
+ */
 OVXLIB_API vsi_nn_node_t * vsi_nn_NewNode
     (
     vsi_nn_graph_t * graph,
@@ -83,17 +113,34 @@ OVXLIB_API vsi_nn_node_t * vsi_nn_NewNode
     uint32_t         output_num
     );
 
+/**
+ * @deprecated
+ * @see vsi_nn_NewNode
+ */
 OVXLIB_API vsi_nn_node_t * vsi_nn_CreateNode
     (
     vsi_nn_graph_t * graph,
     vsi_nn_op_t      op
     );
 
+/**
+ * Release node
+ * Release a node and set the handle to NULL.
+ *
+ * param[in] node Node handle.
+ */
 OVXLIB_API void vsi_nn_ReleaseNode
     (
     vsi_nn_node_t ** node
     );
 
+/**
+ * Print node
+ * Print brief info of a node.
+ *
+ * @param[in] node Node handle.
+ * @param[in] id Node id.
+ */
 OVXLIB_API void vsi_nn_PrintNode
     (
     vsi_nn_node_t * node,

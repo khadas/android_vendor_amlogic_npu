@@ -25,7 +25,7 @@ static gctINT32 totalTicks = 0;
 #include <android/log.h>
 #include <pthread.h>
 #include <sys/syscall.h>
-#include "utils/Log.h"
+#include "log/log.h"
 
 static gctUINT32 prevThreadID = 0;
 
@@ -35,7 +35,7 @@ static gctUINT32 prevThreadID = 0;
 #endif
 
 /* Zone used for header/footer. */
-#define _GC_OBJ_ZONE    gcvZONE_HAL
+#define _GC_OBJ_ZONE    gcvZONE_OS
 
 static gctBOOL setDumpFlag  = gcvFALSE;
 
@@ -428,22 +428,22 @@ gcoOS_DumpArray(
                 switch (Size - index)
                 {
                 case 1:
-                    gcoOS_DumpApi("$$ 0x%08X: 0x%08X", data + index, data[index]);
+                    gcoOS_DumpApi("$$ 0x%p: 0x%08X", data + index, data[index]);
                     index += 1;
                     break;
                 case 2:
-                    gcoOS_DumpApi("$$ 0x%08X: 0x%08X 0x%08X",
+                    gcoOS_DumpApi("$$ 0x%p: 0x%08X 0x%08X",
                                data + index, data[index], data[index + 1]);
                     index += 2;
                     break;
                 case 3:
-                    gcoOS_DumpApi("$$ 0x%08X: 0x%08X 0x%08X 0x%08X",
+                    gcoOS_DumpApi("$$ 0x%p: 0x%08X 0x%08X 0x%08X",
                                data + index, data[index], data[index + 1],
                                data[index + 2]);
                     index += 3;
                     break;
                 default:
-                    gcoOS_DumpApi("$$ 0x%08X: 0x%08X 0x%08X 0x%08X 0x%08X",
+                    gcoOS_DumpApi("$$ 0x%p: 0x%08X 0x%08X 0x%08X 0x%08X",
                                data + index, data[index], data[index + 1],
                                data[index + 2], data[index + 3]);
                     index += 4;
@@ -479,10 +479,10 @@ gcoOS_DumpArrayToken(
 
         for (index = 0; data[index] != Termination; index += 2)
         {
-            gcoOS_DumpApi("$$ 0x%08X: 0x%08X 0x%08X",
+            gcoOS_DumpApi("$$ 0x%p: 0x%08X 0x%08X",
                        data + index, data[index], data[index + 1]);
         }
-        gcoOS_DumpApi("$$ 0x%08X: 0x%08X", data + index, Termination);
+        gcoOS_DumpApi("$$ 0x%p: 0x%08X", data + index, Termination);
     }
 
     gcoOS_DumpApi("$$ **********");
@@ -519,32 +519,32 @@ gcoOS_DumpApiData(
             switch (Size - index)
             {
             case 1:
-                gcoOS_DumpApi("$$ 0x%08X: 0x%02X", data + index, data[index]);
+                gcoOS_DumpApi("$$ 0x%p: 0x%02X", data + index, data[index]);
                 index += 1;
                 break;
 
             case 2:
-                gcoOS_DumpApi("$$ 0x%08X: 0x%02X 0x%02X",
+                gcoOS_DumpApi("$$ 0x%p: 0x%02X 0x%02X",
                            data + index, data[index], data[index + 1]);
                 index += 2;
                 break;
 
             case 3:
-                gcoOS_DumpApi("$$ 0x%08X: 0x%02X 0x%02X 0x%02X",
+                gcoOS_DumpApi("$$ 0x%p: 0x%02X 0x%02X 0x%02X",
                            data + index, data[index], data[index + 1],
                            data[index + 2]);
                 index += 3;
                 break;
 
             case 4:
-                gcoOS_DumpApi("$$ 0x%08X: 0x%02X 0x%02X 0x%02X 0x%02X",
+                gcoOS_DumpApi("$$ 0x%p: 0x%02X 0x%02X 0x%02X 0x%02X",
                            data + index, data[index], data[index + 1],
                            data[index + 2], data[index + 3]);
                 index += 4;
                 break;
 
             case 5:
-                gcoOS_DumpApi("$$ 0x%08X: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X",
+                gcoOS_DumpApi("$$ 0x%p: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X",
                            data + index, data[index], data[index + 1],
                            data[index + 2], data[index + 3],
                            data[index + 4]);
@@ -552,7 +552,7 @@ gcoOS_DumpApiData(
                 break;
 
             case 6:
-                gcoOS_DumpApi("$$ 0x%08X: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X "
+                gcoOS_DumpApi("$$ 0x%p: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X "
                            "0x%02X",
                            data + index, data[index], data[index + 1],
                            data[index + 2], data[index + 3],
@@ -561,7 +561,7 @@ gcoOS_DumpApiData(
                 break;
 
             case 7:
-                gcoOS_DumpApi("$$ 0x%08X: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X "
+                gcoOS_DumpApi("$$ 0x%p: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X "
                            "0x%02X 0x%02X",
                            data + index, data[index], data[index + 1],
                            data[index + 2], data[index + 3],
@@ -571,7 +571,7 @@ gcoOS_DumpApiData(
                 break;
 
             default:
-                gcoOS_DumpApi("$$ 0x%08X: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X "
+                gcoOS_DumpApi("$$ 0x%p: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X "
                            "0x%02X 0x%02X 0x%02X",
                            data + index, data[index], data[index + 1],
                            data[index + 2], data[index + 3],

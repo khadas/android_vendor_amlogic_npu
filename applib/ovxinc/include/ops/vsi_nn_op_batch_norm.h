@@ -30,9 +30,16 @@
 extern "C" {
 #endif
 
+typedef struct _vsi_nn_batcnnorm_lcl_data
+{
+    vsi_nn_tensor_t *reshaped_input;
+    vsi_nn_tensor_t *reshaped_output;
+} vsi_nn_batcnnorm_lcl_data;
+
 typedef struct _vsi_nn_batch_norm_param
 {
     float  eps;
+    vsi_nn_batcnnorm_lcl_data *local;
 } vsi_nn_batch_norm_param;
 
 #ifdef __cplusplus

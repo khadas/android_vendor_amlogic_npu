@@ -124,6 +124,18 @@ void _ReadPixelFrom_A8L8(gctPOINTER inAddr[gcdMAX_SURF_LAYERS], gcsPIXEL* outPix
     outPixel->s = 0;
 }
 
+void _ReadPixelFrom_A8L8_1_A8R8G8B8(gctPOINTER inAddr[gcdMAX_SURF_LAYERS], gcsPIXEL* outPixel)
+{
+    gctUINT8 *pUB = (gctUINT8*)inAddr[0];
+
+    outPixel->color.f.r =
+    outPixel->color.f.g =
+    outPixel->color.f.b = gcdUNORM_TO_FLOAT(pUB[0], 8);
+    outPixel->color.f.a = gcdUNORM_TO_FLOAT(pUB[3], 8);
+    outPixel->d = 0.0f;
+    outPixel->s = 0;
+}
+
 void _ReadPixelFrom_A16L16(gctPOINTER inAddr[gcdMAX_SURF_LAYERS], gcsPIXEL* outPixel)
 {
     gctUINT16* pUS = (gctUINT16*)inAddr[0];
@@ -503,13 +515,13 @@ void _ReadPixelFrom_A2B10G10R10(gctPOINTER inAddr[gcdMAX_SURF_LAYERS], gcsPIXEL*
 
 void _ReadPixelFrom_A8B12G12R12_2_A8R8G8B8(gctPOINTER inAddr[gcdMAX_SURF_LAYERS], gcsPIXEL* outPixel)
 {
-    gctUINT32 ui0 = *(gctUINT32*)inAddr[0];
-    gctUINT32 ui1 = *(gctUINT32*)inAddr[1];
+    gctUINT8 *pUB0 = (gctUINT8*)inAddr[0];
+    gctUINT8 *pUB1 = (gctUINT8*)inAddr[1];
 
-    outPixel->color.f.b = gcdUNORM_TO_FLOAT((gcdGET_FIELD(ui0,  0,  8) << 4) + gcdGET_FIELD(ui1,  0,  8), 12);
-    outPixel->color.f.g = gcdUNORM_TO_FLOAT((gcdGET_FIELD(ui0,  8,  8) << 4) + gcdGET_FIELD(ui1,  8,  8), 12);
-    outPixel->color.f.r = gcdUNORM_TO_FLOAT((gcdGET_FIELD(ui0,  16, 8) << 4) + gcdGET_FIELD(ui1,  16, 8), 12);
-    outPixel->color.f.a = gcdUNORM_TO_FLOAT( gcdGET_FIELD(ui0,  24, 8),  8);
+    outPixel->color.f.b = gcdUNORM_TO_FLOAT((pUB0[0] << 4) + pUB1[0], 12);
+    outPixel->color.f.g = gcdUNORM_TO_FLOAT((pUB0[1] << 4) + pUB1[1], 12);
+    outPixel->color.f.r = gcdUNORM_TO_FLOAT((pUB0[2] << 4) + pUB1[2], 12);
+    outPixel->color.f.a = gcdUNORM_TO_FLOAT( pUB0[3],  8);
     outPixel->d = 0.0f;
     outPixel->s = 0;
 }
@@ -1567,6 +1579,8 @@ _PFNreadPixel gcoSURF_GetReadPixelFunc(gcoSURF surf)
 
     case gcvSURF_A8L8:
         return _ReadPixelFrom_A8L8;
+    case gcvSURF_A8L8_1_A8R8G8B8:
+        return _ReadPixelFrom_A8L8_1_A8R8G8B8;
     case gcvSURF_A16L16:
         return _ReadPixelFrom_A16L16;
     case gcvSURF_A16L16F:
@@ -1885,6 +1899,9 @@ _PFNreadPixel gcoSURF_GetReadPixelFunc(gcoSURF surf)
     case gcvSURF_B10G11R11F_1_A8R8G8B8:
         return _ReadPixelFrom_B10G11R11;
 
+    case gcvSURF_X8_SRGB8:
+        return _ReadPixelFrom_X8R8G8B8;
+
     default:
         gcmASSERT(0);
     }
@@ -1924,6 +1941,16 @@ void _WritePixelTo_A8L8(gcsPIXEL* inPixel, gctPOINTER outAddr[gcdMAX_SURF_LAYERS
 
     pUB[0] = (gctUINT8)gcdFLOAT_TO_UNORM(inPixel->color.f.r, 8);
     pUB[1] = (gctUINT8)gcdFLOAT_TO_UNORM(inPixel->color.f.a, 8);
+}
+
+void _WritePixelTo_A8L8_1_A8R8G8B8(gcsPIXEL* inPixel, gctPOINTER outAddr[gcdMAX_SURF_LAYERS], gctUINT flags)
+{
+    gctUINT8 *pUB = (gctUINT8*)outAddr[0];
+
+    pUB[0] = (gctUINT8)gcdFLOAT_TO_UNORM(inPixel->color.f.r, 8);
+    pUB[1] = (gctUINT8)gcdFLOAT_TO_UNORM(inPixel->color.f.r, 8);
+    pUB[2] = (gctUINT8)gcdFLOAT_TO_UNORM(inPixel->color.f.r, 8);
+    pUB[3] = (gctUINT8)gcdFLOAT_TO_UNORM(inPixel->color.f.a, 8);
 }
 
 void _WritePixelTo_G8R8(gcsPIXEL* inPixel, gctPOINTER outAddr[gcdMAX_SURF_LAYERS], gctUINT flags)
@@ -2076,16 +2103,20 @@ void _WritePixelTo_A8B12G12R12_2_A8R8G8B8(gcsPIXEL* inPixel, gctPOINTER outAddr[
 {
     gctUINT8 *pUB0 = (gctUINT8*)outAddr[0];
     gctUINT8 *pUB1 = (gctUINT8*)outAddr[1];
+    gctUINT32 r = gcdFLOAT_TO_UNORM(inPixel->color.f.r, 12);
+    gctUINT32 g = gcdFLOAT_TO_UNORM(inPixel->color.f.g, 12);
+    gctUINT32 b = gcdFLOAT_TO_UNORM(inPixel->color.f.b, 12);
+    gctUINT32 a = gcdFLOAT_TO_UNORM(inPixel->color.f.a, 8);
 
-    pUB0[0] = (gctUINT8) ((gcdFLOAT_TO_UNORM(inPixel->color.f.r, 12) & 0xF00) >> 4);
-    pUB0[1] = (gctUINT8) ((gcdFLOAT_TO_UNORM(inPixel->color.f.g, 12) & 0xF00) >> 4);
-    pUB0[2] = (gctUINT8) ((gcdFLOAT_TO_UNORM(inPixel->color.f.b, 12) & 0xF00) >> 4);
-    pUB0[3] = (gctUINT8) gcdFLOAT_TO_UNORM(inPixel->color.f.a, 8);
+    pUB0[0] = (gctUINT8) ((b & 0xF00) >> 4);
+    pUB0[1] = (gctUINT8) ((g & 0xF00) >> 4);
+    pUB0[2] = (gctUINT8) ((r & 0xF00) >> 4);
+    pUB0[3] = (gctUINT8) a;
 
-    pUB1[0] = (gctUINT8) (gcdFLOAT_TO_UNORM(inPixel->color.f.b, 12) & 0xFF);
-    pUB1[1] = (gctUINT8) (gcdFLOAT_TO_UNORM(inPixel->color.f.g, 12) & 0xFF);
-    pUB1[2] = (gctUINT8) (gcdFLOAT_TO_UNORM(inPixel->color.f.r, 12) & 0xFF);
-    pUB1[3] = (gctUINT8) gcdFLOAT_TO_UNORM(inPixel->color.f.a, 8);
+    pUB1[0] = (gctUINT8) (b & 0xFF);
+    pUB1[1] = (gctUINT8) (g & 0xFF);
+    pUB1[2] = (gctUINT8) (r & 0xFF);
+    pUB1[3] = (gctUINT8) a;
 }
 
 void _WritePixelTo_D16(gcsPIXEL* inPixel, gctPOINTER outAddr[gcdMAX_SURF_LAYERS], gctUINT flags)
@@ -2954,6 +2985,8 @@ _PFNwritePixel gcoSURF_GetWritePixelFunc(gcoSURF surf)
         return _WritePixelTo_R8_1_X8R8G8B8;
     case gcvSURF_A8L8:
         return _WritePixelTo_A8L8;
+    case gcvSURF_A8L8_1_A8R8G8B8:
+        return _WritePixelTo_A8L8_1_A8R8G8B8;
     case gcvSURF_G8R8:
         return _WritePixelTo_G8R8;
     case gcvSURF_G8R8_1_X8R8G8B8:

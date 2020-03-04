@@ -22,7 +22,7 @@
 #if gcdNULL_DRIVER < 2
 
 /* Zone used for header/footer. */
-#define _GC_OBJ_ZONE    gcvZONE_3D
+#define _GC_OBJ_ZONE    gcdZONE_3D
 
 /******************************************************************************\
 ********************************* gcoCL API Code ********************************
@@ -187,6 +187,7 @@ gco3D_Destroy(
     )
 {
     gctINT index;
+    gcsTLS_PTR tls;
     gcmHEADER_ARG("Engine=0x%x", Engine);
 
     /* Verify the arguments. */
@@ -217,7 +218,16 @@ gco3D_Destroy(
     }
 
     /* Free Hardware Object */
+    gcmVERIFY_OK(gcoOS_GetTLS(&tls));
     gcmVERIFY_OK(gcoHARDWARE_Destroy(Engine->hardware, gcvFALSE));
+    if (Engine->hardware == tls->defaultHardware)
+    {
+        tls->defaultHardware = gcvNULL;
+    }
+    if (Engine->hardware == tls->currentHardware)
+    {
+        tls->currentHardware    = gcvNULL;
+    }
 
     /* Free the gco3D object. */
     gcmVERIFY_OK(gcmOS_SAFE_FREE(gcvNULL, Engine));
@@ -4451,7 +4461,7 @@ gco3D_SetSamples(
     /* Verify the arguments. */
     gcmVERIFY_OBJECT(Engine, gcvOBJ_3D);
 
-    if (Samples < 4 || Samples != 3)
+    if (Samples < 5 && Samples != 3)
     {
         status = gcoHARDWARE_SetSamples(Engine->hardware, g_sampleInfos[Samples]);
     }
@@ -5508,7 +5518,8 @@ gco3D_SetQuery(
     IN gco3D Engine,
     IN gctUINT32 QueryHeader,
     IN gceQueryType Type,
-    IN gctBOOL Enable
+    IN gctBOOL Enable,
+    IN gctUINT32 Index
     )
 {
     gceSTATUS status = gcvSTATUS_OK;
@@ -5519,11 +5530,11 @@ gco3D_SetQuery(
 
     if (Enable)
     {
-        status = gcoHARDWARE_SetQuery(Engine->hardware, QueryHeader, Type, gcvQUERYCMD_BEGIN, gcvNULL);
+        status = gcoHARDWARE_SetQuery(Engine->hardware, QueryHeader, Type, gcvQUERYCMD_BEGIN, gcvNULL, Index);
     }
     else
     {
-        status = gcoHARDWARE_SetQuery(Engine->hardware, QueryHeader, Type, gcvQUERYCMD_END, gcvNULL);
+        status = gcoHARDWARE_SetQuery(Engine->hardware, QueryHeader, Type, gcvQUERYCMD_END, gcvNULL, Index);
     }
 
     gcmFOOTER();
@@ -5537,18 +5548,19 @@ gco3D_GetQuery(
     IN gcsSURF_NODE_PTR Node,
     IN gctUINT32    Size,
     IN gctPOINTER   Locked,
+    IN gctUINT32    IndexedId,
     OUT gctINT32 * Index)
 {
     gceSTATUS status = gcvSTATUS_OK;
 
-    gcmHEADER_ARG("Engine=0x%x Type=%d Index=%d", Engine, Type, Index);
+    gcmHEADER_ARG("Engine=0x%x Type=%d IndexedId=%d Index=%d", Engine, Type, IndexedId, Index);
 
     gcmVERIFY_OBJECT(Engine, gcvOBJ_3D);
 
     /* Invalidate CPU cache for it was written by GPU. */
     gcmONERROR(gcoSURF_NODE_Cache(Node, Locked, Size, gcvCACHE_INVALIDATE));
 
-    gcmONERROR(gcoHARDWARE_GetQueryIndex(Engine->hardware, Type, Index));
+    gcmONERROR(gcoHARDWARE_GetQueryIndex(Engine->hardware, Type, IndexedId, Index));
 
 OnError:
     /* Return the status. */
@@ -7070,7 +7082,8 @@ gco3D_SetQuery(
     IN gco3D Engine,
     IN gctUINT32 QueryHeader,
     IN gceQueryType Type,
-    IN gctBOOL Enable
+    IN gctBOOL Enable,
+    IN gctUINT32 Index
     )
 {
     return gcvSTATUS_OK;
@@ -7083,6 +7096,7 @@ gco3D_GetQuery(
     IN gcsSURF_NODE_PTR Node,
     IN gctUINT32    Size,
     IN gctPOINTER   Locked,
+    IN gctUINT32    IndexedId,
     OUT gctINT32 * Index
     )
 {
