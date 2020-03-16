@@ -1162,8 +1162,7 @@ static int __devinit gpu_probe(struct platform_device *pdev)
 #endif
 
     gcmkHEADER();
-
-    if (get_nna_status(pdev) == 1)
+    if (get_nna_status(pdev) == gcvSTATUS_MISMATCH)
     {
         printk("nn is disable,should not do probe continue\n");
         return ret;
