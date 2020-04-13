@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -141,15 +141,6 @@ gcoSURF_LockTileStatus(
                                      Surface->tileStatusNode.logical,
                                      Surface->tileStatusNode.size,
                                      gcvCACHE_FLUSH));
-
-                gcmDUMP(gcvNULL, "#[info tile status buffer]");
-                /* Dump the memory write. */
-                gcmDUMP_BUFFER(gcvNULL,
-                               gcvDUMP_BUFFER_MEMORY,
-                               address,
-                               Surface->tileStatusNode.logical,
-                               0,
-                               Surface->tileStatusNode.size);
             }
 
             /* No longer first lock. */
@@ -465,11 +456,11 @@ gcoSURF_AllocateTileStatus(
 
     gcoHAL_QueryChipIdentity(gcvNULL, &chipModel, &chipRevision, gcvNULL, gcvNULL);
 
-    /*gcvFEATURE_MC_FCCACHE_BYTEMASK feature is fix for v621 HW cache overlap bug*/
     if (((gcoHAL_IsFeatureAvailable(gcvNULL, gcvFEATURE_COMPRESSION_V4) || gcoHAL_IsFeatureAvailable(gcvNULL, gcvFEATURE_COMPRESSION_DEC400))
     &&  !gcoHAL_IsFeatureAvailable(gcvNULL, gcvFEATURE_MC_FCCACHE_BYTEMASK)) || (chipModel == gcv7000 && chipRevision == 0x6203))
     {
         bytes += 128;
+        allocFlags |= gcvALLOC_FLAG_CONTIGUOUS;
     }
 
     if (Surface->hints & gcvSURF_PROTECTED_CONTENT)
@@ -918,14 +909,17 @@ _FreeSurface(
         gcmGETCURRENTHARDWARE(currentType);
 
         /* Unlock the video memory with initial HW type */
-        if (currentType != Surface->initType)
+        if (Surface->initType != gcvHARDWARE_INVALID)
         {
-            gcmONERROR(gcoHAL_SetHardwareType(gcvNULL, Surface->initType));
-        }
-        gcmONERROR(_Unlock(Surface));
-        if (currentType != Surface->initType)
-        {
-            gcmONERROR(gcoHAL_SetHardwareType(gcvNULL, currentType));
+            if (currentType != Surface->initType)
+            {
+                gcmONERROR(gcoHAL_SetHardwareType(gcvNULL, Surface->initType));
+            }
+            gcmONERROR(_Unlock(Surface));
+            if (currentType != Surface->initType)
+            {
+                gcmONERROR(gcoHAL_SetHardwareType(gcvNULL, currentType));
+            }
         }
 
         if (Surface->node.u.normal.node != 0)
@@ -1469,6 +1463,69 @@ _ComputeSurfacePlacement(
             = Surface->uOffset
             + Surface->uStride * Surface->alignedH;
         break;
+    case gcvSURF_P010:
+    case gcvSURF_P010_LSB:
+       if (calcStride)
+       {
+           Surface->stride = Surface->alignedW * 2;
+       }
+       /*compression need 256 aligned*/
+       if(gcoHAL_IsFeatureAvailable(gcvNULL, gcvFEATURE_DEC400_COMPRESSION))
+       {
+           Surface->stride = gcmALIGN(Surface->stride, 256);
+       }
+       else
+       {
+           Surface->stride = gcmALIGN(Surface->stride, 128);
+       }
+
+       /*  WxH Y plane followed by (W)x(H/2) interleaved U/V plane. */
+       Surface->uStride =
+       Surface->vStride = Surface->stride;
+
+       Surface->uOffset =
+       Surface->vOffset = Surface->stride * Surface->alignedH;
+
+       Surface->sliceSize
+           = Surface->uOffset
+           + Surface->uStride * Surface->alignedH / 2;
+       break;
+
+    case gcvSURF_I010:
+       if (calcStride)
+       {
+           Surface->stride = Surface->alignedW * 2;
+       }
+
+       /*  WxH Y plane followed by (W/2)x(H/2) U and V planes. */
+       Surface->uStride =
+       Surface->vStride = (Surface->stride / 2);
+       if(gcoHAL_IsFeatureAvailable(gcvNULL, gcvFEATURE_DEC400_COMPRESSION))
+       {
+           /*If YUV420_OUTPUT_LINEAR feature is enabled,For I420 format, Y need to 64 Bytes alignment,
+                U/V need 32 Bytes alignment*/
+           Surface->stride = gcmALIGN(Surface->stride, 256);
+           Surface->uStride = gcmALIGN(Surface->uStride, 128);
+           Surface->vStride = gcmALIGN(Surface->vStride, 128);
+       }
+       else
+       {
+           Surface->stride = gcmALIGN(Surface->stride, 128);
+           Surface->uStride = gcmALIGN(Surface->uStride, 64);
+           Surface->vStride = gcmALIGN(Surface->vStride, 64);
+       }
+
+       Surface->uOffset
+           = Surface->stride * Surface->alignedH;
+
+       Surface->vOffset
+           = Surface->uOffset
+           + Surface->uStride * Surface->alignedH / 2;
+
+       Surface->sliceSize
+           = Surface->vOffset
+           + Surface->vStride * Surface->alignedH / 2;
+       break;
 
 #if gcdVG_ONLY
     case gcvSURF_ANV12:
@@ -2131,6 +2188,44 @@ _AllocateSurface(
                                    Surface->node3.logical,
                                    0,
                                    Surface->node3.size);
+
+                }
+
+                if (Surface->tileStatusNode.pool != gcvPOOL_UNKNOWN)
+                {
+                    gcmDUMP(gcvNULL, "#[info tile status buffer]");
+                    gcmGETHARDWAREADDRESS(Surface->tileStatusNode, address);
+                    gcmDUMP_BUFFER(gcvNULL,
+                                   gcvDUMP_BUFFER_MEMORY,
+                                   address,
+                                   Surface->tileStatusNode.logical,
+                                   0,
+                                   Surface->tileStatusNode.size);
+                }
+
+                if (Surface->hzNode.pool != gcvPOOL_UNKNOWN)
+                {
+                    gcmDUMP(gcvNULL, "#[info hz buffer]");
+                    gcmGETHARDWAREADDRESS(Surface->hzNode, address);
+                    gcmDUMP_BUFFER(gcvNULL,
+                                   gcvDUMP_BUFFER_MEMORY,
+                                   address,
+                                   Surface->hzNode.logical,
+                                   0,
+                                   Surface->hzNode.size);
+
+                }
+
+                if (Surface->hzTileStatusNode.pool != gcvPOOL_UNKNOWN)
+                {
+                    gcmDUMP(gcvNULL, "#[info hz tile status buffer]");
+                    gcmGETHARDWAREADDRESS(Surface->hzTileStatusNode, address);
+                    gcmDUMP_BUFFER(gcvNULL,
+                                   gcvDUMP_BUFFER_MEMORY,
+                                   address,
+                                   Surface->hzTileStatusNode.logical,
+                                   0,
+                                   Surface->hzTileStatusNode.size);
 
                 }
             }
@@ -3112,6 +3207,10 @@ gcoSURF_UpdateMetadata(
     )
 {
     gcsHAL_INTERFACE iface = {0};
+#if gcdENABLE_3D
+    gcsSURF_VIEW srcView = {gcvNULL, 0, 1};
+    srcView.surf = Surface;
+#endif
 
     iface.command = gcvHAL_SET_VIDEO_MEMORY_METADATA;
     iface.u.SetVidMemMetadata.node              = Surface->node.u.normal.node;
@@ -3127,7 +3226,7 @@ gcoSURF_UpdateMetadata(
         iface.u.SetVidMemMetadata.fc_enabled        = !Surface->tileStatusDisabled[0];
         iface.u.SetVidMemMetadata.fc_value          = Surface->fcValue[0];
         iface.u.SetVidMemMetadata.fc_value_upper    = Surface->fcValueUpper[0];
-        iface.u.SetVidMemMetadata.compressed        = Surface->compressed;
+        iface.u.SetVidMemMetadata.compressed        = gcoSURF_IsCompressed(&srcView);
         iface.u.SetVidMemMetadata.compress_format   = compressFmt;
     }
 #endif
@@ -3997,6 +4096,7 @@ gcoSURF_Lock(
         {
         case gcvSURF_YV12:
         case gcvSURF_I420:
+        case gcvSURF_I010:
             Surface->node.count = 3;
 
             logical2 = Surface->node2.logical;
@@ -4015,6 +4115,8 @@ gcoSURF_Lock(
         case gcvSURF_NV21_10BIT:
         case gcvSURF_NV16_10BIT:
         case gcvSURF_NV61_10BIT:
+        case gcvSURF_P010:
+        case gcvSURF_P010_LSB:
             Surface->node.count = 2;
 
             logical2 = Surface->node2.logical;
@@ -4061,6 +4163,7 @@ gcoSURF_Lock(
             break;
 #endif
         case gcvSURF_I420:
+        case gcvSURF_I010:
             Surface->node.count = 3;
 
             logical2 = Surface->node.logical
@@ -4106,6 +4209,8 @@ gcoSURF_Lock(
         case gcvSURF_NV21_10BIT:
         case gcvSURF_NV16_10BIT:
         case gcvSURF_NV61_10BIT:
+        case gcvSURF_P010:
+        case gcvSURF_P010_LSB:
             Surface->node.count = 2;
 
             logical2 = Surface->node.logical
@@ -7069,6 +7174,9 @@ gcoSURF_Resample(
     gcsSAMPLES srcSampleInfo = {1, 1, 1};
     gcsSAMPLES dstSampleInfo = {1, 1, 1};
     gceSTATUS status = gcvSTATUS_OK;
+#if gcdCAPTURE_ONLY_MODE
+    gctBOOL doCpuBlitAgain = gcvFALSE;
+#endif
 
     gcmHEADER_ARG("SrcSurf=0x%x DstSurf=0x%x", SrcSurf, DstSurf);
 
@@ -7211,6 +7319,14 @@ gcoSURF_Resample(
         {
             srcView.firstSlice = dstView.firstSlice = i;
             gcmONERROR(gcoSURF_ResolveRect(&srcView, &dstView, &rlvArgs));
+#if gcdCAPTURE_ONLY_MODE
+            if ((srcView.surf->sampleInfo.x == 2 && srcView.surf->sampleInfo.y == 2) &&
+                (dstView.surf->sampleInfo.y == 1 && dstView.surf->sampleInfo.y == 1) &&
+                dstView.surf->tiling != gcvLINEAR)
+            {
+                doCpuBlitAgain = gcvTRUE;
+            }
+#endif
         }
     }
 
@@ -7225,7 +7341,11 @@ OnError:
     }
 
     /* Fallback to CPU resampling */
-    if (gcmIS_ERROR(status))
+    if (gcmIS_ERROR(status)
+#if gcdCAPTURE_ONLY_MODE
+        || doCpuBlitAgain
+#endif
+        )
     {
         gcsSURF_BLIT_ARGS blitArgs;
 
@@ -8591,7 +8711,7 @@ gcoSURF_QueryFlags(
 
     gcmVERIFY_OBJECT(Surface, gcvOBJ_SURF);
 
-    if (Surface->flags & Flag)
+    if (Surface && (Surface->flags & Flag))
     {
         status = gcvSTATUS_TRUE;
     }
@@ -10043,7 +10163,7 @@ gcoSURF_BlitCPU(
 
     gcmONERROR(gcoHARDWARE_GetAPI(gcvNULL, &currentApi, gcvNULL));
 
-    if(currentApi != gcvAPI_OPENGL)
+    if (currentApi != gcvAPI_OPENGL)
     {
         if (args->srcSurface == args->dstSurface)
         {
@@ -10125,9 +10245,10 @@ gcoSURF_BlitCPU(
     ** For integer format upload/blit, the data type must be totally matched.
     ** And we should not do conversion to float per spec, or precision will be lost.
     */
-    if (((srcFmtInfo->fmtDataType == gcvFORMAT_DATATYPE_UNSIGNED_INTEGER) ||
-         (srcFmtInfo->fmtDataType == gcvFORMAT_DATATYPE_SIGNED_INTEGER)) &&
-         (srcFmtInfo->fmtDataType != dstFmtInfo->fmtDataType))
+    if ((currentApi != gcvAPI_OPENGL) &&
+        ((srcFmtInfo->fmtDataType == gcvFORMAT_DATATYPE_UNSIGNED_INTEGER) ||
+        (srcFmtInfo->fmtDataType == gcvFORMAT_DATATYPE_SIGNED_INTEGER)) &&
+        (srcFmtInfo->fmtDataType != dstFmtInfo->fmtDataType))
     {
         return gcvSTATUS_NOT_SUPPORTED;
     }
@@ -10314,6 +10435,15 @@ gcoSURF_BlitCPU(
 
                             pfReadPixel(srcAddr_l, &samplePixels[sampleCount]);
 
+                            /* HW can not support R8_SNORM internal format as render target, so after the recompiling,
+                            ** need to do the linear transformation below. */
+
+                            if ((currentApi == gcvAPI_OPENGL) && (srcSurf->type == gcvSURF_RENDER_TARGET) &&
+                                (srcSurf->format == gcvSURF_R8_SNORM) && (srcSurf->flags & gcvSURF_FLAG_CONTENT_UPDATED))
+                            {
+                                samplePixels[sampleCount].color.f.r = (samplePixels[sampleCount].color.f.r - 0.5f) * 2.0f;
+                            }
+
                             if (colorSpaceConvert == gcdCOLOR_SPACE_CONVERSION_TO_LINEAR)
                             {
                                 gcoSURF_PixelToLinear(&samplePixels[sampleCount]);
@@ -10340,6 +10470,13 @@ gcoSURF_BlitCPU(
                 else
                 {
                     internal = samplePixels[0];
+                }
+
+                if ((currentApi == gcvAPI_OPENGL) &&
+                    (srcFmtInfo->fmtDataType == gcvFORMAT_DATATYPE_UNSIGNED_INTEGER) &&
+                    (dstFmtInfo->fmtDataType == gcvFORMAT_DATATYPE_SIGNED_INTEGER))
+                {
+                    gcoSURF_PixelToSignedInteger(&internal, dstFmtInfo->u.rgba);
                 }
 
                 dstSurf->pfGetAddr(dstSurf, (gctSIZE_T)iDst, (gctSIZE_T)jDst, (gctSIZE_T)kDst, dstAddr_l);
@@ -10377,7 +10514,7 @@ gcoSURF_BlitCPU(
     }
 
 #if gcdDUMP
-
+#if !gcdCAPTURE_ONLY_MODE
     if (gcvSURF_BITMAP != srcSurf->type)
     {
         gcmDUMP(gcvNULL, "#[info: verify BlitCPU source]");
@@ -10390,6 +10527,7 @@ gcoSURF_BlitCPU(
                        srcSurf->size);
 
     }
+#endif
     /* upload the destination */
     gcmDUMP_BUFFER(gcvNULL,
                    gcvDUMP_BUFFER_MEMORY,
@@ -11462,7 +11600,9 @@ gcsSURF_NODE_Construct(
 
         Node->u.normal.node = alvm->node;
         Node->pool          = alvm->pool;
-        Node->size          = (gctSIZE_T)alvm->bytes;
+
+        gcmASSERT((gctSIZE_T)alvm->bytes >= Bytes);
+        Node->size          = Bytes;
     }
     else
     {

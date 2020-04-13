@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2018 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -293,6 +293,14 @@ vsi_bool vsi_nn_OptimizedEltWiseOPShape
 vsi_bool vsi_nn_IsEVISFeatureAvaiable
     (
     vsi_nn_context_t context
+    );
+
+int32_t vsi_nn_compareVersion
+    (
+    vsi_nn_graph_t * graph,
+    uint32_t version_major,
+    uint32_t version_minor,
+    uint32_t version_patch
     );
 
 typedef uint32_t(*comp_func)(void* data, int32_t left, int32_t right);

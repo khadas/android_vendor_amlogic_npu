@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -153,7 +153,6 @@ static void _ReportDB(
 
     gcoOS_ZeroMemory(&iface, sizeof(iface));
 
-    iface.ignoreTLS = gcvTRUE;
     iface.command = gcvHAL_DATABASE;
     iface.u.Database.processID = (gctUINT32)(gctUINTPTR_T)gcoOS_GetCurrentProcessID();
     iface.u.Database.validProcessID = gcvTRUE;
@@ -487,10 +486,7 @@ OnError:
 \******************************************************************************/
 
 static gceSTATUS __attribute__((constructor)) _ModuleConstructor(void);
-
-#if (defined(ANDROID) && (ANDROID_SDK_VERSION < 28)) || !defined(ANDROID)
 static void __attribute__((destructor)) _ModuleDestructor(void);
-#endif
 
 static gceSTATUS
 _QueryVideoMemory(
@@ -870,10 +866,6 @@ _AtForkChild(
     pthread_key_delete(gcProcessKey);
 }
 
-#if (defined(ANDROID) && (ANDROID_SDK_VERSION >= 28))
-static void _ModuleDestructor(void);
-#endif
-
 static void
 _OnceInit(
     void
@@ -882,10 +874,6 @@ _OnceInit(
 #if (defined(ANDROID) && (ANDROID_SDK_VERSION > 16)) || !defined(ANDROID)
     /* Use once control to avoid registering the handler multiple times. */
     pthread_atfork(gcvNULL, gcvNULL, _AtForkChild);
-#endif
-
-#if (defined(ANDROID) && (ANDROID_SDK_VERSION >= 28))
-    atexit(_ModuleDestructor);
 #endif
 
     /*
@@ -905,8 +893,6 @@ _ModuleConstructor(
     gceSTATUS status = gcvSTATUS_OK;
     int result;
     static pthread_once_t onceControl = {PTHREAD_ONCE_INIT};
-
-    gcmPRINT("@DBG: %s:%d\n", __FUNCTION__, __LINE__);
 
 #if VIVANTE_PROFILER_SYSTEM_MEMORY
     gcoOS_InitMemoryProfile();
@@ -1128,7 +1114,6 @@ _ModuleDestructor(
     gctINT reference = 0;
     gcmHEADER();
 
-    gcmPRINT("@DBG: %s:%d\n", __FUNCTION__, __LINE__);
     if (gcPLS.reference != gcvNULL)
     {
         gcPLS.exiting = gcvTRUE;
@@ -2472,7 +2457,6 @@ gcoOS_DeviceControl(
     gcsHAL_INTERFACE_PTR outputBuffer;
     gcsDRIVER_ARGS args;
     gcsTLS_PTR tls;
-    gctPOINTER logical = gcvNULL;
     gctUINT32 interrupt_count = 0;
 
     gcmHEADER_ARG("IoControlCode=%u InputBuffer=0x%x "
@@ -2503,36 +2487,6 @@ gcoOS_DeviceControl(
             inputBuffer->hardwareType = gcvHARDWARE_2D;
             inputBuffer->coreIndex = 0;
         }
-    }
-
-    switch (inputBuffer->command)
-    {
-    case gcvHAL_MAP_MEMORY:
-        logical = mmap(
-            gcvNULL, inputBuffer->u.MapMemory.bytes,
-            PROT_READ | PROT_WRITE, MAP_SHARED,
-            gcPLS.os->device, (off_t) 0
-            );
-
-        if (logical != MAP_FAILED)
-        {
-            inputBuffer->u.MapMemory.logical = gcmPTR_TO_UINT64(logical);
-            inputBuffer->status = gcvSTATUS_OK;
-            gcmFOOTER_NO();
-            return gcvSTATUS_OK;
-        }
-        break;
-
-    case gcvHAL_UNMAP_MEMORY:
-        munmap(gcmUINT64_TO_PTR(inputBuffer->u.UnmapMemory.logical), inputBuffer->u.UnmapMemory.bytes);
-
-        inputBuffer->status = gcvSTATUS_OK;
-        gcmFOOTER_NO();
-        return gcvSTATUS_OK;
-
-    default:
-        /* This has to be here so that GCC does not complain. */
-        break;
     }
 
     /* Call kernel. */
@@ -5143,7 +5097,6 @@ gcoOS_ProfileEnd(
 
         gcoOS_ZeroMemory(&iface, sizeof(iface));
 
-        iface.ignoreTLS = gcvTRUE;
         iface.command = gcvHAL_DATABASE;
         iface.u.Database.processID = gcmPTR2INT32(gcoOS_GetCurrentProcessID());
         iface.u.Database.validProcessID = gcvTRUE;
@@ -5159,6 +5112,7 @@ gcoOS_ProfileEnd(
         gcPLS.video_currentSize     = iface.u.Database.vidMem.counters.bytes      + iface.u.Database.nonPaged.counters.bytes;
         gcPLS.video_maxAllocSize    = iface.u.Database.vidMem.counters.maxBytes   + iface.u.Database.nonPaged.counters.maxBytes;
         gcPLS.video_allocSize       = iface.u.Database.vidMem.counters.totalBytes + iface.u.Database.nonPaged.counters.totalBytes;
+        gcPLS.video_freeSize        = iface.u.Database.vidMem.counters.totalBytes - iface.u.Database.vidMem.counters.bytes + iface.u.Database.nonPaged.counters.totalBytes - iface.u.Database.nonPaged.counters.bytes;
         gcPLS.video_allocCount      = iface.u.Database.vidMem.counters.allocCount + iface.u.Database.nonPaged.counters.allocCount;
         gcPLS.video_freeCount       = iface.u.Database.vidMem.counters.freeCount  + iface.u.Database.nonPaged.counters.freeCount;
     }
@@ -7286,7 +7240,6 @@ gceSTATUS gcoOS_GetMemoryProfileInfo(size_t                      size,
 
             gcoOS_ZeroMemory(&iface, gcmSIZEOF(iface));
 
-            iface.ignoreTLS = gcvTRUE;
             iface.command = gcvHAL_DATABASE;
             iface.u.Database.processID = gcmPTR2INT32(gcoOS_GetCurrentProcessID());
             iface.u.Database.validProcessID = gcvTRUE;
@@ -7355,6 +7308,7 @@ gceSTATUS gcoOS_DumpMemoryProfile(void)
         gcmPRINT("  current allocation      : %lld\n", (long long)info.gpu_memory.currentSize);
         gcmPRINT("  maximum allocation      : %lld\n", (long long)info.gpu_memory.peakSize);
         gcmPRINT("  total allocation        : %lld\n", (long long)info.gpu_memory.total_allocate);
+        gcmPRINT("  total free              : %lld\n", (long long)info.gpu_memory.total_free);
         gcmPRINT("  allocation count        : %u\n",              info.gpu_memory.total_allocateCount);
         gcmPRINT("  free count              : %u\n",              info.gpu_memory.total_freeCount);
         gcmPRINT("************ end of Memory Profile Info Dump ************\n");

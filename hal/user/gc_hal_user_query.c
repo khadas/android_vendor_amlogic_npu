@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -1532,13 +1532,13 @@ gceSTATUS
 gcoHAL_QuerySRAM(
     IN gcoHAL Hal,
     IN gcePOOL Type,
-    OUT gctUINT32 *Base,
     OUT gctUINT32 *Size,
+    OUT gctUINT32 *Base,
     OUT gctPHYS_ADDR_T *gpuPhysical,
     OUT gctUINT32 *gpuPhysicalName,
     OUT gctPHYS_ADDR_T *cpuPhysical
     )
 {
-    return gcoHARDWARE_QuerySRAM(gcvNULL, Type, Base, Size, gpuPhysical, gpuPhysicalName, cpuPhysical);
+    return gcoHARDWARE_QuerySRAM(gcvNULL, Type, Size, Base, gpuPhysical, gpuPhysicalName, cpuPhysical);
 }
 

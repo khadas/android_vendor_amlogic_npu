@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -1127,7 +1127,10 @@ gcoVX_TriggerAccelerator(
     IN gctBOOL                waitEvent,
     IN gctUINT32              coreId,
     IN gctBOOL                sync,
-    IN gctUINT32              syncEventID
+    IN gctUINT32              syncEventID,
+    IN gctUINT32              vipSRAMRemapStartAddr,
+    IN gctUINT32              axiSRAMRemapStartAddr,
+    IN gctUINT32              axiSRAMRemapEndAddr
     )
 {
     gceSTATUS status;
@@ -1135,7 +1138,19 @@ gcoVX_TriggerAccelerator(
     gcmHEADER_ARG("Cmd Address=%d", CmdAddress);
 
     gcmASSERT(gcoVX_VerifyHardware());
-    gcmONERROR(gcoHARDWAREVX_TriggerAccelerator(gcvNULL, CmdAddress, Type, EventId, waitEvent, coreId, sync, syncEventID));
+    gcmONERROR(gcoHARDWAREVX_TriggerAccelerator(
+        gcvNULL,
+        CmdAddress,
+        Type,
+        EventId,
+        waitEvent,
+        coreId,
+        sync,
+        syncEventID,
+        vipSRAMRemapStartAddr,
+        axiSRAMRemapStartAddr,
+        axiSRAMRemapEndAddr
+        ));
 
 OnError:
 

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2019 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -29,10 +29,12 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
-#include "op/ILayoutInference.hpp"
-#include "op/operand.hpp"
-#include "permute_vector.hpp"
-#include "logging.hpp"
+#include "nnrt/model.hpp"
+#include "nnrt/float16.hpp"
+#include "nnrt/logging.hpp"
+#include "nnrt/permute_vector.hpp"
+#include "operand.hpp"
+#include "ILayoutInference.hpp"
 
 namespace nnrt {
 class Model;
@@ -197,6 +199,8 @@ namespace utils {
 /**
  * @brief create Permute Operation
  *
+ * Don't insert permute operation for 1-D tensor
+ *
  * @param model which model will use this permute, input/output operand also added into model
  * @return OperationPtr return none-nullptr if permute is required else nullptr and nothing
  * changed in model
@@ -262,6 +266,7 @@ struct SplitOperation : Operation {
             out_permute_vectors) override;
     int32_t axis{-1};
     int32_t split_number;
+    std::vector<int32_t> slices;
 };
 
 struct SqueezeOperation : Operation {
@@ -292,6 +297,50 @@ struct PadOperation : Operation {
     std::vector<int32_t> padFront;
     std::vector<int32_t> padBack;
     float padValue{0.0f};
+    PadMode padMode{PadMode::CONSTANT};
+};
+
+template <typename DType>
+struct PadV2Operation : Operation {
+    PadV2Operation() : Operation(OperationType::PAD_V2) {}
+    virtual void handleLayoutInferenceOnInputs(
+        Model& model,
+        std::unordered_map<uint32_t, nnrt::layout_inference::IPermuteVectorPtr>&
+            next_permute_vectors) override {
+        assert(input_permute_cache_.cached_permutes_.size() == 1);
+        OperandPtr inputOperand = model.operand(inputs()[0]);
+        OperandPtr outputOperand = model.operand(outputs()[0]);
+
+        nnrt::layout_inference::IPermuteVectorPtr permuteVector =
+            input_permute_cache_.cached_permutes_[inputs()[0]];
+
+        if (inputOperand->ndim() != 4) {
+            Operation::handleLayoutInferenceOnInputs(model, next_permute_vectors);
+            auto reversePermVec = permuteVector->reverse();
+            return;
+        }
+
+        // {0, 1, 2, 3}
+        auto requiredPermute = nnrt::layout_inference::make_shared(inputOperand->ndim());
+        if (DataLayout::NHWC == getDataLayout()) {
+            requiredPermute = std::make_shared<nnrt::layout_inference::PermuteVector<4>>(
+                std::initializer_list<uint32_t>({0, 3, 1, 2}));
+            padFront = nnrt::op::utils::permuteArray(padFront, requiredPermute);
+            padBack = nnrt::op::utils::permuteArray(padBack, requiredPermute);
+        }
+
+        auto finalPermute = permuteVector->reverse()->add(requiredPermute);
+        auto permuteOp = nnrt::op::utils::asOp(finalPermute);
+
+        if (permuteOp) {
+            insertPermute(model, permuteOp, finalPermute->asStdVec(), true, inputs()[0]);
+        }
+
+        next_permute_vectors.insert(std::make_pair(outputs()[0], requiredPermute));
+    };
+    std::vector<int32_t> padFront;
+    std::vector<int32_t> padBack;
+    DType padValue;
     PadMode padMode{PadMode::CONSTANT};
 };
 
@@ -338,18 +387,45 @@ struct LstmUnitOperation : Operation {
     static const uint8_t OUTPUT_COUNT = 4;
 };
 
-struct LstmLayerOperation : Operation {
-    LstmLayerOperation() : Operation(OperationType::LSTM_LAYER) {}
-    FusedType activation{FusedType::TANH};
-    float cellClip{0.0f};
-    float projClip{0.0f};
-    float forgetBias{0.0f};
-};
-
 struct RnnOperation : Operation {
     RnnOperation() : Operation(OperationType::RNN) {}
 
-    int32_t activation;
+    FusedType activation{FusedType::SIGMOID};
+};
+
+struct UnidirectionalSequenceRnnOperation : Operation {
+    UnidirectionalSequenceRnnOperation() : Operation(OperationType::UNIDIRECTIONAL_SEQUENCE_RNN) {}
+
+    FusedType activation{FusedType::SIGMOID};
+    bool timeMajor;
+};
+
+struct BidirectionalSequenceRnnOperation : Operation {
+    BidirectionalSequenceRnnOperation() : Operation(OperationType::BIDIRECTIONAL_SEQUENCE_RNN) {}
+
+    FusedType activation{FusedType::SIGMOID};
+    bool timeMajor;
+    bool mergeOutputs;
+};
+
+struct UnidirectionalSequenceLstmOperation : Operation {
+    UnidirectionalSequenceLstmOperation()
+        : Operation(OperationType::UNIDIRECTIONAL_SEQUENCE_LSTM) {}
+
+    FusedType activation{FusedType::TANH};
+    bool timeMajor;
+    float cell_clip;
+    float proj_clip;
+};
+
+struct BidirectionalSequenceLstmOperation : Operation {
+    BidirectionalSequenceLstmOperation() : Operation(OperationType::BIDIRECTIONAL_SEQUENCE_LSTM) {}
+
+    FusedType activation{FusedType::TANH};
+    bool timeMajor;
+    bool mergeOutputs;
+    float cell_clip;
+    float proj_clip;
 };
 
 struct DepthToSpaceOperation : Operation {
@@ -542,8 +618,9 @@ struct BoxWithNmsLimitOperation : Operation {
 
 struct LogSoftmaxOperation : Operation {
     LogSoftmaxOperation() : Operation(OperationType::LOG_SOFTMAX) {}
-    float beta{1.0};
-    int32_t axis{-1};
+
+    float beta;
+    int32_t axis;
 };
 
 #define DECLARE_OPERATION(name, type)                         \
@@ -570,6 +647,7 @@ DECLARE_OPERATION(LessEqual, LESS_EQUAL);
 DECLARE_OPERATION(Log, LOG);
 DECLARE_OPERATION(LogicalAnd, LOGICAL_AND);
 DECLARE_OPERATION(LogicalOr, LOGICAL_OR);
+DECLARE_OPERATION(LogicalNot, LOGICAL_NOT);
 DECLARE_OPERATION(Neg, NEG);
 DECLARE_OPERATION(NotEqual, NOT_EQUAL);
 DECLARE_OPERATION(Select, SELECT);

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -135,6 +135,10 @@ struct _gcoBUFFER
         gctUINT32               hasMCFE                     : 1;
 
     }hwFeature;
+
+#if gcdCAPTURE_ONLY_MODE
+    gctPOINTER                  contextLogical[gcdCONTEXT_BUFFER_COUNT];
+#endif
 };
 
 static gctUINT32 _PatchItemSize[] =
@@ -334,6 +338,12 @@ _ConstructCommandBuffer(
         iface.command = gcvHAL_LOCK_VIDEO_MEMORY;
         iface.u.LockVideoMemory.node = handle;
         iface.u.LockVideoMemory.cacheable = gcvFALSE;
+
+#if gcdCAPTURE_ONLY_MODE
+        gcmONERROR(gcoOS_Allocate(gcvNULL, Bytes, &iface.u.LockVideoMemory.captureLogical));
+
+        iface.u.LockVideoMemory.queryCapSize = gcvFALSE;
+#endif
 
         status = gcoOS_DeviceControl(
             gcvNULL,
@@ -2364,6 +2374,10 @@ gcoBUFFER_Commit(
         gctUINT32 context = 0;
         gcoCMDBUF *commandBufferMirrors = commandBuffer->mirrors;
 
+#if gcdCAPTURE_ONLY_MODE
+        gctUINT32 i;
+#endif
+
 #if gcdENABLE_3D
         gcoCMDBUF tailCommandBuffer = Buffer->commandBufferTail;
         gctUINT alignedBytes = gcmALIGN(tailCommandBuffer->offset, Buffer->info.alignment) - tailCommandBuffer->offset;
@@ -2621,6 +2635,13 @@ gcoBUFFER_Commit(
         iface.u.Commit.subCommit = Buffer->subCommitHead;
         iface.u.Commit.shared  = (coreCount > 1);
         iface.commitMutex = gcvFALSE;
+
+#if gcdCAPTURE_ONLY_MODE
+        for (i = 0; i < gcdCONTEXT_BUFFER_NUM; ++i)
+        {
+            iface.u.Commit.subCommit.commandBuffer.contextLogical[i] = Buffer->contextLogical[i];
+        }
+#endif
 
         if (!Buffer->dropCommandEnabled)
         {
@@ -2998,4 +3019,21 @@ gcoBUFFER_CaptureInitState(
     return status;
 }
 
+#if gcdCAPTURE_ONLY_MODE
+gceSTATUS
+gcoBUFFER_SetContextLogical(
+    IN gctPOINTER *ContextLogical,
+    OUT gcoBUFFER Buffer
+    )
+{
+    gctINT i;
+
+    for (i = 0; i < gcdCONTEXT_BUFFER_NUM; ++i)
+    {
+        Buffer->contextLogical[i] = ContextLogical[i];
+    }
+
+    return gcvSTATUS_OK;
+}
+#endif
 #endif  /* gcdENABLE_3D */

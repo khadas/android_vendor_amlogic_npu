@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2019 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -24,10 +24,11 @@
 #ifndef _VSI_NN_ERROR_H
 #define _VSI_NN_ERROR_H
 
+#include <assert.h>
 #include "vsi_nn_log.h"
 #include "utils/vsi_nn_util.h"
 
-#define VSI_ASSERT( cond )
+#define VSI_ASSERT( cond )  assert(cond)
 
 #define VSI_CHECK_PTR( pointer, msg, retval ) \
     do { \
@@ -44,5 +45,19 @@
         goto lbl;\
     }\
 } while(0)
+
+#define CHECK_STATUS( stat )  do {\
+    if( VSI_SUCCESS != stat ) {\
+        VSILOGE("CHECK STATUS(%d:%s)", (stat), vsi_nn_DescribeStatus(stat));\
+    }\
+} while(0)
+
+#define CHECK_PTR_FAIL_GOTO( pointer, msg, lbl ) \
+    do { \
+        if( pointer == NULL ) { \
+            VSILOGD("CHECK POINTER %s", msg); \
+            goto lbl; \
+        } \
+    } while(0)
 
 #endif

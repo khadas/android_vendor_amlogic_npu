@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -3727,4 +3727,65 @@ gco2D_NatureRotateTranslation(
     )
 {
     return gcvSTATUS_NOT_SUPPORTED;
+}
+
+/*******************************************************************************
+**
+**  gco2D_SetSourceEndianMode
+**
+**  Set source endian mode.
+**
+**  INPUT:
+**
+**      gco2D Engine
+**          Pointer to the gco2D object.
+**
+**      gctUINT32 eEndianMode
+**          endian mode.
+**
+**  OUTPUT:
+**
+**      Nothing.
+*/
+gceSTATUS
+gco2D_SetSourceEndianMode(
+    IN gco2D Engine,
+    IN gceENDIAN_MODE eEndianMode
+    )
+{
+
+
+    return gcvSTATUS_NOT_SUPPORTED;
+
+}
+
+/*******************************************************************************
+**
+**  gco2D_SetTargetEndianMode
+**
+**  Set target endian mode.
+**
+**  INPUT:
+**
+**      gco2D Engine
+**          Pointer to the gco2D object.
+**
+**      gctUINT32 eEndianMode
+**          endian mode.
+**
+**  OUTPUT:
+**
+**      Nothing.
+*/
+
+gceSTATUS
+gco2D_SetTargetEndianMode(
+    IN gco2D Engine,
+    IN gceENDIAN_MODE eEndianMode
+    )
+{
+
+
+return gcvSTATUS_NOT_SUPPORTED;
+
 }

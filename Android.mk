@@ -13,55 +13,28 @@ LOCAL_PATH := $(call my-dir)
 
 ifeq ($(TARGET_ARCH), arm64)
 LIB_PATH=libraryso/lib64
-API_PATH=nnapi/lib/lib64
 Target=lib64
 else
 LIB_PATH=libraryso/lib32
-API_PATH=nnapi/lib/lib32
 Target=lib
 endif
 
 ifeq ($(PRODUCT_CHIP_ID), PID0x88)
 RRODUCT_PATH := $(LIB_PATH)/PID0x88
 else
+
+ifeq ($(PRODUCT_CHIP_ID), PID0x99)
 RRODUCT_PATH := $(LIB_PATH)/PID0x99
-endif
-
-
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := \
-    $(RRODUCT_PATH)/libVSC.so
-LOCAL_MODULE         := libVSC
-LOCAL_MODULE_SUFFIX  := .so
-LOCAL_MODULE_TAGS    := optional
-LOCAL_MODULE_CLASS   := SHARED_LIBRARIES
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
-LOCAL_PROPRIETARY_MODULE := true
-LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/$(Target)
 else
-LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)
+RRODUCT_PATH := $(LIB_PATH)/PID0xB9
 endif
-include $(BUILD_PREBUILT)
+
+endif
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
     $(RRODUCT_PATH)/libOvx12VXCBinary.so
 LOCAL_MODULE         := libOvx12VXCBinary
-LOCAL_MODULE_SUFFIX  := .so
-LOCAL_MODULE_TAGS    := optional
-LOCAL_MODULE_CLASS   := SHARED_LIBRARIES
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
-LOCAL_PROPRIETARY_MODULE := true
-LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/$(Target)
-else
-LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)
-endif
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := \
-    $(RRODUCT_PATH)/libOpenVX.so
-LOCAL_MODULE         := libOpenVX
 LOCAL_MODULE_SUFFIX  := .so
 LOCAL_MODULE_TAGS    := optional
 LOCAL_MODULE_CLASS   := SHARED_LIBRARIES
@@ -105,7 +78,37 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
-    $(RRODUCT_PATH)/libNNArchPerf.so
+    $(LIB_PATH)/libOpenVX.so
+LOCAL_MODULE         := libOpenVX
+LOCAL_MODULE_SUFFIX  := .so
+LOCAL_MODULE_TAGS    := optional
+LOCAL_MODULE_CLASS   := SHARED_LIBRARIES
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
+LOCAL_PROPRIETARY_MODULE := true
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/$(Target)
+else
+LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)
+endif
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := \
+    $(LIB_PATH)/libVSC.so
+LOCAL_MODULE         := libVSC
+LOCAL_MODULE_SUFFIX  := .so
+LOCAL_MODULE_TAGS    := optional
+LOCAL_MODULE_CLASS   := SHARED_LIBRARIES
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
+LOCAL_PROPRIETARY_MODULE := true
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/$(Target)
+else
+LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)
+endif
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := \
+    $(LIB_PATH)/libNNArchPerf.so
 LOCAL_MODULE         := libNNArchPerf
 LOCAL_MODULE_SUFFIX  := .so
 LOCAL_MODULE_TAGS    := optional
@@ -120,7 +123,7 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
-    $(RRODUCT_PATH)/libCLC.so
+    $(LIB_PATH)/libCLC.so
 LOCAL_MODULE         := libCLC
 LOCAL_MODULE_SUFFIX  := .so
 LOCAL_MODULE_TAGS    := optional
@@ -135,7 +138,7 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
-    $(RRODUCT_PATH)/libarchmodelSw.so
+    $(LIB_PATH)/libarchmodelSw.so
 LOCAL_MODULE         := libarchmodelSw
 LOCAL_MODULE_SUFFIX  := .so
 LOCAL_MODULE_TAGS    := optional
@@ -210,22 +213,6 @@ else
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)
 endif
 include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := \
-    $(API_PATH)/libnnapi.so
-LOCAL_MODULE         := libnnapi
-LOCAL_MODULE_SUFFIX  := .so
-LOCAL_MODULE_TAGS    := optional
-LOCAL_MODULE_CLASS   := SHARED_LIBRARIES
-ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
-LOCAL_PROPRIETARY_MODULE := true
-LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/$(Target)
-else
-LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)
-endif
-include $(BUILD_PREBUILT)
-
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \

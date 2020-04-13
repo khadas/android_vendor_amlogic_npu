@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2019 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -72,6 +72,8 @@ class IPermuteVector {
      */
     virtual IPermuteVectorPtr add(const IPermuteVectorPtr& other) const = 0;
 
+    virtual void reinitialize() = 0;
+
     virtual bool isAligned() const = 0 ;
 
     virtual std::vector<uint32_t> asStdVec() const = 0;
@@ -129,12 +131,18 @@ class PermuteVector : public IPermuteVector {
         return i == R;
     }
 
-    IPermuteVectorPtr reverse() {
+    IPermuteVectorPtr reverse() override {
         IPermuteVectorPtr r = std::make_shared<PermuteVector<R>>();
         for (uint32_t i = 0; i < R; ++i) {
             r->at(param_[i]) = i;
         }
         return r;
+    }
+
+    void reinitialize() override {
+        for (uint32_t i = 0; i < R; ++i) {
+            param_[i] = i;
+        }
     }
 
     virtual IPermuteVectorPtr add(const IPermuteVectorPtr& other) const override {
@@ -178,6 +186,8 @@ using PermuteVector1 = PermuteVector<1>;
  */
 inline IPermuteVectorPtr make_shared(uint32_t rankVal) {
     switch (rankVal) {
+        // 0: represent scalar
+        case 0:
         case 1:
             return std::make_shared<PermuteVector<1>>();
         case 2:

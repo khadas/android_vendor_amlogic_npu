@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2018 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -103,16 +103,23 @@ enum {
 
 #define _VSI_NN_PRELU_LOCAL_TENSOR_NUM 3
 
+enum {
+    PRELLU_STYLE_ORIGINAL = 0,
+    PRELLU_STYLE_ANDROID_NN = 1,
+    PRELLU_STYLE_CAN_TRANS_ORIGINAL = 2,
+};
+
 typedef struct _vsi_nn_prelu_lcl_data
 {
     vx_tensor   local_tensor[_VSI_NN_PRELU_LOCAL_TENSOR_NUM];
     uint32_t    hash_idx;
     vsi_bool    execute_on_sw;
+    uint32_t    style;
 } vsi_nn_prelu_lcl_data;
 
 typedef struct _vsi_nn_prelu_param
 {
-    /* elu layer local data structure */
+    /* prelu layer local data structure */
     vsi_nn_prelu_lcl_data *local;
     int32_t    axis;
 } vsi_nn_prelu_param;

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2019 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -34,6 +34,15 @@ vsi_bool vsi_nn_kernel_optimize_eltwise_shape
     const int32_t* shape_y, const size_t rank_y,
     const int32_t* shape_output, const size_t rank_output,
     int32_t* out_shape_x, int32_t* out_shape_y,
+    int32_t* out_shape_output, uint32_t* out_rank_output
+    );
+
+vsi_bool vsi_nn_kernel_optimize_broadcast_shape
+    (
+    const int32_t** shape_in, const size_t* rank_in,
+    const int32_t   input_num,
+    const int32_t*  shape_output, const size_t rank_output,
+    int32_t** out_shape_in,
     int32_t* out_shape_output, uint32_t* out_rank_output
     );
 

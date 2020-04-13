@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -326,12 +326,17 @@ _FillInOptions(
     }
 
     envctrl = gcvNULL;
-    gcOptions[gcvOPTION_OVX_ENABLE_NN_DDR_BURST_SIZE_256B] = gcvTRUE;
-    if (gcmIS_SUCCESS(gcoOS_GetEnv(gcvNULL, "VIV_VX_ENABLE_NN_DDR_BURST_SIZE_256B", &envctrl)) && envctrl)
+    gcOptions[gcvOPTION_OVX_ENABLE_NN_DDR_BURST_SIZE_256B] = gcvFALSE;
+    gcOptions[gcvOPTION_OVX_ENABLE_NN_DDR_BURST_SIZE_64B] = gcvFALSE;
+    if (gcmIS_SUCCESS(gcoOS_GetEnv(gcvNULL, "VIV_VX_NN_DDR_BURST_SIZE", &envctrl)) && envctrl)
     {
-        if (gcmIS_SUCCESS(gcoOS_StrCmp(envctrl, "0")))
+        if (gcmIS_SUCCESS(gcoOS_StrCmp(envctrl, "256")))
         {
-            gcOptions[gcvOPTION_OVX_ENABLE_NN_DDR_BURST_SIZE_256B] = gcvFALSE;
+            gcOptions[gcvOPTION_OVX_ENABLE_NN_DDR_BURST_SIZE_256B] = gcvTRUE;
+        }
+        else if (gcmIS_SUCCESS(gcoOS_StrCmp(envctrl, "64")))
+        {
+            gcOptions[gcvOPTION_OVX_ENABLE_NN_DDR_BURST_SIZE_64B] = gcvTRUE;
         }
     }
 
@@ -505,6 +510,7 @@ gcoHAL_ConstructEx(
                                        &iface, gcmSIZEOF(iface),
                                        &iface, gcmSIZEOF(iface)));
 
+#if !gcdIGNORE_DRIVER_VERSIONS_MISMATCH
         /* Test if versions match. */
         if ((iface.u.Version.major != gcvVERSION_MAJOR)
         ||  (iface.u.Version.minor != gcvVERSION_MINOR)
@@ -517,6 +523,7 @@ gcoHAL_ConstructEx(
 
             gcmONERROR(gcvSTATUS_VERSION_MISMATCH);
         }
+#endif
 
 #if gcmIS_DEBUG(gcdDEBUG_TRACE)
         gcmTRACE_ZONE(gcvLEVEL_INFO, _GC_OBJ_ZONE,
@@ -1144,19 +1151,11 @@ OnError:
 **
 **  gcoHAL_SetFscaleValue
 **
-**  Set the fscale value used when GPU is gcvPOWER_ON.
+**  Set Fscale value to current core.
 **
-**  INPUT:
-**
-**      gctUINT FscalueValue
-**          Fscale value to be set.
-**
-**  OUTPUT:
-**
-**          Nothing.
 */
 gceSTATUS
-gcoHAL_SetFscaleValue(
+gcoHAL_SetFscaleValueEx(
     IN gctUINT FscaleValue,
     IN gctUINT ShaderFscaleValue
     )
@@ -1164,7 +1163,7 @@ gcoHAL_SetFscaleValue(
     gceSTATUS status;
     gcsHAL_INTERFACE iface;
 
-    gcmHEADER_ARG("FscaleValue=0x%X", FscaleValue);
+    gcmHEADER_ARG("FscaleValue=0x%x ShaderFscaleValue=0x%x", FscaleValue, ShaderFscaleValue);
 
     iface.command = gcvHAL_SET_FSCALE_VALUE;
     iface.u.SetFscaleValue.value = FscaleValue;
@@ -1172,6 +1171,62 @@ gcoHAL_SetFscaleValue(
 
     status = gcoHAL_Call(gcvNULL, &iface);
 
+    gcmFOOTER();
+    return status;
+}
+
+/*******************************************************************************
+**
+**  gcoHAL_SetFscaleValue
+**
+**  Set the fscale value used when GPU is gcvPOWER_ON.
+**
+**  INPUT:
+**      gctUINT CoreIndex
+**          Global core index to set the specific core clock.
+**          If the value is 0xFFFFFFFF, all the cores will be set.
+**      gctUINT FscaleValue
+**          Set core clock. Value can be 64, 32, 16, 8, 4, 2, 1.
+**          64 means 64/64 full clock, 1 means 1/64 clock.
+**      gctUINT ShaderFscaleValue
+**          Set shader clock. Value can be 64, 32, 16, 8, 4, 2, 1.
+**          64 means 64/64 full clock, 1 means 1/64 clock.
+**
+**  OUTPUT:
+**
+**          Nothing.
+*/
+gceSTATUS
+gcoHAL_SetFscaleValue(
+    IN gcoHAL Hal,
+    IN gctUINT CoreIndex,
+    IN gctUINT FscaleValue,
+    IN gctUINT ShaderFscaleValue
+    )
+{
+    gceSTATUS status = gcvSTATUS_OK;
+    gctINT i = 0;
+
+    gcmHEADER_ARG("CoreIndex=%x FscaleValue=0x%x ShaderFscaleValue=0x%x", CoreIndex, FscaleValue, ShaderFscaleValue);
+
+    if (CoreIndex == 0xFFFFFFFF)
+    {
+        /* Set for all the cores. */
+        for (i = 0; i < gcPLS.hal->chipCount; i++)
+        {
+            gcoHAL_SetCoreIndex(gcvNULL, i);
+            gcmONERROR(gcoHAL_SetFscaleValueEx(FscaleValue, ShaderFscaleValue));
+        }
+    }
+    else
+    {
+        /* Set for the specific core. */
+        gcoHAL_SetCoreIndex(gcvNULL, CoreIndex);
+
+        gcmONERROR(gcoHAL_SetFscaleValueEx(FscaleValue, ShaderFscaleValue));
+    }
+
+OnError:
     gcmFOOTER();
     return status;
 }
@@ -2485,6 +2540,15 @@ gcoHAL_LockVideoMemory(
         iface.u.LockVideoMemory.node = Node;
         iface.u.LockVideoMemory.cacheable = Cacheable;
 
+#if gcdCAPTURE_ONLY_MODE
+        iface.u.LockVideoMemory.queryCapSize = gcvTRUE;
+
+        gcmONERROR(gcoHAL_Call(gcvNULL, &iface));
+
+        gcmONERROR(gcoOS_Allocate(gcvNULL, iface.u.LockVideoMemory.captureSize, &iface.u.LockVideoMemory.captureLogical));
+
+        iface.u.LockVideoMemory.queryCapSize = gcvFALSE;
+#endif
         /* Call the kernel. */
         gcmONERROR(gcoHAL_Call(gcvNULL, &iface));
     }
@@ -2496,6 +2560,15 @@ gcoHAL_LockVideoMemory(
         iface.u.LockVideoMemory.node = Node;
         iface.u.LockVideoMemory.cacheable = Cacheable;
 
+#if gcdCAPTURE_ONLY_MODE
+        iface.u.LockVideoMemory.queryCapSize = gcvTRUE;
+
+        gcmONERROR(gcoHAL_Call(gcvNULL, &iface));
+
+        gcmONERROR(gcoOS_Allocate(gcvNULL, iface.u.LockVideoMemory.captureSize, &iface.u.LockVideoMemory.captureLogical));
+
+        iface.u.LockVideoMemory.queryCapSize = gcvFALSE;
+#endif
         /* Call the kernel. */
         gcmONERROR(gcoHAL_Call(gcvNULL, &iface));
     }
@@ -2584,6 +2657,10 @@ gcoHAL_UnlockVideoMemoryEX(
     {
         status = gcvSTATUS_INVALID_ARGUMENT;
     }
+
+#if gcdCAPTURE_ONLY_MODE
+    gcmVERIFY_OK(gcmOS_SAFE_FREE(gcvNULL, iface.u.UnlockVideoMemory.captureLogical));
+#endif
 
 OnError:
     /* Return status. */

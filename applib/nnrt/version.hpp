@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2019 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -42,7 +42,7 @@ struct Version {
     }
 };
 
-using VERSION = Version<1, 0, 4>;
+using VERSION = Version<1, 1, 0>;
 static constexpr uint32_t VERSION_NUM = VERSION::value;
 };
 

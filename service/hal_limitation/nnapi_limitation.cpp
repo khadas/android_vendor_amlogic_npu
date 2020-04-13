@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2019 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -62,3 +62,25 @@ void NNapiLimitationRegister(const std::string& opName, const IArgList* arglist)
 #include "nnapi_support/ANEURALNETWORKS_REDUCTION.hpp"
 #include "nnapi_support/ANEURALNETWORKS_SOFTMAX.hpp"
 #include "nnapi_support/ANEURALNETWORKS_POOL.hpp"
+#include "nnapi_support/ANEURALNETWORKS_SQRT_RSQRT.hpp"
+#include "nnapi_support/ANEURALNETWORKS_ARGMAX_ARGMIN.hpp"
+#include "nnapi_support/ANEURALNETWORKS_MAXIMUM_MINIMUM.hpp"
+#include "nnapi_support/ANEURALNETWORKS_LOG.hpp"
+#include "nnapi_support/ANEURALNETWORKS_SIN.hpp"
+#include "nnapi_support/ANEURALNETWORKS_EXP.hpp"
+#include "nnapi_support/ANEURALNETWORKS_NEG.hpp"
+#include "nnapi_support/ANEURALNETWORKS_PRELU.hpp"
+#include "nnapi_support/ANEURALNETWORKS_UNIDIRECTIONAL_SEQUENCE_RNN.hpp"
+#include "nnapi_support/ANEURALNETWORKS_BIDIRECTIONAL_SEQUENCE_RNN.hpp"
+#include "nnapi_support/ANEURALNETWORKS_UNIDIRECTIONAL_SEQUENCE_LSTM.hpp"
+#include "nnapi_support/ANEURALNETWORKS_BIDIRECTIONAL_SEQUENCE_LSTM.hpp"
+#include "nnapi_support/ANEURALNETWORKS_GENERATE_PROPOSALS.hpp"
+#include "nnapi_support/ANEURALNETWORKS_AXIS_ALIGNED_BBOX_TRANSFORM.hpp"
+#include "nnapi_support/ANEURALNETWORKS_DETECTION_POSTPROCESSING.hpp"
+#include "nnapi_support/ANEURALNETWORKS_COMPARISON.hpp"
+#include "nnapi_support/ANEURALNETWORKS_LOGICAL.hpp"
+#include "nnapi_support/ANEURALNETWORKS_EXPAND_DIMS.hpp"
+#include "nnapi_support/ANEURALNETWORKS_POW.hpp"
+#include "nnapi_support/ANEURALNETWORKS_SPLIT.hpp"
+#include "nnapi_support/ANEURALNETWORKS_LOG_SOFTMAX.hpp"
+#include "nnapi_support/ANEURALNETWORKS_GATHER.hpp"

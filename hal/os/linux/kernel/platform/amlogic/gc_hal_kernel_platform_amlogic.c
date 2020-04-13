@@ -475,7 +475,7 @@ gceSTATUS  _SetPower(IN gcsPLATFORM * Platform,IN gceCORE GPU,IN gctBOOL Enable)
                 Downpower_88();
                 break;
             case 3:
-//                Downpower_99_mem();
+                Downpower_99_mem();
                 break;
             default:
                 printk("not find power_version\n");
@@ -492,7 +492,7 @@ gceSTATUS  _SetPower(IN gcsPLATFORM * Platform,IN gceCORE GPU,IN gctBOOL Enable)
                 Getpower_88();
                 break;
             case 3:
-//                Getpower_99();
+                Getpower_99();
                 break;
             default:
                 printk("not find power_version\n");

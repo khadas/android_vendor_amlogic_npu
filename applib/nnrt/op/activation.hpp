@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2019 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -24,7 +24,7 @@
 #ifndef _OP_ACTIVIATION_H_
 #define _OP_ACTIVIATION_H_
 
-#include "op/operation.hpp"
+#include "nnrt/op/operation.hpp"
 
 namespace nnrt {
 namespace op {
@@ -61,6 +61,7 @@ using AbsOperation = ActivationOperation<OperationType::ABS>;
 using SqrtOperation = ActivationOperation<OperationType::SQRT>;
 using RSqrtOperation = ActivationOperation<OperationType::RSQRT>;
 using SquareOperation = ActivationOperation<OperationType::SQUARE>;
+using LinearOperation = ActivationOperation<OperationType::LINEAR>;
 
 }
 }

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -23724,7 +23724,7 @@ gcoHARDWARE_SetProbeCmd(
     /* Reserve space in the command buffer. */
     gcmBEGINSTATEBUFFER_NEW(Hardware, reserve, stateDelta, memory, Memory);
 
-    if ((Hardware->config->chipModel == gcv7000) && (Hardware->config->chipRevision == 0x6203))
+    if ((Hardware->config->chipModel == gcv7000) && ((Hardware->config->chipRevision == 0x6203) || (Hardware->config->chipRevision == 0x6204)))
     {
         hostInterface1 = gcvFALSE;
     }

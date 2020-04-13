@@ -21,14 +21,11 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/ovx_inc \
                     $(LOCAL_PATH)/../applib/nnapi \
 		    $(LOCAL_PATH)/../applib/ovxinc/include \
 		    $(LOCAL_PATH)/../applib/nnrt \
+		    $(LOCAL_PATH)/../applib/ \
 		    $(LOCAL_PATH)/../applib/nnrt/boost/libs/preprocessor/include \
                     $(LOCAL_PATH)/../../../../frameworks/ml/nn/common/include/ \
                     $(LOCAL_PATH)/../../../../frameworks/ml/nn/runtime/include/    \
 
-LOCAL_SRC_FILES:= \
-    VsiDriver.cpp \
-    hal_limitation/nnapi_limitation.cpp \
-    hal_limitation/support.cpp \
 
 LOCAL_SHARED_LIBRARIES := \
     libbase \
@@ -47,6 +44,28 @@ LOCAL_SHARED_LIBRARIES := \
     libovxlib\
     libnnrt
 
+LOCAL_SRC_FILES:= \
+    VsiRTInfo.cpp \
+    VsiDriver.cpp \
+    1.0/VsiDriver1_0.cpp \
+    1.0/VsiDevice1_0.cpp \
+    VsiPreparedModel.cpp
+
+ifeq ($(shell expr $(PLATFORM_SDK_VERSION) ">=" 28),1)
+LOCAL_SRC_FILES += 1.1/VsiDevice1_1.cpp \
+                   1.1/VsiDriver1_1.cpp
+endif
+
+ifeq ($(shell expr $(PLATFORM_SDK_VERSION) ">=" 29),1)
+LOCAL_SRC_FILES += \
+    1.2/VsiDevice1_2.cpp\
+    1.2/VsiPreparedModel1_2.cpp\
+    1.2/VsiDriver1_2.cpp \
+    1.2/VsiBurstExecutor.cpp    \
+    hal_limitation/nnapi_limitation.cpp \
+    hal_limitation/support.cpp
+
+endif
 
 ifeq ($(shell expr $(PLATFORM_SDK_VERSION) ">=" 28),1)
 
@@ -63,21 +82,17 @@ ifeq ($(shell expr $(PLATFORM_SDK_VERSION) ">=" 29),1)
 LOCAL_C_INCLUDES += frameworks/ml/nn/runtime/include \
                     frameworks/native/libs/ui/include \
                     frameworks/native/libs/nativebase/include \
-                    system/libfmq/include
+                    system/libfmq/include   \
+                    $(LOCAL_PATH)/hal_limitation \
+                    $(LOCAL_PATH)/op_validate
 
 LOCAL_SHARED_LIBRARIES += libfmq \
                           libui \
-                          android.hardware.neuralnetworks@1.1
+                          android.hardware.neuralnetworks@1.2
 
-LOCAL_SRC_FILES += VsiDevice1_2.cpp\
-    VsiPreparedModel1_2.cpp\
-    VsiBurstExecutor.cpp
 LOCAL_MODULE      := android.hardware.neuralnetworks@1.2-service-ovx-driver
 
 else
-LOCAL_SRC_FILES += VsiDevice.cpp\
-    VsiPreparedModel.cpp
-
 LOCAL_SHARED_LIBRARIES += libneuralnetworks
 LOCAL_MODULE      := android.hardware.neuralnetworks@1.1-service-ovx-driver
 endif
@@ -96,5 +111,12 @@ endif
 
 LOCAL_INIT_RC := android.hardware.neuralnetworks@1.1-service-ovx-driver.rc
 LOCAL_MODULE_RELATIVE_PATH := hw
+
+LOCAL_CFLAGS += -DANDROID_SDK_VERSION=$(PLATFORM_SDK_VERSION)  -Wno-error=unused-parameter\
+                -Wno-unused-private-field \
+                -Wno-unused-parameter \
+                -Wno-delete-non-virtual-dtor -Wno-non-virtual-dtor\
+
+LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_EXECUTABLE)

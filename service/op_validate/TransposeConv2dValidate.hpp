@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2019 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -37,7 +37,7 @@ class TransposeConv2d : public OperationValidate<T_model, T_Operation> {
         : OperationValidate<T_model, T_Operation>(model, operation) {}
     virtual bool SignatureCheck() override {
         return hal::limitation::nnapi::match("TransposeConv2DOperationInput", this->m_InputArgTypes) &&
-               hal::limitation::nnapi::match("TransposeConv2DOperationOutput", this->m_OutputArgTypes;
+               hal::limitation::nnapi::match("TransposeConv2DOperationOutput", this->m_OutputArgTypes);
     };
 };
 

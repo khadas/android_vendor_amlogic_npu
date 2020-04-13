@@ -257,11 +257,10 @@ typedef struct _vx_weights_biases_parameter_optimizations_ext_t {
 
 
 typedef struct _vx_weights_biases_parameter_optimizations_ext2_t {
-    vx_int8  zrl;             /*!< \brief The zero run length. Set negtive value to disable*/
-    vx_enum  outputFormat;    /*!< \brief The output format. */
-    vx_int32 inputZeroPoint;  /*!< \brief  zero point of input. A 32 bit integer, in range [0, 255], Set zero value to disable */
-    vx_uint32 num_of_input_dims; /*< \brief The input dimesion number*/
-    vx_uint32 num_of_output_dims; /*!< \brief The output dimesion number*/
+    vx_weights_biases_parameter_optimizations_ext_t ext;
+    vx_float32 inputScale;
+    vx_float32 outputScale;
+    vx_enum    inputFormat;
     vx_int32 output_ZP_dw;        /*depthwise conv output ZP*/
     vx_float32 output_scale_dw;   /*depthwise conv output scale*/
     vx_int8  output_fpp_dw;       /*depthwise conv output fix-point*/

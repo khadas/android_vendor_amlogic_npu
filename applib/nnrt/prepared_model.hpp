@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2019 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -29,6 +29,7 @@
 #include "model.hpp"
 #include "interpreter.hpp"
 #include "shared_context.hpp"
+#include "ovxlib_delegate.hpp"
 
 namespace nnrt
 {
@@ -40,6 +41,7 @@ class PreparedModel
 {
     public:
         PreparedModel(Model* model, SharedContextPtr context,
+                std::vector<ExecutionIOPtr> &inputs,
                 Interpreter* interpreter = NULL);
         ~PreparedModel();
 
@@ -75,6 +77,7 @@ class PreparedModel
         std::map<uint32_t, vsi_nn_tensor_id_t> tensor_mapping_;
         Interpreter* interpreter_;
         SharedContextPtr context_;
+        std::vector<ExecutionIOPtr> inputs_;
 };
 }
 

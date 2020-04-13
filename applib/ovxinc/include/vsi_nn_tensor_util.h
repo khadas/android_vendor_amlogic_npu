@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2018 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -319,6 +319,34 @@ OVXLIB_API vsi_status vsi_nn_CopyDataToTensor
     uint8_t             * data
     );
 
+/**
+ * Flush Handle
+ * If you swap the handle of the tensor, you should flush it.
+ *
+ * @param[in] tensor Tensor handle.
+ *
+ * @return VSI_SUCCESS on success, or error core otherwise.
+ */
+OVXLIB_API vsi_status vsi_nn_FlushHandle
+    (
+    vsi_nn_tensor_t      * tensor
+    );
+
+/**
+ * Get Tensor Handle
+ * Get the handle of the tensor
+ *
+ * @param[in] tensor Tensor.
+ * @param[out] ptr The handle of the tensor.
+ *
+ * @return VSI_SUCCESS on success, or error core otherwise.
+ */
+OVXLIB_API vsi_status vsi_nn_GetTensorHandle
+    (
+    vsi_nn_tensor_t      * tensor,
+    void** ptr
+    );
+
 OVXLIB_API vsi_status vsi_nn_CopyRawDataToTensor
     (
     vsi_nn_graph_t*         graph,
@@ -370,6 +398,14 @@ OVXLIB_API void vsi_nn_TransposeTensor
     uint32_t       * as_shape
     );
 
+OVXLIB_API void vsi_nn_PermuteTensor
+    (
+    vsi_nn_graph_t  * graph,
+    vsi_nn_tensor_t * tensor,
+    uint32_t       * perm,
+    uint32_t         dim_num
+    );
+
 OVXLIB_API vsi_bool vsi_nn_CalcReshapeTensor
     (
     vsi_nn_tensor_t * input,
@@ -393,7 +429,7 @@ OVXLIB_API vsi_bool vsi_nn_ReshapeTensor
  * @param[in] tensor Tensor handle.
  * @return Element number of the tensor.
  */
-OVXLIB_API vsi_nn_size_t vsi_nn_GetElementNum
+OVXLIB_API uint32_t vsi_nn_GetElementNum
     (
     vsi_nn_tensor_t * tensor
     );
@@ -506,7 +542,7 @@ OVXLIB_API vsi_status vsi_nn_SwapInputBuffer
     vsi_nn_graph_t *graph
     );
 
-OVXLIB_API vsi_nn_size_t vsi_nn_vxGetTensorElementNum
+OVXLIB_API uint32_t vsi_nn_vxGetTensorElementNum
     (
     vsi_nn_tensor_attr_t *attr
     );
@@ -641,6 +677,19 @@ vsi_status vsi_nn_copy_tensor_patch
     vsi_nn_tensor_attr_t *attr,
     void * user_ptr,
     vsi_enum usage
+    );
+
+/**
+ * OVXLIB internal tensor util api
+ * Rotate 180 degrees in width*height*channel dims for weights data
+ *
+ * @param[in] graph Graph handle.
+ * @param[in] weights tensor.
+ */
+void vsi_nn_reshuffle_weight_data
+    (
+    vsi_nn_graph_t  * graph,
+    vsi_nn_tensor_t * weights
     );
 
 #ifdef __cplusplus

@@ -242,6 +242,9 @@ enum vx_quantized_format_e
     VX_QUANT_DYNAMIC_FIXED_POINT    = 0x1,
     /*! \brief A quantization data type which has scale value and zero point to match with TF and Android NN API */
     VX_QUANT_AFFINE_SCALE           = 0x2,
+
+    VX_QUANT_AFFINE_SCALE_PER_CHANNEL = 0x3,
+
 };
 
 /*! \brief The rank mode of tensor memory.
@@ -382,6 +385,28 @@ vxCreateTensorForNN11(
  */
 VX_API_ENTRY vx_object_array VX_API_CALL vxCreateTensorObjectArray(vx_context context, vx_uint32 count, vx_tensor* tensor);
 
+typedef union _vx_tensor_quant_param
+{
+    struct
+    {
+        vx_int8 fixed_point_pos; /*!< \brief Specifies the fixed point position when the input element type is int16/int8, if 0 calculations are performed in integer math */
+    } dfp;
+
+    struct
+    {
+        vx_float32      scale;       /*!< \brief Scale vaule for the quantized value */
+        vx_int32        zeroPoint;  /*!< \brief  A 32 bit integer, in range [0, 255] */
+    } affine;
+
+    struct
+    {
+        vx_uint32       channelDim; /*!< \brief a 32 bit unsigned integer indicating channel dimension */
+        vx_uint32       scaleCount; /*!< \brief the size of the scale array, must be equal to size[channelDim] */
+        vx_float32 *    scales; /*!< \brief an array of positive 32 bit floating point value. The size of the scales array must be equal to size[channelDim] */
+        vx_uint32       zeroPointCount; /*!< \brief the size of the zero point array, must be equal to 0 or size[channelDim] */
+        vx_int32 *      zeroPoint;  /*!< \brief  A 32 bit integer, in range [0, 255] */
+    } affinePerChannel;
+}vx_tensor_quant_param;
 
 /*! \brief Input parameter for createTensor2
  * \ingroup group_tensor
@@ -393,25 +418,7 @@ typedef struct _vx_tensor_create_params_t
     vx_uint32 *     sizes;       /*!< \brief The pointer to an array of dimension */
     vx_enum         data_format; /*!< \brief Data format for the tensor */
     vx_enum         quant_format; /*!< \brief Quantized format <tt>\ref vx_quantized_format_e </tt>. */
-    union {
-        struct {
-            vx_int8 fixed_point_pos; /*!< \brief Specifies the fixed point position when the input element type is int16/int8, if 0 calculations are performed in integer math */
-        } dfp;
-
-        struct {
-            vx_float32      scale;       /*!< \brief Scale vaule for the quantized value */
-            vx_int32        zeroPoint;  /*!< \brief  A 32 bit integer, in range [0, 255] */
-        } affine;
-
-        struct {
-            vx_uint32       channelDim; /*!< \brief a 32 bit unsigned integer indicating channel dimension */
-            vx_uint32       scaleCount; /*!< \brief the size of the scale array, must be equal to size[channelDim] */
-            vx_float32 *    scales; /*!< \brief an array of positive 32 bit floating point value. The size of the scales array must be equal to size[channelDim] */
-            vx_uint32       zeroPointCount; /*!< \brief the size of the zero point array, must be equal to 0 or size[channelDim] */
-            vx_int32 *      zeroPoint;  /*!< \brief  A 32 bit integer, in range [0, 255] */
-        } affinePerChannel;
-     }
-     quant_data;
+    vx_tensor_quant_param quant_data;
 } vx_tensor_create_params_t;
 
 
@@ -1083,6 +1090,9 @@ enum vx_reorg_type_e
 
     /*! \brief  Reorgnization from space to batch. */
     VX_REORG_SPACE_TO_BATCH_ND,
+
+    /*! \brief Reorgnzation channel. */
+    VX_REORG_SHUFFLE_CHANNEL,
 };
 
 /*! \brief Input parameter for reorg layer
@@ -1104,6 +1114,13 @@ typedef struct _vx_nn_reorg_params_ext_t
     vx_nn_reorg_params_t base;      /*!< \brief vx_nn_reorg_params <tt>\ref vx_nn_reorg_params_t</tt> */
     vx_tensor pad;                  /*!< \brief  [Optional] Only for SPACE2BATCH, 2D tensor for paddings for each spatial dim of the input tensor(rank(input), 2), all values must be >=0. */
 } vx_nn_reorg_params_ext_t;
+
+typedef struct _vx_nn_reorg_params_ext2_t
+{
+    vx_nn_reorg_params_t base;      /*!< \brief vx_nn_reorg_params <tt>\ref vx_nn_reorg_params_t</tt> */
+    vx_int32 *num_group;
+    vx_int32 *axis;
+} vx_nn_reorg_params_ext2_t;
 
 /*! \brief [Graph] Creates a Reorgnization Layer Node, Enhancement of vxReorgLayer, Support both DEPTH to SPACE and SPACE to DEPTH.
  * \param [in] graph The reference to the parent graph.

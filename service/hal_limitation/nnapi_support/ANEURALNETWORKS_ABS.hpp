@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2019 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -21,24 +21,6 @@
 *    DEALINGS IN THE SOFTWARE.
 *
 *****************************************************************************/
-
-/**
-     * Computes the absolute value of a tensor, element-wise.
-     *
-     * Supported tensor {@link OperandCode}:
-     * * {@link ANEURALNETWORKS_TENSOR_FLOAT16}
-     * * {@link ANEURALNETWORKS_TENSOR_FLOAT32}
-     *
-     * Supported tensor rank: from 1.
-     *
-     * Inputs:
-     * * 0: A tensor.
-     *
-     * Outputs:
-     * * 0: The output tensor of same shape as input0.
-     *
-     * Available since API level 29.
-     */
 
 #ifndef __ANEURALNETWORKS_ABS_HPP__
 #define __ANEURALNETWORKS_ABS_HPP__

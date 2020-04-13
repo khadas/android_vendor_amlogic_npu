@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2019 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -74,11 +74,11 @@ enum
     BI_LSTM_BW_INPUT_WEIGHT_PROJ    = 33,
     BI_LSTM_BW_INPUT_BIAS_PROJ      = 34,
 
-    BI_LSTM_FW_INPUT_H_STATE      = 35,
-    BI_LSTM_FW_INPUT_C_STATE     = 36,
+    BI_LSTM_FW_INPUT_H_STATE        = 35,
+    BI_LSTM_FW_INPUT_C_STATE        = 36,
 
-    BI_LSTM_BW_INPUT_H_STATE      = 37,
-    BI_LSTM_BW_INPUT_C_STATE     = 38,
+    BI_LSTM_BW_INPUT_H_STATE        = 37,
+    BI_LSTM_BW_INPUT_C_STATE        = 38,
 
     BI_LSTM_AUX_INPUT               = 39,
 
@@ -97,10 +97,10 @@ enum
     BI_LSTM_FW_INPUT_LAYERNORM_C    = 50,
     BI_LSTM_FW_INPUT_LAYERNORM_O    = 51,
 
-    BI_LSTM_BW_INPUT_LAYERNORM_I    = 48,
-    BI_LSTM_BW_INPUT_LAYERNORM_F    = 49,
-    BI_LSTM_BW_INPUT_LAYERNORM_C    = 50,
-    BI_LSTM_BW_INPUT_LAYERNORM_O    = 51,
+    BI_LSTM_BW_INPUT_LAYERNORM_I    = 52,
+    BI_LSTM_BW_INPUT_LAYERNORM_F    = 53,
+    BI_LSTM_BW_INPUT_LAYERNORM_C    = 54,
+    BI_LSTM_BW_INPUT_LAYERNORM_O    = 55,
 
     BI_LSTM_INPUT_CNT,
 
@@ -109,14 +109,27 @@ enum
     BI_LSTM_OUTPUT_CNT
 };
 
+typedef struct _vsi_nn_bidirectional_sequence_lstm_lcl_data_t
+{
+    vsi_bool use_cifg;
+    vsi_bool use_layer_norm;
+    vsi_bool use_projection;
+    vsi_bool use_projection_bias;
+    vsi_bool use_hybrid;
+    vsi_bool multi_batch;
+} vsi_nn_bidirectional_sequence_lstm_lcl_data_t;
+
 typedef struct _vsi_nn_bidirectional_sequence_lstm_param
 {
+    vsi_nn_bidirectional_sequence_lstm_lcl_data_t *local;
     vsi_bool time_major;
     vsi_bool merge_outputs;
     vsi_nn_activation_e activation;
     float cell_clip;
     float proj_clip;
-    vsi_nn_dtype_t internal_dtype[LSTMUNIT_QUANTIZE_PARAM_COUNT];
+    float forget_bias;
+    vsi_nn_activation_e recurrent_activation;
+    vsi_nn_dtype_t *internal_dtype;
 } vsi_nn_bidirectional_sequence_lstm_param;
 
 #endif

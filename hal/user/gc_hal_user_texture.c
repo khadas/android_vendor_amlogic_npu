@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -5144,6 +5144,7 @@ gcoTEXTURE_InitParams(
         TexParams->baseLevel                        = 0;
         TexParams->compareMode                      = gcvTEXTURE_COMPARE_MODE_NONE;
         TexParams->compareFunc                      = gcvCOMPARE_LESS_OR_EQUAL;
+        TexParams->dsTextureMode                    = gcvTEXTURE_DS_TEXTURE_MODE_RED;
         TexParams->dsMode                           = gcvTEXTURE_DS_MODE_DEPTH;
         TexParams->sRGB                             = gcvTEXTURE_DECODE;
         TexParams->descDirty                        = gcvFALSE;

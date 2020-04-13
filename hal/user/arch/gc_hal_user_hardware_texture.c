@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -159,6 +159,22 @@ static gctINT _GetTextureFormat(
             gcvTEXTURE_SWIZZLE_0
         };
 
+        static const gceTEXTURE_SWIZZLE baseComponents_rgb1[] =
+        {
+            gcvTEXTURE_SWIZZLE_R,
+            gcvTEXTURE_SWIZZLE_G,
+            gcvTEXTURE_SWIZZLE_B,
+            gcvTEXTURE_SWIZZLE_1
+        };
+
+        static const gceTEXTURE_SWIZZLE baseComponents_000a[] =
+        {
+            gcvTEXTURE_SWIZZLE_0,
+            gcvTEXTURE_SWIZZLE_0,
+            gcvTEXTURE_SWIZZLE_0,
+            gcvTEXTURE_SWIZZLE_A
+        };
+
         gctUINT txFormat = FormatInfo->txFormat;
 
         /* GL_OES_depth_texture specify depth texture with unsized internal format, the value should (d,d,d,1.0).
@@ -209,7 +225,33 @@ static gctINT _GetTextureFormat(
         }
         else if (unsizedDepthTexture)
         {
-            baseComponents_depth = FormatInfo->txSwizzle;
+            if(Hardware->currentApi == gcvAPI_OPENGL)
+            {
+                if (TextureInfo->dsTextureMode == gcvTEXTURE_DS_TEXTURE_MODE_LUMINANCE)
+                {
+                    baseComponents_depth = baseComponents_rgb1;
+                }
+                else if (TextureInfo->dsTextureMode == gcvTEXTURE_DS_TEXTURE_MODE_INTENSITY)
+                {
+                    baseComponents_depth = baseComponents_rgba;
+                }
+                else if (TextureInfo->dsTextureMode == gcvTEXTURE_DS_TEXTURE_MODE_ALPHA)
+                {
+                    baseComponents_depth = baseComponents_000a;
+                }
+                else if (TextureInfo->dsTextureMode == gcvTEXTURE_DS_TEXTURE_MODE_RED)
+                {
+                    baseComponents_depth = baseComponents_r001;
+                }
+                else
+                {
+                    baseComponents_depth = baseComponents_rgba;
+                }
+            }
+            else
+            {
+                baseComponents_depth = FormatInfo->txSwizzle;
+            }
         }
         else if ((FormatInfo->format != gcvSURF_S8D32F_2_A8R8G8B8) &&
                  (FormatInfo->format != gcvSURF_D24S8_1_A8R8G8B8))
@@ -1394,6 +1436,7 @@ static gctINT _GetSamplerType(gceTEXTURE_TYPE textureType, gctBOOL *isArray)
 {
     gctINT type;
     gctBOOL isTexArray = gcvFALSE;
+    gceAPI currentApi;
 
     switch (textureType)
     {
@@ -1422,7 +1465,8 @@ static gctINT _GetSamplerType(gceTEXTURE_TYPE textureType, gctBOOL *isArray)
         break;
 
     case gcvTEXTURE_1D:
-        type = 0x1;
+        gcoHARDWARE_GetAPI(gcvNULL, &currentApi, gcvNULL);
+        type = (currentApi != gcvAPI_OPENGL) ? 0x1 : 0x2;
         break;
 
     case gcvTEXTURE_1D_ARRAY:
@@ -1587,6 +1631,16 @@ static void _GetBorderColor(
             borderColor32[0] = gcmFLOATCLAMP_0_TO_1(borderColor32[0]);
             borderColor32[2] = borderColor32[1] = borderColor32[0];
             borderColor32[3] = 1;
+        }
+        break;
+
+    case 0x09:
+        {
+            resultColor[0] = (gctUINT8)gcmFLOAT_TO_UNORM(borderColor32[0], 8);
+            resultColor[3] = resultColor[2] = resultColor[1] = resultColor[0];
+
+            borderColor32[0] = gcmFLOATCLAMP_0_TO_1(borderColor32[0]);
+            borderColor32[3] = borderColor32[2] = borderColor32[1] = borderColor32[0];
         }
         break;
 

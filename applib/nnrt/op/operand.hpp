@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2019 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -28,11 +28,9 @@
 #include <memory>
 #include <vector>
 
-#include "logging.hpp"
-
-#include "types.hpp"
-#include "memory_pool.hpp"
-#include "permute_vector.hpp"
+#include "nnrt/types.hpp"
+#include "nnrt/memory_pool.hpp"
+#include "nnrt/permute_vector.hpp"
 
 namespace nnrt{
 namespace op {
@@ -58,6 +56,7 @@ struct BaseOperand {
         bool boolean;
         int32_t int32;
         uint32_t uint32;
+        uint16_t float16;
         float float32;
         double float64;
     } scalar;
@@ -100,7 +99,7 @@ class Operand : public BaseOperand {
         if (auto mem_ref = weak_mem_ref.lock()) {
             return (mem_ref->len_ > 0 && !is_graph_input_output_);
         } else {
-            NNRT_LOGW_PRINT("Operand Memory Isn't prepared yet: usually its input/output of model");
+            // NNRT_LOGW_PRINT("Operand Memory Isn't prepared yet: usually its input/output of model");
             return false;
         }
     }

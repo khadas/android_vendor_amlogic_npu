@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -59,7 +59,7 @@
 #include <linux/uaccess.h>
 
 #include "gc_hal_kernel_linux.h"
-#include "gc_hal_driver.h"
+#include "shared/gc_hal_driver.h"
 
 #include <linux/platform_device.h>
 
@@ -153,6 +153,13 @@ module_param(externalBase, ulong, 0644);
 #endif
 MODULE_PARM_DESC(externalBase, "Base address of external memory");
 
+static ulong exclusiveSize = 0;
+module_param(exclusiveSize, ulong, 0644);
+MODULE_PARM_DESC(exclusiveSize, "Size of exclusiveSize memory, if it is 0, means there is no exclusive pool");
+
+static ulong exclusiveBase = 0;
+module_param(exclusiveBase, ulong, 0644);
+MODULE_PARM_DESC(exclusiveBase, "Base address of exclusive memory(GPU access only)");
 
 static int fastClear = -1;
 module_param(fastClear, int, 0644);
@@ -219,9 +226,10 @@ static int userClusterMask = 0;
 module_param(userClusterMask, int, 0644);
 MODULE_PARM_DESC(userClusterMask, "User defined cluster enable mask");
 
+/* GPU small batch feature. */
 static int smallBatch = 1;
 module_param(smallBatch, int, 0644);
-MODULE_PARM_DESC(smallBatch, "Enable/disable small batch");
+MODULE_PARM_DESC(smallBatch, "Enable/disable GPU small batch feature, enable by default");
 
 static int allMapInOne = 1;
 module_param(allMapInOne, int, 0644);
@@ -269,6 +277,10 @@ MODULE_PARM_DESC(sRAMLoopMode, "Default 0 means SRAM pool must be specified when
 static uint mmuDynamicMap = 1;
 module_param(mmuDynamicMap, uint, 0644);
 MODULE_PARM_DESC(mmuDynamicMap, "Default 1 means enable mmu dynamic mapping in virsual memory, 0 means disable dynnamic mapping.");
+
+static uint isrPoll = 0;
+module_param(isrPoll, uint, 0644);
+MODULE_PARM_DESC(isrPoll, "Bits isr polling for per-core, default 0'1b means disable, 1'1b means auto enable isr polling mode");
 
 #if USE_LINUX_PCIE
 static int bar = 1;
@@ -425,6 +437,8 @@ _InitModuleParam(
 
     p->mmuDynamicMap = mmuDynamicMap;
     p->allMapInOne = allMapInOne;
+
+    p->isrPoll = isrPoll;
 #if !gcdENABLE_3D
     p->irqs[gcvCORE_MAJOR]          = irqLine = -1;
     p->registerBases[gcvCORE_MAJOR] = registerMemBase = 0;
@@ -540,6 +554,7 @@ _SyncModuleParam(
     mmuPageTablePool = p->mmuDynamicMap;
     mmuDynamicMap = p->mmuDynamicMap;
     allMapInOne = p->allMapInOne;
+    isrPoll = p->isrPoll;
 }
 
 void
@@ -603,7 +618,7 @@ gckOS_DumpParam(
     printk("  stuckDump         = %d\n",      stuckDump);
     printk("  gpuProfiler       = %d\n",      gpuProfiler);
     printk("  userClusterMask   = 0x%x\n",    userClusterMask);
-    printk("  smallBatch        = %d\n",      smallBatch);
+    printk("  GPU smallBatch    = %d\n",      smallBatch);
     printk("  allMapInOne       = %d\n",      allMapInOne);
 
     printk("  irqs              = ");
@@ -670,6 +685,7 @@ gckOS_DumpParam(
 
     printk("  mmuPageTablePool  = %d\n", mmuPageTablePool);
     printk("  mmuDynamicMap     = %d\n", mmuDynamicMap);
+    printk("  isrPoll           = 0x%08X\n", isrPoll);
 
     printk("Build options:\n");
     printk("  gcdGPU_TIMEOUT    = %d\n", gcdGPU_TIMEOUT);
@@ -1161,6 +1177,16 @@ static int __devinit gpu_probe(struct platform_device *pdev)
     static u64 dma_mask = DMA_40BIT_MASK;
 #endif
 
+#if gcdCAPTURE_ONLY_MODE
+    gctPHYS_ADDR_T contiguousBaseCap = 0;
+    gctSIZE_T contiguousSizeCap = 0;
+    gctPHYS_ADDR_T sRAMBaseCap[gcvCORE_COUNT][gcvSRAM_INTER_COUNT];
+    gctUINT32 sRAMSizeCap[gcvCORE_COUNT][gcvSRAM_INTER_COUNT];
+    gctPHYS_ADDR_T extSRAMBaseCap[gcvSRAM_EXT_COUNT];
+    gctUINT32 extSRAMSizeCap[gcvSRAM_EXT_COUNT];
+    gctUINT i = 0, j = 0;
+#endif
+
     gcmkHEADER();
     if (get_nna_status(pdev) == gcvSTATUS_MISMATCH)
     {
@@ -1172,7 +1198,9 @@ static int __devinit gpu_probe(struct platform_device *pdev)
 
     galcore_device->dma_mask = &dma_mask;
 
-    galcore_device->coherent_dma_mask = dma_mask;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)
+        galcore_device->coherent_dma_mask = dma_mask;
+#endif
 
     if (platform->ops->getPower)
     {
@@ -1187,12 +1215,58 @@ static int __devinit gpu_probe(struct platform_device *pdev)
     /* Gather module parameters. */
     _InitModuleParam(&moduleParam);
 
+#if gcdCAPTURE_ONLY_MODE
+    contiguousBaseCap = moduleParam.contiguousBase;
+    contiguousSizeCap = moduleParam.contiguousSize;
+
+    gcmkPRINT("Capture only mode is enabled in Hal Kernel.");
+
+    if ((contiguousBaseCap + contiguousSizeCap) > 0x80000000)
+    {
+        gcmkPRINT("Capture only mode: contiguousBase + contiguousSize > 2G, there is error in CModel and old MMU version RTL simulation.");
+    }
+
+    for (i = 0; i < gcvCORE_COUNT; i++)
+    {
+        for (j = 0; j < gcvSRAM_INTER_COUNT; j++)
+        {
+            sRAMBaseCap[i][j] = moduleParam.sRAMBases[i][j];
+            sRAMSizeCap[i][j] = moduleParam.sRAMSizes[i][j];
+        }
+    }
+
+    for (i = 0; i < gcvSRAM_EXT_COUNT; i++)
+    {
+        extSRAMBaseCap[i] = moduleParam.extSRAMBases[i];
+        extSRAMSizeCap[i] = moduleParam.extSRAMSizes[i];
+    }
+#endif
+
     if (platform->ops->adjustParam)
     {
         /* Override default module param. */
         platform->ops->adjustParam(platform, &moduleParam);
     }
 
+#if gcdCAPTURE_ONLY_MODE
+    moduleParam.contiguousBase = contiguousBaseCap;
+    moduleParam.contiguousSize = contiguousSizeCap;
+
+    for (i = 0; i < gcvCORE_COUNT; i++)
+    {
+        for (j = 0; j < gcvSRAM_INTER_COUNT; j++)
+        {
+            moduleParam.sRAMBases[i][j] = sRAMBaseCap[i][j];
+            moduleParam.sRAMSizes[i][j] = sRAMSizeCap[i][j];
+        }
+    }
+
+    for (i = 0; i < gcvSRAM_EXT_COUNT; i++)
+    {
+        moduleParam.extSRAMBases[i] = extSRAMBaseCap[i];
+        moduleParam.extSRAMSizes[i] = extSRAMSizeCap[i];
+    }
+#endif
     /* Update module param because drv_init() uses them directly. */
     _SyncModuleParam(&moduleParam);
 

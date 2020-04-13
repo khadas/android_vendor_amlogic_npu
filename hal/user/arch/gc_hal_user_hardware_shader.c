@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -191,6 +191,12 @@ gcoHARDWARE_QueryShaderCompilerHwCfg(
             }
             attribBufSizeInKbyte -= fragmentSizeInKbyte;
 
+            if (!(Hardware->patchID == gcvPATCH_OPENCV_TEST_PHOTO && (pVscHwCfg->chipModel == gcv7000 && pVscHwCfg->chipRevision  == 0x6214)) &&
+                ((attribBufSizeInKbyte > 0) && !(IS_HW_SUPPORT(gcvFEATURE_PSCS_THROTTLE) && IS_HW_SUPPORT(gcvFEATURE_HWMANAGED_LS))))
+            {
+                attribBufSizeInKbyte -= 1;
+            }
+
             localStorageSizeInKbyte = attribBufSizeInKbyte;
         }
     }
@@ -346,9 +352,28 @@ gcoHARDWARE_QueryShaderCompilerHwCfg(
     pVscHwCfg->hwFeatureFlags.supportMultiGPU        = gcvTRUE;
     pVscHwCfg->hwFeatureFlags.hasPointSizeFix        = IS_HW_SUPPORT(gcvFEATURE_MAX_POINTSIZE_CLAMP);
     pVscHwCfg->hwFeatureFlags.supportVectorB0        = gcvFALSE;
-
+    if ((pVscHwCfg->chipModel == gcv7000 && pVscHwCfg->chipRevision == 0x6009)
+        ||
+        (pVscHwCfg->chipModel == gcv3000 && pVscHwCfg->chipRevision == 0x5450))
+    {
+        pVscHwCfg->hwFeatureFlags.hasAtomTimingFix   = gcvFALSE;
+    }
+    else
+    {
+        pVscHwCfg->hwFeatureFlags.hasAtomTimingFix   = gcvTRUE;
+    }
     pVscHwCfg->hwFeatureFlags.FEDrawDirect           = IS_HW_SUPPORT(gcvFEATURE_FE_DRAW_DIRECT);
     pVscHwCfg->hwFeatureFlags.hasUSCAtomicFix2       = IS_HW_SUPPORT(gcvFEATURE_USC_ATOMIC_FIX2);
+
+    /* Only those chips with VX2 really have this issue, other chips don't have this issue. */
+    if (IS_HW_SUPPORT(gcvFEATURE_EVIS_VX2))
+    {
+        pVscHwCfg->hwFeatureFlags.hasFloatingMadFix  = IS_HW_SUPPORT(gcvFEATURE_SH_VX2_FLOATING_MAD_FIX);
+    }
+    else
+    {
+        pVscHwCfg->hwFeatureFlags.hasFloatingMadFix  = gcvTRUE;
+    }
 
 OnError:
     gcmFOOTER();
@@ -367,11 +392,26 @@ _StallHw(
     gctBOOL reconfigUSC = gcvFALSE;
     gctBOOL smallBatch = Hardware->features[gcvFEATURE_SMALL_BATCH] && Hardware->options.smallBatch;
     gceSTATUS status = gcvSTATUS_OK;
+    gctBOOL needSnapToPage = gcvFALSE;
 
     do
     {
         if (Hardware->features[gcvFEATURE_USC])
         {
+            if (!(Hardware->features[gcvFEATURE_PSCS_THROTTLE] && Hardware->features[gcvFEATURE_HWMANAGED_LS]))
+            {
+                if (((Hardware->prevProgramStageBits & gcvPROGRAM_STAGE_VERTEX_BIT) ||
+                    (Hardware->prevProgramStageBits & gcvPROGRAM_STAGE_TCS_BIT) ||
+                    (Hardware->prevProgramStageBits & gcvPROGRAM_STAGE_TES_BIT) ||
+                    (Hardware->prevProgramStageBits & gcvPROGRAM_STAGE_GEOMETRY_BIT)) &&
+                    ((hints->stageBits & gcvPROGRAM_STAGE_FRAGMENT_BIT) ||
+                    (hints->stageBits & gcvPROGRAM_STAGE_COMPUTE_BIT) ||
+                    (hints->stageBits & gcvPROGRAM_STAGE_OPENCL_BIT)))
+                {
+                    needSnapToPage = gcvTRUE;
+                }
+            }
+
             if ((Hardware->prevProgramStageBits & gcvPROGRAM_STAGE_COMPUTE_BIT) !=
                 (hints->stageBits & gcvPROGRAM_STAGE_COMPUTE_BIT))
             {
@@ -614,6 +654,20 @@ _StallHw(
                                                 0x03884,
                                                 uscConfig,
                                                 gcvNULL));
+    }
+    else if (needSnapToPage && (Hardware->features[gcvFEATURE_SNAPPAGE_CMD] &&
+        Hardware->features[gcvFEATURE_SNAPPAGE_CMD_FIX]))
+    {
+        gcePROGRAM_STAGE_BIT snapStags = Hardware->prevProgramStageBits & gcvPORGRAM_STAGE_GPIPE;
+
+        if (snapStags)
+        {
+            gcmVERIFY_OK(
+                gcoHARDWARE_SnapPages(
+                    Hardware,
+                    snapStags,
+                    gcvNULL));
+        }
     }
 
     /* overwrite to previous one */

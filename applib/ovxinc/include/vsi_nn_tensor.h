@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2018 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -105,7 +105,7 @@ typedef struct vsi_nn_dtype
             /** Meanful in affine asymmetric */
             struct
             {
-                uint32_t  zero_point;
+                int32_t   zero_point;
                 float     scale;
             };
 #ifdef VSI_PERCHANNEL_QUANTIZATION_SUPPORT

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2018 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -126,7 +126,7 @@ OVXLIB_API int32_t vsi_nn_Fp32ToAffine
     (
     const float  in,
     const float  scale,
-    const uint8_t    zero_point,
+    const int32_t    zero_point,
     const vsi_nn_type_e type
     );
 
@@ -134,7 +134,7 @@ OVXLIB_API float vsi_nn_AffineToFp32
     (
     const int32_t    val,
     const float  scale,
-    const uint8_t    zero_point,
+    const int32_t    zero_point,
     const vsi_nn_type_e type
     );
 

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -15,7 +15,7 @@
 #define __gc_hal_user_h_
 
 #include "gc_hal.h"
-#include "gc_hal_driver.h"
+#include "shared/gc_hal_driver.h"
 #include "gc_hal_enum.h"
 #include "gc_hal_dump.h"
 #include "gc_hal_base.h"
@@ -163,6 +163,47 @@ extern "C" {
     gcmVERIFY_OK(gcsSURF_NODE_GetHardwareAddress( \
         &node, gcvNULL, gcvNULL, gcvNULL, &bottom)); \
 } \
+
+#define gcmGETENDIANOPTION(reg,eEndianMode,data) \
+{ \
+    switch(eEndianMode) \
+    {\
+        case gcvENDIAN_MODE0: \
+            data |= gcmSETFIELDVALUE(0, reg, ENDIAN_CONTROL, NO_SWAP) \
+                       | gcmSETFIELDVALUE(0, reg, ENDIAN_CONTROL_EX, NO_SWAP); \
+            break; \
+        case gcvENDIAN_MODE1: \
+            data |= gcmSETFIELDVALUE(0, reg, ENDIAN_CONTROL, NO_SWAP) \
+                       | gcmSETFIELDVALUE(0, reg, ENDIAN_CONTROL_EX, SWAP_BYTE); \
+            break; \
+        case gcvENDIAN_MODE2: \
+            data |= gcmSETFIELDVALUE(0, reg, ENDIAN_CONTROL, SWAP_WORD) \
+                       | gcmSETFIELDVALUE(0, reg, ENDIAN_CONTROL_EX, NO_SWAP); \
+            break; \
+        case gcvENDIAN_MODE3: \
+            data |= gcmSETFIELDVALUE(0, reg, ENDIAN_CONTROL, SWAP_WORD) \
+                       | gcmSETFIELDVALUE(0, reg, ENDIAN_CONTROL_EX, SWAP_BYTE); \
+            break; \
+        case gcvENDIAN_MODE4: \
+            data |= gcmSETFIELDVALUE(0, reg, ENDIAN_CONTROL, SWAP_DWORD) \
+                       | gcmSETFIELDVALUE(0, reg, ENDIAN_CONTROL_EX, NO_SWAP); \
+            break; \
+        case gcvENDIAN_MODE5: \
+            data |= gcmSETFIELDVALUE(0, reg, ENDIAN_CONTROL, SWAP_DWORD) \
+                       | gcmSETFIELDVALUE(0, reg, ENDIAN_CONTROL_EX, SWAP_BYTE); \
+            break; \
+        case gcvENDIAN_MODE6: \
+            data |= gcmSETFIELDVALUE(0, reg, ENDIAN_CONTROL, SWAP_DDWORD) \
+                       | gcmSETFIELDVALUE(0, reg, ENDIAN_CONTROL_EX, NO_SWAP); \
+            break; \
+        case gcvENDIAN_MODE7: \
+            data |= gcmSETFIELDVALUE(0, reg, ENDIAN_CONTROL, SWAP_DDWORD) \
+                       | gcmSETFIELDVALUE(0, reg, ENDIAN_CONTROL_EX, SWAP_BYTE); \
+            break; \
+        default: \
+            gcmASSERT(0); \
+    } \
+}\
 
 /******************************************************************************\
 ********************************** Structures **********************************
@@ -1904,7 +1945,8 @@ gcoDECHARDWARE_SetDstDECCompression(
     IN gcoSURF Surface,
     IN gce2D_TILE_STATUS_CONFIG TileStatusConfig,
     IN gctUINT32 ReadId,
-    IN gctUINT32 WriteId
+    IN gctUINT32 WriteId,
+    IN gctBOOL enableAlpha
     );
 
 gceSTATUS
@@ -1912,6 +1954,11 @@ gcoDECHARDWARE_FlushDECCompression(
     IN gcoHARDWARE Hardware,
     IN gctBOOL Flush,
     IN gctBOOL Wait
+    );
+
+gceSTATUS
+gcoDECHARDWARE_ResetDEC400EXStream(
+    IN gcoHARDWARE Hardware
     );
 
 #define gcmHAS2DCOMPRESSION(Surface) \
@@ -3034,6 +3081,7 @@ typedef struct _vx_drv_option
     gctUINT enableGraphMergeTranspose;
     gctUINT enableGraphDeleteRelu;
     gctUINT enableGraphDeleteSqueeze;
+    gctUINT enableGraphAvgPoolandPWConv;
     gctUINT enableGraphWar1x1x1weight;
     gctUINT freqInMHZ;
     gctUINT axiClockFreqInMHZ;
@@ -3052,6 +3100,25 @@ typedef struct _vx_drv_option
     gctUINT enableAllocateContigousMemForKernel;
     gctUINT enableNNTranspose;
     gctUINT disableTPNNEvis;
+    gctUINT enableWBDump;
+    gctUINT commandBufferDump;
+    gctUINT enableWBShare;
+    gctUINT vipTimeOut;
+
+    /* graph batch count */
+    gctUINT graphBatchCount;
+    /* add env setting for DDR Burst */
+    gctUINT specificDDRLimitByBurst;
+    gctFLOAT ddrReadSustainedBw64BBurst;
+    gctFLOAT ddrReadSustainedBw128BBurst;
+    gctFLOAT ddrReadSustainedBw256BBurst;
+    gctFLOAT ddrMaskWriteSustainedBw64BBurst;
+    gctFLOAT ddrMaskWriteSustainedBw128BBurst;
+    gctFLOAT ddrMaskWriteSustainedBw256BBurst;
+    gctFLOAT ddrNonMaskWriteSustainedBw64BBurst;
+    gctFLOAT ddrNonMaskWriteSustainedBw128BBurst;
+    gctFLOAT ddrNonMaskWriteSustainedBw256BBurst;
+
 }
 vx_drv_option;
 
@@ -3091,7 +3158,8 @@ typedef union _vx_nn_cmd_split_info_union
         gctUINT32 inTileXInc;
         gctUINT32 inTileYInc;
         gctUINT32 inTileSequence;
-
+        gctUINT32 inWindowZStartOverfetch2;
+        gctUINT32 inWindowZEndOverfetch2;
         gctUINT32 outBaseAddress;
         gctUINT32 outLoop1Reset;
         gctUINT32 outLoop2Reset;
@@ -3142,7 +3210,8 @@ typedef union _vx_nn_cmd_split_info_union
         gctUINT32 inTileXInc;
         gctUINT32 inTileYInc;
         gctUINT32 inTileSequence;
-
+        gctUINT32 inWindowZStartOverfetch2;
+        gctUINT32 inWindowZEndOverfetch2;
         gctUINT32 outBaseAddress;
         gctUINT32 outLoop1Reset;
         gctUINT32 outLoop2Reset;
@@ -3216,11 +3285,17 @@ typedef union _vx_nn_cmd_info_union
         gctUINT32  roundingMode;
         gctUINT32  relu;
         gctINT32   nn_layer_flush;
+        gctUINT32  postMultiplierSign;
+        gctUINT32  negPostMultiplierSign;
+        gctUINT32  postShiftBits7;
+        gctUINT32  negPostShiftBits7;
         gctUINT32  postMultiplier;
+        gctUINT32  negPostMultiplier;
         gctUINT32  postMultiplierBit6to1;
         gctUINT32  postMultiplierBit14to7;
         gctUINT32  postMultiplierBit22to15;
         gctINT32   postShift;
+        gctINT32   negPostShift;
         gctUINT32  postShiftBit6to5;
         gctUINT32  wSize;
         gctUINT8   kernelDataType;
@@ -3259,6 +3334,7 @@ typedef union _vx_nn_cmd_info_union
         gctUINT8  kernelDataTypeBit3;
         gctUINT8  inImageDataTypeBit3;
         gctUINT8  outImageDataTypeBit3;
+        gctUINT8  nnAluFunction;
         gctUINT8  outImageCacheEvictPolicy;
         gctUINT32 noFlush;
         gctUINT8  hwDepthWise;
@@ -3266,6 +3342,15 @@ typedef union _vx_nn_cmd_info_union
         gctUINT8  noBias;
         gctUINT8  perChannelPostMul;
         gctUINT8  pRelu;
+
+        gctUINT32 secInImageAddress;
+        gctUINT32 secInImageCircularBufSize;
+        gctUINT32 secInImageCircularBufEndAddrPlus1;
+        gctUINT32  dwOutputZPBit1To0;
+        gctUINT32  dwCoefZPBit5To0;
+        gctUINT32  dwCoefZPBit7To6;
+        gctUINT8   secInImageTransposeChMinusOne;
+        gctUINT8   convolutionStride;
     }
     vx_nn_general_cmd_info;
 
@@ -3287,6 +3372,8 @@ typedef union _vx_nn_cmd_info_union
         gctUINT32 inTileXInc;
         gctUINT32 inTileYInc;
         gctUINT32 inTileSequence;
+        gctUINT32 inWindowZStartOverfetch2;
+        gctUINT32 inWindowZEndOverfetch2;
         gctUINT32 outBaseAddress;
         gctUINT32 outLoop1Reset;
         gctUINT32 outLoop2Reset;
@@ -3606,7 +3693,10 @@ gcoHARDWAREVX_TriggerAccelerator(
     IN gctBOOL                  waitEvent,
     IN gctUINT32                gpuId,
     IN gctBOOL                  sync,
-    IN gctUINT32                syncEventID
+    IN gctUINT32                syncEventID,
+    IN gctUINT32                vipSRAMRemapStartAddr,
+    IN gctUINT32                axiSRAMRemapStartAddr,
+    IN gctUINT32                axiSRAMRemapEndAddr
 );
 
 gceSTATUS
@@ -3901,6 +3991,13 @@ gcoBUFFER_IsCaptureEnabled(
     IN gcoBUFFER Buffer
     );
 
+#if gcdCAPTURE_ONLY_MODE
+gceSTATUS
+gcoBUFFER_SetContextLogical(
+    IN gctPOINTER * ContextLogical,
+    OUT gcoBUFFER Buffer
+    );
+#endif
 
 #if gcdSYNC
 typedef enum _gceFENCE_STATUS
@@ -4237,6 +4334,7 @@ struct _gcoSURF
     gctSHBUF                    shBuf;
 
     _PFNcalcPixelAddr           pfGetAddr;
+    gceENDIAN_MODE              eEndianMode;
 };
 
 
@@ -4266,6 +4364,7 @@ _PFNwritePixel gcoSURF_GetWritePixelFunc(gcoSURF surf);
 _PFNcalcPixelAddr gcoHARDWARE_GetProcCalcPixelAddr(gcoHARDWARE Hardware, gcoSURF Surf);
 void gcoSURF_PixelToNonLinear(gcsPIXEL* inPixel);
 void gcoSURF_PixelToLinear(gcsPIXEL* inPixel);
+void gcoSURF_PixelToSignedInteger(gcsPIXEL* inPixel, gcsFORMAT_CLASS_TYPE_RGBA rgba);
 
 #define gcd_QUERY_COLOR_SPACE(format)   \
     (format == gcvSURF_A8_SBGR8 ||      \

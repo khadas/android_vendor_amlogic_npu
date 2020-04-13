@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -23,7 +23,11 @@ extern "C" {
 \******************************************************************************/
 
 /* The number of context buffers per user. */
+#if gcdCAPTURE_ONLY_MODE
+#define gcdCONTEXT_BUFFER_COUNT 1
+#else
 #define gcdCONTEXT_BUFFER_COUNT 2
+#endif
 
 #define gcdRENDER_FENCE_LENGTH                      (6 * gcmSIZEOF(gctUINT32))
 #define gcdBLT_FENCE_LENGTH                         (10 * gcmSIZEOF(gctUINT32))

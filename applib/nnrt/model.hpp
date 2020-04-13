@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2019 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -205,7 +205,7 @@ class Model {
    private:
     uint32_t operand_unique_id_{0};
     uint32_t operation_unique_id_{0};
-    bool relaxed_; /* the flag to run fp16 data,instead of fp32*/
+    bool relaxed_{false}; /* the flag to run fp16 data,instead of fp32*/
     bool finalized_{false};
     bool compiled_{false};
     bool valid_{false};
@@ -217,8 +217,6 @@ class Model {
 
     mem_pool::Manager memory_pool_;
     std::vector<mem_pool::shared_ref> mem_refs_;
-
-    void checkProcess();
 };
 
 using ModelPtr = std::shared_ptr<Model>;

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -1610,6 +1610,8 @@ _FillInFeatureTable(
     Features[gcvFEATURE_NON_POWER_OF_TWO] = database->REG_NonPowerOfTwo;
 
     Features[gcvFEATURE_HALTI0] = database->REG_Halti0;
+    Features[gcvFEATURE_FORMAT_10BIT_CROSS_4K] = database->FORMAT_10BIT_CROSS_4K;
+    Features[gcvFEATURE_ENDIAN_CONTROL] = database->ENDIAN_CONTROL;
 
     if (Features[gcvFEATURE_HALTI0])
     {
@@ -2470,6 +2472,7 @@ _FillInFeatureTable(
     Features[gcvFEATURE_TP_SIMPLE_INT16] = database->TP_SIMPLE_INT16;
     Features[gcvFEATURE_TP_REAL_INT16] = database->TP_REAL_INT16;
     Features[gcvFEATURE_NN_FIRST_PIXEL_POOLING] = database->NN_FIRST_PIXEL_POOLING;
+    Features[gcvFEATURE_NN_FAST_FIRST_PIXEL_POOLING] = 0;
     Features[gcvFEATURE_NN_STRIDE_SUPPORT] = database->NN_STRIDE_SUPPORT;
     Features[gcvFEATURE_NN_XYDP6] = database->NN_XYDP6;
     Features[gcvFEATURE_NN_XYDP0] = database->NN_XYDP0;
@@ -2504,6 +2507,12 @@ _FillInFeatureTable(
     Features[gcvFEATURE_USC_EVICT_CTRL_FIFO_FLOP_RESET_FIX] = database->USC_EVICT_CTRL_FIFO_FLOP_RESET_FIX;
     Features[gcvFEATURE_NEGATIVE_POST_SHIFT_FIX] = database->NEGATIVE_POST_SHIFT_FIX;
     Features[gcvFEATURE_NN_COMMAND_KERNEL_REQUEST_CONFICT_FIX] = database->NN_COMMAND_KERNEL_REQUEST_CONFICT_FIX;
+    Features[gcvFEATURE_NN_LEAKY_RELU] = 0;/*database->NN_LEAKY_RELU;*/
+    Features[gcvFEATURE_NN_PRELU] = 0;/*database->NN_PRELU;*/
+    Features[gcvFEATURE_NN_NATIVE_STRIDE_TWO] = database->NN_NATIVE_STRIDE_TWO;
+    Features[gcvFEATURE_NN_TENSOR_ADD] = database->NN_TENSOR_ADD;
+    Features[gcvFEATURE_SMALL_BATCH_FLOPS_RESET_FIX] = database->SMALL_BATCH_FLOPS_RESET_FIX;
+    Features[gcvFEATURE_SMALL_BATCH_DISBLE_FIX] = database->SMALL_BATCH_DISBLE_FIX;
 
     Features[gcvFEATURE_IMAGE_LS_NO_FULLMASK_FIX] = gcvFALSE;
     Features[gcvFEATURE_BLT_YUV_OUTPUT] = database->BLT_YUV_OUTPUT;
@@ -2537,9 +2546,10 @@ _FillInFeatureTable(
     Features[gcvFEATURE_NO_FLUSH_USC_FIX] = database->NO_FLUSH_USC_FIX;
     Features[gcvFEATURE_COEF_DELTA_CORD_OVERFLOW_ZRL_8BIT_FIX] = database->COEF_DELTA_CORD_OVERFLOW_ZRL_8BIT_FIX;
     Features[gcvFEATURE_KERNEL_PER_CORE_LESS_THAN_THIRD_COEF_BUFF_DEPTH_FIX] = database->KERNEL_PER_CORE_LESS_THAN_THIRD_COEF_BUFF_DEPTH_FIX;
-    Features[gcvFEATURE_NN_PER_CHANNEL_POST_MULTIPLY] = database->NN_PER_CHANNEL_POST_MULTIPLY;
+    Features[gcvFEATURE_NN_PER_CHANNEL_QUANT] = 0;/*database->NN_PER_CHANNEL_QUANT;*/
+    Features[gcvFEATURE_NN_PER_CHANNEL_QUANT_ASYM] = 0;/*database->NN_PER_CHANNEL_QUANT_ASYM;*/
+    Features[gcvFEATURE_NN_FLOAT_POST_MULT] = 0;/*database->NN_FLOAT_POST_MULT;*/
     Features[gcvFEATURE_NN_NO_Z_LOCATION_OFFSET] = database->NN_NO_Z_LOCATION_OFFSET;
-    Features[gcvFEATURE_NN_PRELU] = database->NN_PRELU;
     Features[gcvFEATURE_NN_KERNEL_SIZE_WASTE_IN_PARTIAL_MODE_FIX] = database->KERNEL_SIZE_WASTE_IN_PARTIAL_MODE_FIX;
     Features[gcvFEATURE_USC_BOTTLENECK_FIX] = database->USC_BOTTLENECK_FIX;
     Features[gcvFEATURE_OCB_REMAP_PHYSICAL_ADDRESS] = database->OCB_REMAP_PHYSICAL_ADDRESS;
@@ -2548,10 +2558,32 @@ _FillInFeatureTable(
     Features[gcvFEATURE_TP_REORDER_LAYER_SUSPEND_FIX] = database->TP_REORDER_LAYER_SUSPEND_FIX;
     Features[gcvFEATURE_KERNEL_VIP_SRAM_READ_BW_LIMITATION_FIX] = database->KERNEL_VIP_SRAM_READ_BW_LIMITATION_FIX;
     Features[gcvFEATURE_IMG_POP_PIPELINE_PAUSE_FIX] = database->IMG_POP_PIPELINE_PAUSE_FIX;
+    Features[gcvFEATURE_VIP_HW_FINAL_RELEASE] = database->VIP_HW_FINAL_RELEASE;
     Features[gcvFEATURE_NN_SLOW_OUTPUT] = database->NN_SLOW_OUTPUT;
     Features[gcvFEATURE_NO_NARROW_POST_PROCESS_PIPE] = database->NO_NARROW_POST_PROCESS_PIPE;
     Features[gcvFEATURE_TP_NN_PROBE] = database->TP_NN_PROBE;
     Features[gcvFEATURE_VIP_DEC400] = database->VIP_DEC400;
+    Features[gcvFEATURE_DEPTHWISE_NEIGHBOR_IMG_DATA_TRANSFER_NOT_EFFICIENT_FIX] = database->DEPTHWISE_NEIGHBOR_IMG_DATA_TRANSFER_NOT_EFFICIENT_FIX;
+
+    Features[gcFEATURE_BIT_NN_COMPRESSION_BYPASSS] = database->NN_COMPRESSION_BYPASSS;
+    Features[gcFEATURE_BIT_BFLOAT_KERNEL_COMPRESSION_ZERO_SKIP_FIX] = database->BFLOAT_KERNEL_COMPRESSION_ZERO_SKIP_FIX;
+    Features[gcFEATURE_BIT_TP_KERNEL_1BYTE_ALGIN] = database->TP_KERNEL_1BYTE_ALGIN;
+    Features[gcFEATURE_PREPROCESS_IMG_BUF_640BYTE_LIMIT] = database->PREPROCESS_IMG_BUF_640BYTE_LIMIT;
+    /* AIGPU */
+    Features[gcvFEATURE_AI_GPU] = database->AI_GPU;
+
+    if (Features[gcvFEATURE_AI_GPU])
+    {
+        Hardware->config->disableVIP = ((((gctUINT32) (Hardware->config->chipMinorFeatures6)) >> (0 ?
+ 5:5) & ((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1)))))) == (0x1 & ((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ? ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1)))))));
+    }
 
     /*these chip don't have maxpointSize limit, so need fix */
     if (((chipModel == gcv880) && (chipRevision == 0x5106))
@@ -2566,6 +2598,8 @@ _FillInFeatureTable(
     {
         Features[gcvFEATURE_MAX_POINTSIZE_CLAMP] = gcvTRUE;
     }
+
+    Features[gcvFEATURE_SH_VX2_FLOATING_MAD_FIX] = database->SH_VX2_FLOATING_MAD_FIX;
 
 
 
@@ -2875,10 +2909,15 @@ if (smallBatch){    Config->vsConstBase  = 0xD000;
     Config->nnConfig.fixedFeature.uscBanks                       = featureDatabase->USC_BANKS;
     Config->nnConfig.fixedFeature.nnLanesPerOutCycle             = featureDatabase->NN_LANES_PER_OUT_CYCLE;
     Config->nnConfig.fixedFeature.maxOTNumber                    = featureDatabase->MAX_OT_NUMBER;
+    Config->nnConfig.fixedFeature.physicalVipSramWidthInByte     = featureDatabase->PHYSICAL_VIP_SRAM_WIDTH_IN_BYTE;
     Config->nnConfig.fixedFeature.equivalentVipsramWidthInByte   = featureDatabase->EQUIVALENT_VIP_SRAM_WIDTH_INBYTE;
     Config->nnConfig.fixedFeature.latencyHidingAtFullAxiBw       = featureDatabase->LATENCY_HIDING_AT_FULL_AXI_BW;
     Config->nnConfig.fixedFeature.axiBusWidth                    = featureDatabase->AXI_BUS_WIDTH;
+    Config->nnConfig.fixedFeature.nnMaxKXSize = featureDatabase->NN_KERNEL_X_SIZE;
+    Config->nnConfig.fixedFeature.nnMaxKYSize = featureDatabase->NN_KERNEL_Y_SIZE;
+    Config->nnConfig.fixedFeature.nnMaxKZSize = featureDatabase->NN_KERNEL_Z_SIZE;
 
+    Config->nnConfig.customizedFeature.ddrKernelBurstSize = featureDatabase->DDR_KERNEL_BURST_SIZE;
     Config->nnConfig.customizedFeature.vipSRAMSize = featureDatabase->VIP_SRAM_SIZE;
     Config->nnConfig.customizedFeature.axiSRAMSize = featureDatabase->AXI_SRAM_SIZE;
 
@@ -2951,6 +2990,8 @@ static gceSTATUS
     config->chipMinorFeatures4     = iface.u.QueryChipIdentity.chipMinorFeatures4;
     config->chipMinorFeatures5     = iface.u.QueryChipIdentity.chipMinorFeatures5;
     config->chipMinorFeatures6     = iface.u.QueryChipIdentity.chipMinorFeatures6;
+
+    config->disableVIP = gcvFALSE;
 
     iface.ignoreTLS = gcvFALSE;
     iface.command = gcvHAL_QUERY_CHIP_OPTION;
@@ -4005,6 +4046,12 @@ _DetectProcess(
             gcvFALSE
         },
 
+        {
+            gcvPATCH_KANZI,
+            "\x94\x8f\x9e",
+            gcvFALSE
+        },
+
 #if defined(ANDROID)
         {
             gcvPATCH_A8HP,
@@ -4294,6 +4341,12 @@ _DetectProcess(
 #endif
             gcvFALSE
         },
+        {
+            gcvPATCH_OPENCV_TEST_PHOTO,
+            "\x90\x8f\x9a\x91\x9c\x89\xa0\x8b\x9a\x8c\x8b\xa0\x8f\x97\x90\x8b\x90",
+            gcvFALSE
+        },
+
 #if defined(ANDROID)
         {
             gcvPATCH_NATIVEHARDWARE_CTS,
@@ -4985,6 +5038,26 @@ _Attach(
     iface.u.Attach.map = gcvFALSE;
 #endif
 
+#if gcdCAPTURE_ONLY_MODE
+    iface.u.Attach.queryCapSize = gcvTRUE;
+
+    gcmONERROR(gcoOS_DeviceControl(
+        gcvNULL,
+        IOCTL_GCHAL_INTERFACE,
+        &iface, gcmSIZEOF(iface),
+        &iface, gcmSIZEOF(iface)
+        ));
+
+    gcmONERROR(iface.status);
+
+    for (i = 0; i < gcdCONTEXT_BUFFER_NUM; i++)
+    {
+        gcmONERROR(gcoOS_Allocate(gcvNULL, iface.u.Attach.captureSize, &iface.u.Attach.contextLogical[i]));
+    }
+
+    iface.u.Attach.queryCapSize = gcvFALSE;
+#endif
+
     gcmONERROR(gcoOS_DeviceControl(
         gcvNULL,
         IOCTL_GCHAL_INTERFACE,
@@ -5006,7 +5079,7 @@ _Attach(
 
     hardware->numStates  = iface.u.Attach.numStates;
 
-#if gcdDUMP
+#if gcdDUMP || gcdCAPTURE_ONLY_MODE
     hardware->currentContext = 0;
     hardware->contextBytes = iface.u.Attach.bytes;
 
@@ -6637,6 +6710,7 @@ gcoHARDWARE_Construct(
     else  /*gcvHARDWARE_2D */
     {
         attachCoreCount = 1;
+        coreIndexs[0] = 0;
     }
 
     gcmONERROR(gcoHARDWARE_ConstructEx(Hal, ThreadDefault, Robust, type, attachCoreCount, localCoreIndexs, coreIndexs, Hardware));
@@ -7010,6 +7084,11 @@ gceSTATUS gcoHARDWARE_Destroy(
             if (Hardware->contexts[i] != 0)
             {
                 gcsHAL_INTERFACE iface;
+
+#if gcdCAPTURE_ONLY_MODE
+                gctUINT count = 0;
+#endif
+
                 iface.ignoreTLS = gcvFALSE;
                 iface.command = gcvHAL_DETACH;
                 iface.u.Detach.context = Hardware->contexts[i];
@@ -7027,6 +7106,13 @@ gceSTATUS gcoHARDWARE_Destroy(
                     ));
 
                 Hardware->contexts[i] = 0;
+
+#if gcdCAPTURE_ONLY_MODE
+                for (count = 0; count < gcdCONTEXT_BUFFER_COUNT; ++count)
+                {
+                    gcmOS_SAFE_FREE(gcvNULL, Hardware->contextLogical[count]);
+                }
+#endif
             }
         }
         gcoHAL_SetCoreIndex(gcvNULL, coreIndex);
@@ -10242,6 +10328,13 @@ gcoHARDWARE_Commit(
         }
 #endif
     }
+
+#if gcdCAPTURE_ONLY_MODE
+     gcoBUFFER_SetContextLogical(
+        Hardware->contextLogical,
+        Hardware->engine[gcvENGINE_RENDER].buffer
+        );
+#endif
 
     status = gcoBUFFER_Commit(
         Hardware->engine[gcvENGINE_RENDER].buffer,
@@ -15947,7 +16040,18 @@ gcoHARDWARE_LockExAddCpuPhysicalAddr(
             iface.u.LockVideoMemory.node = handle;
             iface.u.LockVideoMemory.cacheable = cacheable;
 
+#if gcdCAPTURE_ONLY_MODE
+            iface.u.LockVideoMemory.queryCapSize = gcvTRUE;
+
             gcmONERROR(gcoHAL_Call(gcvNULL, &iface));
+
+            gcmONERROR(gcoOS_Allocate(gcvNULL, iface.u.LockVideoMemory.captureSize, &iface.u.LockVideoMemory.captureLogical));
+
+            iface.u.LockVideoMemory.queryCapSize = gcvFALSE;
+#endif
+
+            gcmONERROR(gcoHAL_Call(gcvNULL, &iface));
+
             if (CpuPhysicalAddress != gcvNULL)
             {
                 gcmASSERT(iface.u.LockVideoMemory.physicalAddress < 0x100000000);
@@ -16082,6 +16186,16 @@ gcoHARDWARE_LockEx(
             iface.command = gcvHAL_LOCK_VIDEO_MEMORY;
             iface.u.LockVideoMemory.node = handle;
             iface.u.LockVideoMemory.cacheable = cacheable;
+
+#if gcdCAPTURE_ONLY_MODE
+            iface.u.LockVideoMemory.queryCapSize = gcvTRUE;
+
+            gcmONERROR(gcoHAL_Call(gcvNULL, &iface));
+
+            gcmONERROR(gcoOS_Allocate(gcvNULL, iface.u.LockVideoMemory.captureSize, &iface.u.LockVideoMemory.captureLogical));
+
+            iface.u.LockVideoMemory.queryCapSize = gcvFALSE;
+#endif
 
             gcmONERROR(gcoHAL_Call(gcvNULL, &iface));
 

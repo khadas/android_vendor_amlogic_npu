@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2018 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -142,7 +142,8 @@
 #include "ops/vsi_nn_op_variable.h"
 #include "ops/vsi_nn_op_rnncell_ovxlib.h"
 #include "ops/vsi_nn_op_l2_normalize.h"
-
+#include "ops/vsi_nn_op_swish.h"
+#include "ops/vsi_nn_op_depthwise_conv1d.h"
 /* custom node head define define */
 #include "custom/vsi_nn_custom_node_type.h"
 
@@ -271,6 +272,8 @@ typedef union _vsi_nn_nn_param
     vsi_nn_variable_param variable;
     vsi_nn_rnncell_ovxlib_param     rnncell_ovxlib;
     vsi_nn_l2_normalize_param       l2_normalize;
+    vsi_nn_depthwise_conv1d_param   depthwise_conv1d;
+    vsi_nn_swish_param              swish;
     uint8_t                         client_param[128];
 
     /* custom node data struct define */

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2019 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -21,12 +21,27 @@
 *    DEALINGS IN THE SOFTWARE.
 *
 *****************************************************************************/
+
+#include <cmath>
+#include <memory>
+#include "nnrt/file_map_memory.hpp"
+
 #include "VsiDriver.h"
-#include "file_map_memory.hpp"
+#include "VsiPlatform.h"
+#include "VsiRTInfo.h"
+
+#if ANDROID_SDK_VERSION >= 29
+#include "public.hpp"
+#endif
 
 namespace android {
 namespace nn {
 namespace vsi_driver {
+
+#if ANDROID_SDK_VERSION >= 29
+using OperationValidatePtr = std::unique_ptr<
+    android::nn::op_validate::OperationValidate<HalPlatform::Model, HalPlatform::Operation>>;
+#endif
 
 void VsiDriver::initalizeEnv() {
     disable_float_feature_ = 0;
@@ -38,185 +53,43 @@ void VsiDriver::initalizeEnv() {
     }
 }
 
-template <typename T_model, typename T_getSupportOperationsCallback>
-Return<void> VsiDriver::getSupportedOperationsBase(const T_model& model,
-                                                   T_getSupportOperationsCallback cb) {
-    LOG(INFO) << "getSupportedOperations";
-    if (validateModel(model)) {
-        const size_t count = model.operations.size();
-        std::vector<bool> supported(count, true);
-        for (size_t i = 0; i < count; i++) {
-            const auto& operation = model.operations[i];
-            supported[i] = isSupportedOperation(operation, model);
-        }
-        cb(ErrorStatus::NONE, supported);
-    } else {
-        LOG(ERROR) << "invalid model";
-        std::vector<bool> supported;
-        cb(ErrorStatus::INVALID_ARGUMENT, supported);
-    }
-    LOG(INFO) << "getSupportedOperations exit";
-    return Void();
-}
-
-Return<void> VsiDriver::getCapabilities(getCapabilities_cb cb) {
-    V1_0::Capabilities capabilities;
-    if (disable_float_feature_) {
-        capabilities.float32Performance = {.execTime = 1.9f, .powerUsage = 1.9f};
-        capabilities.quantized8Performance = {.execTime = 0.9f, .powerUsage = 0.9f};
-    } else {
-        capabilities.float32Performance = {.execTime = 0.9f, .powerUsage = 0.9f};
-        capabilities.quantized8Performance = {.execTime = 0.9f, .powerUsage = 0.9f};
-    }
-    cb(ErrorStatus::NONE, capabilities);
-    return Void();
-}
-
-Return<void> VsiDriver::getSupportedOperations(const V1_0::Model& model,
-                                               V1_0::IDevice::getSupportedOperations_cb cb) {
-    if (!validateModel(model)) {
-        LOG(ERROR) << __FUNCTION__;
-        std::vector<bool> supported;
-        cb(ErrorStatus::INVALID_ARGUMENT, supported);
-        return Void();
-    }
-#if ANDROID_SDK_VERSION > 28
-    return getSupportedOperationsBase(convertToV1_2(model), cb);
-#elif ANDROID_SDK_VERSION > 27
-    return getSupportedOperationsBase(convertToV1_1(model), cb);
-#else
-    return getSupportedOperationsBase(model, cb);
-#endif
-}
-
-#if ANDROID_SDK_VERSION > 27
-Return<void> VsiDriver::getCapabilities_1_1(getCapabilities_1_1_cb cb) {
-    V1_1::Capabilities capabilities;
-    if (disable_float_feature_) {
-        capabilities.float32Performance = {.execTime = 1.9f, .powerUsage = 1.9f};
-        capabilities.quantized8Performance = {.execTime = 0.9f, .powerUsage = 0.9f};
-        capabilities.relaxedFloat32toFloat16Performance = {.execTime = 1.5f, .powerUsage = 1.5f};
-    } else {
-        capabilities.float32Performance = {.execTime = 0.9f, .powerUsage = 0.9f};
-        capabilities.quantized8Performance = {.execTime = 0.9f, .powerUsage = 0.9f};
-        capabilities.relaxedFloat32toFloat16Performance = {.execTime = 0.5f, .powerUsage = 0.5f};
-    }
-    cb(ErrorStatus::NONE, capabilities);
-    return Void();
-}
-
-Return<void> VsiDriver::getSupportedOperations_1_1(
-    const V1_1::Model& model, V1_1::IDevice::getSupportedOperations_1_1_cb cb) {
-    if (!validateModel(model)) {
-        LOG(ERROR) << __FUNCTION__;
-        std::vector<bool> supported;
-        cb(ErrorStatus::INVALID_ARGUMENT, supported);
-        return Void();
-    }
-#if ANDROID_SDK_VERSION > 28
-    return getSupportedOperationsBase(convertToV1_2(model), cb);
-#else
-    return getSupportedOperationsBase(model, cb);
-#endif
-}
-#endif
-
-bool VsiDriver::mapHidlMem(const hidl_memory& hidl_memory, VsiRTInfo& vsiMemory) {
-#if ANDROID_SDK_VERSION > 28
-    sp<GraphicBuffer> graphic_buffer = nullptr;
-#endif
-    std::shared_ptr<nnrt::Memory> vsi_mem = nullptr;
-    sp<IMemory> shared_mem = nullptr;
-    uint8_t* buffer = nullptr;
-
-#if ANDROID_SDK_VERSION > 28
-    if (!validatePool(hidl_memory)) {
-        LOG(ERROR) << "invalid hidl memory pool";
-        return false;
-    }
-#endif
-
-    if ("ashmem" == hidl_memory.name()) {
-        shared_mem = mapMemory(hidl_memory);
-        assert(shared_mem);
-        shared_mem->read();
-        buffer = reinterpret_cast<uint8_t*>(static_cast<void*>(shared_mem->getPointer()));
-    } else if ("mmap_fd" == hidl_memory.name()) {
-        size_t size = hidl_memory.size();
-        int fd = hidl_memory.handle()->data[0];
-        int mode = hidl_memory.handle()->data[1];
-        size_t offset =
-            getSizeFromInts(hidl_memory.handle()->data[2], hidl_memory.handle()->data[3]);
-
-        vsi_mem = std::make_shared<nnrt::Memory>();
-        vsi_mem->readFromFd(size, mode, fd, offset);
-    }
-#if ANDROID_SDK_VERSION > 28
-    else if ("hardware_buffer_blob" == hidl_memory.name()) {
-        auto handle = hidl_memory.handle();
-        auto format = AHARDWAREBUFFER_FORMAT_BLOB;
-        auto usage = AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN | AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN;
-        const uint32_t width = hidl_memory.size();
-        const uint32_t height = 1;  // height is always 1 for BLOB mode AHardwareBuffer.
-        const uint32_t layers = 1;  // layers is always 1 for BLOB mode AHardwareBuffer.
-        const uint32_t stride = hidl_memory.size();
-        graphic_buffer = new GraphicBuffer(handle,
-                                           GraphicBuffer::HandleWrapMethod::CLONE_HANDLE,
-                                           width,
-                                           height,
-                                           format,
-                                           layers,
-                                           usage,
-                                           stride);
-        void* gBuffer = nullptr;
-        auto status = graphic_buffer->lock(usage, &gBuffer);
-        if (status != NO_ERROR) {
-            LOG(ERROR) << "RunTimePoolInfo Can't lock the AHardwareBuffer.";
-            return false;
-        }
-        buffer = static_cast<uint8_t*>(gBuffer);
-    } else {
-        LOG(ERROR) << "invalid hidl_memory";
-        return false;
-    }
-#endif
-    vsiMemory.shared_mem = shared_mem;
-    vsiMemory.mem_type = std::string(hidl_memory.name());
-    vsiMemory.ptr = buffer;
-    vsiMemory.vsi_mem = vsi_mem;
-    vsiMemory.buffer_size = hidl_memory.size();
-#if ANDROID_SDK_VERSION > 28
-    vsiMemory.graphic_buffer = graphic_buffer;
-#endif
-    return true;
-}
-
-template <typename T_Model>
-const uint8_t* VsiDriver::getOperandDataPtr(const T_Model& model,
-                                            const Operand& hal_operand,
+const uint8_t* VsiDriver::getOperandDataPtr(const HalPlatform::Model& model,
+                                            const HalPlatform::Operand& hal_operand,
                                             VsiRTInfo& vsiMemory) {
     if (OperandLifeTime::CONSTANT_COPY == hal_operand.lifetime) {
         return model.operandValues.data() + hal_operand.location.offset;
     } else if (OperandLifeTime::CONSTANT_REFERENCE == hal_operand.lifetime) {
         if (!mapHidlMem(model.pools[hal_operand.location.poolIndex], vsiMemory)) return nullptr;
-
-        if ("ashmem" == vsiMemory.mem_type) {
-            return vsiMemory.ptr;
-        } else if ("mmap_fd" == vsiMemory.mem_type) {
-            return static_cast<const uint8_t*>(
-                vsiMemory.vsi_mem->data(hal_operand.location.offset));
-        }
-#if ANDROID_SDK_VERSION > 28
-        else if ("hardware_buffer_blob" == vsiMemory.mem_type) {
-            return vsiMemory.ptr;
-        }
-#endif
+        return vsiMemory.getPtr(hal_operand.location.offset);
     }
     return nullptr;
 }
-template <typename T_operation, typename T_Model>
-bool VsiDriver::isSupportedOperation(const T_operation& operation, const T_Model& model) {
-#if ANDROID_SDK_VERSION > 28
+
+const uint8_t* getOpeandPtr(const HalPlatform::Model& model,
+                            const HalPlatform::Operand& operand,
+                            struct VsiRTInfo& rt) {
+    auto& location = operand.location;
+    if (operand.lifetime == OperandLifeTime::CONSTANT_COPY) {
+        return model.operandValues.data() + location.offset;
+    } else if (operand.lifetime == OperandLifeTime::CONSTANT_REFERENCE) {
+        return VsiDriver::getOperandDataPtr(model, operand, rt);
+    } else
+        return nullptr;
+};
+
+template <typename T_type>
+T_type getScalarData(const HalPlatform::Model& model, const HalPlatform::Operand& operand) {
+    struct VsiRTInfo rt;
+    auto ptr = getOpeandPtr(model, operand, rt);
+    if (ptr)
+        return *reinterpret_cast<T_type*>(const_cast<uint8_t*>(ptr));
+    else
+        return 0;
+}
+
+bool VsiDriver::isSupportedOperation(const HalPlatform::Operation& operation,
+                                     const HalPlatform::Model& model) {
+#if ANDROID_SDK_VERSION >= 29
     auto checkSupportedOperand = [](auto& operand) -> bool {
         bool isSupported = true;
         switch (operand.type) {
@@ -245,11 +118,6 @@ bool VsiDriver::isSupportedOperation(const T_operation& operation, const T_Model
             return false;
     };
 
-    auto getOpeandPtr = [&model](auto& operand) -> auto {
-        auto& location = operand.location;
-        return model.operandValues.data() + location.offset;
-    };
-
     bool isSupport = true;
     // each operation check
     switch (operation.type) {
@@ -267,8 +135,28 @@ bool VsiDriver::isSupportedOperation(const T_operation& operation, const T_Model
                          (isConstantTensor(bias) && isConstantTensor(weight));
             break;
         }
-        case OperationType::AVERAGE_POOL_2D:
-        case OperationType::MAX_POOL_2D:
+        case OperationType::DEPTHWISE_CONV_2D: {
+            auto kernelDim = model.operands[operation.inputs[1]].dimensions;
+            if (kernelDim[0] == 1) {
+                isSupport &= true;
+            } else {
+                isSupport &= false;
+            }
+            break;
+        }
+        case OperationType::RNN: {
+            int32_t fuseCode = getScalarData<int32_t>(model, model.operands[operation.inputs[5]]);
+            if (fuseCode == static_cast<int32_t>(FusedActivationFunc::NONE) ||
+                fuseCode == static_cast<int32_t>(FusedActivationFunc::RELU) ||
+                fuseCode == static_cast<int32_t>(FusedActivationFunc::RELU1) ||
+                fuseCode == static_cast<int32_t>(FusedActivationFunc::RELU6)) {
+                isSupport &= true;
+            } else {
+                isSupport &= false;
+            }
+            break;
+        }
+
         case OperationType::SOFTMAX: {
             auto& input = model.operands[operation.inputs[0]];
             if (isConstantTensor(input)) {
@@ -278,8 +166,8 @@ bool VsiDriver::isSupportedOperation(const T_operation& operation, const T_Model
             break;
         }
         case OperationType::LSH_PROJECTION: {
-            auto typePtr = getOpeandPtr(model.operands[operation.inputs[3]]);
-            if (3 == *(int32_t*)typePtr) isSupport &= false;
+            int32_t typePtr = getScalarData<int32_t>(model, model.operands[operation.inputs[3]]);
+            if (3 == typePtr) isSupport &= false;
             break;
         }
         case OperationType::TANH: {
@@ -291,11 +179,7 @@ bool VsiDriver::isSupportedOperation(const T_operation& operation, const T_Model
             if (operation.inputs.size() > 23) isSupport &= false;
             break;
         }
-        case OperationType::RESIZE_BILINEAR: {
-            auto& scalarOperand = model.operands[operation.inputs[1]];
-            if (OperandType::INT32 != scalarOperand.type) isSupport &= false;
-            break;
-        }
+
         case OperationType::TRANSPOSE: {
             // according to the spec, perm is optinal.
             if (operation.inputs.size() == 1) isSupport &= false;
@@ -327,7 +211,10 @@ bool VsiDriver::isSupportedOperation(const T_operation& operation, const T_Model
         case OperationType::PAD: {
             // TODO: support pad at channel and batch
             auto& pad = model.operands[operation.inputs[1]];
-            size_t dimSize = pad.location.length / sizeof((int32_t)0) / 2;
+            if (!isConstantTensor(pad)) return false;
+            size_t dimSize = pad.dimensions.size();
+            // Pad only support 4D PAD
+            if (dimSize != 4) return false;
             if (dimSize < 3) {
                 isSupport &= true;
                 break;
@@ -346,63 +233,261 @@ bool VsiDriver::isSupportedOperation(const T_operation& operation, const T_Model
         }
         // to-do: check operand with operation
         // API 29 newly added operataion
-        case OperationType::ABS:
+        case OperationType::ABS: {
+            OperationValidatePtr absValidate = std::make_unique<
+                op_validate::AbsValidate<HalPlatform::Model, HalPlatform::Operation>>(model,
+                                                                                      operation);
+            return absValidate->Validate();
+        }
+
         case OperationType::ARGMAX:
-        case OperationType::ARGMIN:
-        case OperationType::AXIS_ALIGNED_BBOX_TRANSFORM:
-        case OperationType::BIDIRECTIONAL_SEQUENCE_LSTM:
-        case OperationType::BIDIRECTIONAL_SEQUENCE_RNN:
+        case OperationType::ARGMIN: {
+            OperationValidatePtr argmaxArgmin = std::make_unique<
+                op_validate::ArgmaxArgminValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return argmaxArgmin->Validate();
+        }
+
+        case OperationType::MINIMUM: {
+            OperationValidatePtr maxMin = std::make_unique<
+                op_validate::MaximumMinimumValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return maxMin->Validate();
+        }
+
+        case OperationType::RSQRT:
+        case OperationType::SQRT: {
+            OperationValidatePtr sqrtRsqrt = std::make_unique<
+                op_validate::SqrtRsqrtValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return sqrtRsqrt->Validate();
+        }
+
+        case OperationType::LOG: {
+            OperationValidatePtr logValidate = std::make_unique<
+                op_validate::LogValidate<HalPlatform::Model, HalPlatform::Operation>>(model,
+                                                                                      operation);
+            return logValidate->Validate();
+        }
+
+        case OperationType::EXP: {
+            OperationValidatePtr expValidate = std::make_unique<
+                op_validate::ExpValidate<HalPlatform::Model, HalPlatform::Operation>>(model,
+                                                                                      operation);
+            return expValidate->Validate();
+        }
+
+        case OperationType::SIN: {
+            OperationValidatePtr sinValidate = std::make_unique<
+                op_validate::SinValidate<HalPlatform::Model, HalPlatform::Operation>>(model,
+                                                                                      operation);
+            return sinValidate->Validate();
+        }
+
+        case OperationType::RESIZE_BILINEAR:
+        case OperationType::RESIZE_NEAREST_NEIGHBOR: {
+            OperationValidatePtr resizeValidate = std::make_unique<
+                op_validate::ResizeValidate<HalPlatform::Model, HalPlatform::Operation>>(model,
+                                                                                         operation);
+            return resizeValidate->Validate();
+        }
+
+        case OperationType::REDUCE_MAX: {
+            OperationValidatePtr reduceMax = std::make_unique<
+                op_validate::ReduceMaxValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return reduceMax->Validate();
+        }
+
+        case OperationType::REDUCE_MIN: {
+            OperationValidatePtr reduceMin = std::make_unique<
+                op_validate::ReduceMinValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return reduceMin->Validate();
+        }
+
+        case OperationType::REDUCE_PROD: {
+            OperationValidatePtr reduceProd = std::make_unique<
+                op_validate::ReduceProdValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return reduceProd->Validate();
+        }
+
+        case OperationType::REDUCE_SUM: {
+            OperationValidatePtr reduceSum = std::make_unique<
+                op_validate::ReduceSumValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return reduceSum->Validate();
+        }
+
+        case OperationType::NEG: {
+            OperationValidatePtr neg = std::make_unique<
+                op_validate::NegValidate<HalPlatform::Model, HalPlatform::Operation>>(model,
+                                                                                      operation);
+            return neg->Validate();
+        }
+
+        case OperationType::PRELU: {
+            OperationValidatePtr prelu = std::make_unique<
+                op_validate::PreluValidate<HalPlatform::Model, HalPlatform::Operation>>(model,
+                                                                                        operation);
+            return prelu->Validate();
+        }
+
+        case OperationType::LESS:
+        case OperationType::LESS_EQUAL:
+        case OperationType::EQUAL:
+        case OperationType::GREATER:
+        case OperationType::GREATER_EQUAL:
+        case OperationType::NOT_EQUAL: {
+            OperationValidatePtr compare = std::make_unique<
+                op_validate::ComparisonValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return compare->Validate();
+        }
+
+        case OperationType::LOGICAL_AND: {
+            OperationValidatePtr logicalAnd = std::make_unique<
+                op_validate::LogicalAndValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return logicalAnd->Validate();
+        }
+        case OperationType::LOGICAL_NOT: {
+            OperationValidatePtr logicalNot = std::make_unique<
+                op_validate::LogicalNotValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return logicalNot->Validate();
+        }
+        case OperationType::LOGICAL_OR: {
+            OperationValidatePtr logicalOr = std::make_unique<
+                op_validate::LogicalOrValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return logicalOr->Validate();
+        }
+        case OperationType::EXPAND_DIMS: {
+            OperationValidatePtr expandDims = std::make_unique<
+                op_validate::ExpandDimsValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return expandDims->Validate();
+        }
+        case OperationType::POW: {
+            OperationValidatePtr pow = std::make_unique<
+                op_validate::PowValidate<HalPlatform::Model, HalPlatform::Operation>>(model,
+                                                                                      operation);
+            return pow->Validate();
+        }
+        case OperationType::INSTANCE_NORMALIZATION: {
+            OperationValidatePtr instanceNorm = std::make_unique<
+                op_validate::InstanceNormValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return false;
+            // return instanceNorm->Validate();
+        }
+        case OperationType::SPLIT: {
+            OperationValidatePtr split = std::make_unique<
+                op_validate::SplitValidate<HalPlatform::Model, HalPlatform::Operation>>(model,
+                                                                                        operation);
+            return split->Validate();
+        }
+        case OperationType::LOG_SOFTMAX: {
+            OperationValidatePtr logSoftmax = std::make_unique<
+                op_validate::LogSoftmaxValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return logSoftmax->Validate();
+        }
+        case OperationType::REDUCE_ALL: {
+            OperationValidatePtr reduceAll = std::make_unique<
+                op_validate::ReduceAllValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return false;
+            // return reduceAll->Validate();
+        }
+        case OperationType::REDUCE_ANY: {
+            OperationValidatePtr reduceAny = std::make_unique<
+                op_validate::ReduceAnyValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return false;
+            // return reduceAny->Validate();
+        }
+        case OperationType::GATHER: {
+            OperationValidatePtr gather = std::make_unique<
+                op_validate::GatherValidate<HalPlatform::Model, HalPlatform::Operation>>(model,
+                                                                                         operation);
+            return gather->Validate();
+        }
+
+        case OperationType::AXIS_ALIGNED_BBOX_TRANSFORM: {
+            OperationValidatePtr axisAlignedBBoxTransform = std::make_unique<
+                op_validate::AxisAlignedBBoxTransformValidate<HalPlatform::Model, HalPlatform::Operation>>(model,
+                                                                                      operation);
+            return axisAlignedBBoxTransform->Validate();
+        }
+        case OperationType::UNIDIRECTIONAL_SEQUENCE_LSTM: {
+            OperationValidatePtr unidirectionalSequenceLstm = std::make_unique<
+                op_validate::UnidirectionalSequenceLstmValidate<HalPlatform::Model, HalPlatform::Operation>>(model,
+                                                                                      operation);
+            // All generated cases failed
+            return false;
+            // return unidirectionalSequenceLstm->Validate();
+        }
+        case OperationType::BIDIRECTIONAL_SEQUENCE_LSTM: {
+            OperationValidatePtr bidirectionalSequenceLstm = std::make_unique<
+                op_validate::BidirectionalSequenceLstmValidate<HalPlatform::Model, HalPlatform::Operation>>(model,
+                                                                                      operation);
+            // All generated cases failed, need to fix
+            return false;
+            // return bidirectionalSequenceLstm->Validate();
+        }
+        case OperationType::GENERATE_PROPOSALS: {
+            OperationValidatePtr generateProposals = std::make_unique<
+                op_validate::GenerateProposalsValidate<HalPlatform::Model, HalPlatform::Operation>>(model,
+                                                                                      operation);
+            // Some generated float32 cases failed
+            return false;
+            // return generateProposals->Validate();
+        }
+        case OperationType::DETECTION_POSTPROCESSING: {
+            OperationValidatePtr detectionPostprocessing = std::make_unique<
+                op_validate::DetectionPostprocessingValidate<HalPlatform::Model, HalPlatform::Operation>>(model,
+                                                                                      operation);
+            // Some generated float32 cases crashed
+            return false;
+            // return detectionPostprocessing->Validate();
+        }
+        case OperationType::UNIDIRECTIONAL_SEQUENCE_RNN: {
+            OperationValidatePtr unidirectionalSequenceRnn = std::make_unique<
+                op_validate::UnidirectionalSequenceRnnValidate<HalPlatform::Model, HalPlatform::Operation>>(model,
+                                                                                      operation);
+            // Some float32 cases failed
+            return false;
+            // return unidirectionalSequenceRnn->Validate();
+        }
+        case OperationType::BIDIRECTIONAL_SEQUENCE_RNN: {
+            OperationValidatePtr bidirectionalSequenceRnn = std::make_unique<
+                op_validate::BidirectionalSequenceRnnValidate<HalPlatform::Model, HalPlatform::Operation>>(model,
+                                                                                      operation);
+            // All generated cases failed, need to fix
+            return false;
+            // return bidirectionalSequenceRnn->Validate();
+        }
+
         case OperationType::BOX_WITH_NMS_LIMIT:
         case OperationType::CAST:
         case OperationType::CHANNEL_SHUFFLE:
-        case OperationType::DETECTION_POSTPROCESSING:
-        case OperationType::EQUAL:
-        case OperationType::EXP:
-        case OperationType::EXPAND_DIMS:
-        case OperationType::GATHER:
-        case OperationType::GENERATE_PROPOSALS:
-        case OperationType::GREATER:
-        case OperationType::GREATER_EQUAL:
         case OperationType::GROUPED_CONV_2D:
         case OperationType::HEATMAP_MAX_KEYPOINT:
-        case OperationType::INSTANCE_NORMALIZATION:
-        case OperationType::LESS:
-        case OperationType::LESS_EQUAL:
-        case OperationType::LOGICAL_AND:
-        case OperationType::LOGICAL_NOT:
-        case OperationType::LOGICAL_OR:
-        case OperationType::LOG_SOFTMAX:
-        case OperationType::LOG:
-        case OperationType::MAXIMUM:
-        case OperationType::MINIMUM:
-        case OperationType::NEG:
-        case OperationType::NOT_EQUAL:
         case OperationType::PAD_V2:
-        case OperationType::POW:
-        case OperationType::PRELU:
         case OperationType::QUANTIZE:
         case OperationType::QUANTIZED_16BIT_LSTM:
         case OperationType::RANDOM_MULTINOMIAL:
-        case OperationType::REDUCE_ALL:
-        case OperationType::REDUCE_ANY:
-        case OperationType::REDUCE_MAX:
-        case OperationType::REDUCE_MIN:
-        case OperationType::REDUCE_PROD:
-        case OperationType::REDUCE_SUM:
         case OperationType::ROI_ALIGN:
         case OperationType::ROI_POOLING:
-        case OperationType::RSQRT:
         case OperationType::SELECT:
-        case OperationType::SIN:
         case OperationType::SLICE:
-        case OperationType::SPLIT:
-        case OperationType::SQRT:
         case OperationType::TILE:
         case OperationType::TOPK_V2:
         case OperationType::TRANSPOSE_CONV_2D:
-        case OperationType::UNIDIRECTIONAL_SEQUENCE_LSTM:
-        case OperationType::UNIDIRECTIONAL_SEQUENCE_RNN:
-        case OperationType::RESIZE_NEAREST_NEIGHBOR:
+        case OperationType::MAXIMUM:
             isSupport &= false;
             break;
         default:
@@ -443,41 +528,34 @@ bool VsiDriver::isSupportedOperation(const T_operation& operation, const T_Model
         auto& operand = model.operands[operation.outputs[i]];
         if (false == checkSupportedOperand(operand)) isSupport &= false;
     }
+
+    // Not support dynamic shape
+    // Check inputs
+    if (0 == operation.inputs.size()) isSupport &= false;
+    for (auto inIdx : operation.inputs) {
+        auto& dims = model.operands[inIdx].dimensions;
+        for (auto dim : dims) {
+            if (dim == 0) {
+                isSupport &= false;
+            }
+        }
+    }
+    // Check outputs
+    if (0 == operation.outputs.size()) isSupport = false;
+    for (auto outIdx : operation.outputs) {
+        auto& dims = model.operands[outIdx].dimensions;
+        for (auto dim : dims) {
+            if (dim == 0) {
+                isSupport &= false;
+            }
+        }
+    }
+
     return isSupport;
 #endif
     return true;
 }
 
-#if ANDROID_SDK_VERSION > 28
-Return<void> VsiDriver::getCapabilities_1_2(V1_2::IDevice::getCapabilities_1_2_cb _hidl_cb) {
-    static const PerformanceInfo kPerf = {.execTime = 0.9f, .powerUsage = 0.9f};
-    V1_2::Capabilities capabilities;
-    capabilities.relaxedFloat32toFloat16PerformanceScalar = kPerf;
-    capabilities.relaxedFloat32toFloat16PerformanceTensor = kPerf;
-    // Set the base value for all operand types
-    capabilities.operandPerformance = nonExtensionOperandPerformance({FLT_MAX, FLT_MAX});
-
-    // Load supported operand types
-    update(&capabilities.operandPerformance, OperandType::TENSOR_QUANT8_ASYMM, kPerf);
-    if (!disable_float_feature_) {
-        update(&capabilities.operandPerformance, OperandType::TENSOR_FLOAT32, kPerf);
-        update(&capabilities.operandPerformance, OperandType::TENSOR_FLOAT16, kPerf);
-    }
-    _hidl_cb(ErrorStatus::NONE, capabilities);
-    return Void();
-}
-
-Return<void> VsiDriver::getSupportedOperations_1_2(
-    const V1_2::Model& model, V1_2::IDevice::getSupportedOperations_1_2_cb _hidl_cb) {
-    if (!validateModel(model)) {
-        LOG(ERROR) << __FUNCTION__;
-        std::vector<bool> supported;
-        _hidl_cb(ErrorStatus::INVALID_ARGUMENT, supported);
-        return Void();
-    }
-    return getSupportedOperationsBase(model, _hidl_cb);
-}
-#endif
 }  // namespace vsi_driver
 }  // namespace nn
 }

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2019 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <cstdlib>
 
+#include "utils.hpp"
 namespace nnrt {
 namespace logging {
 
@@ -54,8 +55,9 @@ struct Logger
         static Level slogLevel = Level::None;
 
         if (Level::None == slogLevel) {
-            if (const char* logLevel = std::getenv("NNRT_LOG_LEVEL")) {
-                slogLevel = static_cast<Level>(std::atoi(logLevel));
+            int env_lvl = -1;
+            if (::nnrt::OS::getEnv("NNRT_LOG_LEVEL", env_lvl)) {
+                slogLevel = static_cast<Level>(env_lvl);
             }
         }
 

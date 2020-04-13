@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -1099,6 +1099,15 @@ gcoPROFILER_Destroy(
 
     gcmHEADER_ARG("Profiler=0x%x", Profiler);
 
+    /*
+        counterBuf isn't be created if there are some wrong in gcoPROFILER_Initialize,
+        such as wrong environment variable setting.
+     */
+    if (!Profiler->counterBuf)
+    {
+        goto OnError;
+    }
+
     gcmONERROR(gcoBUFOBJ_WaitFence((gcoBUFOBJ)counterBuffer->prev->couterBufobj, gcvFENCE_TYPE_READ));
 
     do
@@ -1442,6 +1451,15 @@ gcoPROFILER_End(
     }
 
     gcmASSERT(Profiler->enable);
+
+    /*
+        counterBuf isn't be created if there are some wrong in gcoPROFILER_Initialize,
+        such as wrong environment variable setting.
+     */
+    if (!Profiler->counterBuf)
+    {
+        goto OnError;
+    }
 
     /* for the counter which need print, should get the counter right now for each draw/frame.*/
     if (Profiler->enablePrint)

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -327,6 +327,8 @@ typedef struct _gcsHARDWARE_CONFIG
     vx_hw_chip_info             hwChipInfo;
 #endif
     gctBOOL                     parallelNoFix;
+
+    gctBOOL                     disableVIP;
 }
 gcsHARDWARE_CONFIG;
 
@@ -1125,7 +1127,7 @@ struct _gcoHARDWARE
 
     gctBOOL                     notAdjustRotation;
 
-#if gcdDUMP
+#if gcdDUMP || gcdCAPTURE_ONLY_MODE
     gctPOINTER                  contextLogical[gcdCONTEXT_BUFFER_COUNT];
     gctUINT32                   contextBytes;
     gctUINT8                    currentContext;
@@ -1519,9 +1521,11 @@ gceSTATUS gcoHARDWARE_SetMonochromeSource(
     IN gctUINT32 FgColor32,
     IN gctUINT32 BgColor32,
     IN gctBOOL ColorConvert,
+    IN gceSURF_FORMAT SrctFormat,
     IN gceSURF_FORMAT DstFormat,
     IN gctBOOL Stream,
-    IN gctUINT32 Transparency
+    IN gctUINT32 Transparency,
+    IN gceENDIAN_MODE eEndianMode
     );
 
 /* Configure color source. */
@@ -1611,7 +1615,9 @@ gcoHARDWARE_SetTransparencyModesEx(
     IN gce2D_TRANSPARENCY PatTransparency,
     IN gctUINT8 FgRop,
     IN gctUINT8 BgRop,
-    IN gctBOOL EnableDFBColorKeyMode
+    IN gctBOOL EnableDFBColorKeyMode,
+    IN gceSURF_FORMAT srcFormat,
+    IN gceENDIAN_MODE eEndianMode
     );
 
 /* Setup the source, target and pattern transparency modes.
@@ -1660,6 +1666,7 @@ gcoHARDWARE_SetTarget(
     IN gctINT32_PTR CscRGB2YUV,
     IN gctUINT32_PTR GammaTable,
     IN gctBOOL GdiStretch,
+    IN gctBOOL enableAlpha,
     OUT gctUINT32_PTR DestConfig
     );
 
@@ -2182,6 +2189,12 @@ gceSTATUS
 gcoHARDWARE_Free2DSurface(
     IN gcoHARDWARE Hardware,
     IN gcoSURF Surface
+    );
+
+gceSTATUS
+gcoHARDWARE_GetEndianOption(
+    IN gceENDIAN_MODE eEndianMode,
+    OUT gctUINT_PTR pData
     );
 
 #ifdef __cplusplus

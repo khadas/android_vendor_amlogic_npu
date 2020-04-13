@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2018 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -30,50 +30,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define VSI_NN_POW_SH_KERNEL_IDX(_INPUT0_TYPE, _INPUT1_TYPE, _OUTPUT_TYPE) \
-    VSI_NN_POW_##_INPUT0_TYPE##_INPUT1_TYPE##TO##_OUTPUT_TYPE##_KERNEL,
-
-enum {
-    POW_CPU_KERNEL,
-
-    VSI_NN_POW_SH_KERNEL_IDX(F16, F16, F16)
-    VSI_NN_POW_SH_KERNEL_IDX(I16, I16, I16)
-    VSI_NN_POW_SH_KERNEL_IDX(I8,  I8,  I8)
-    VSI_NN_POW_SH_KERNEL_IDX(U8,  U8,  U8)
-    VSI_NN_POW_SH_KERNEL_IDX(U8,  F16, F16)
-    VSI_NN_POW_SH_KERNEL_IDX(I8,  F16, F16)
-    VSI_NN_POW_SH_KERNEL_IDX(I16, F16, F16)
-    VSI_NN_POW_SH_KERNEL_IDX(F16, U8,  F16)
-};
-
-enum {
-    TENSOR_POW_CPU_KERNEL,
-
-    TENSOR_POW_F16F16TOF16_KERNEL,
-    TENSOR_POW_I16I16TOI16_KERNEL,
-    TENSOR_POW_I8I8TOI8_KERNEL,
-    TENSOR_POW_U8U8TOU8_KERNEL,
-    TENSOR_POW_U8F16TOF16_KERNEL,
-    TENSOR_POW_I8F16TOF16_KERNEL,
-    TENSOR_POW_I16F16TOF16_KERNEL,
-    TENSOR_POW_F16U8TOF16_KERNEL,
-
-    TENSOR_POW_KERNEL_COUNTS,
-};
-
-enum {
-    POWER_INPUT0, //optional
-    POWER_INPUT1,
-
-    POWER_INPUTS_COUNT,
-
-    POWER_OUTPUT = 0,
-
-    POWER_OUTPUTS_COUNT,
-
-    POWER_PARAM_COUT = POWER_INPUTS_COUNT + POWER_OUTPUTS_COUNT,
-};
 
 #define _VSI_NN_POW_LOCAL_TENSOR_NUM 3
 

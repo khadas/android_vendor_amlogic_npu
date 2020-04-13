@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2019 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -50,7 +50,7 @@ MAKE_SPEC(instance_norm)
     .epsilon_(nnrt::OperandType::FLOAT32)
     .data_layout_(nnrt::OperandType::BOOL));
 
-    // Note: Not support float16 scaler
+    // Note: We can't broadcast float16 gamma and beta in nnapi interpreter
     // OVERRIDE_SPEC(instance_norm, 0)
     // .input_(nnrt::OperandType::TENSOR_FLOAT16)
     // .gamma_(nnrt::OperandType::FLOAT16)
@@ -78,9 +78,9 @@ MAKE_SPEC(output)
     .input_(nnrt::OperandType::TENSOR_FLOAT32)
     .output_(nnrt::OperandType::TENSOR_FLOAT32));
 
-    OVERRIDE_SPEC(output, 0)
-    .input_(nnrt::OperandType::TENSOR_FLOAT16)
-    .output_(nnrt::OperandType::TENSOR_FLOAT16));
+    // OVERRIDE_SPEC(output, 0)
+    // .input_(nnrt::OperandType::TENSOR_FLOAT16)
+    // .output_(nnrt::OperandType::TENSOR_FLOAT16));
 
 #undef ARG_NAMES
 #undef ARGC
