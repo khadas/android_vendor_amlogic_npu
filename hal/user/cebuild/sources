@@ -1,6 +1,6 @@
 ##############################################################################
 #
-#    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+#    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 #
 #    The material in this file is confidential and contains trade secrets
 #    of Vivante Corporation. This is proprietary information owned by
@@ -47,8 +47,7 @@ SOURCES = $(SOURCES) \
     ../gc_hal_user_texture.c \
     ../gc_hal_user_vertex.c \
     ../gc_hal_user_vertex_array.c \
-    ../gc_hal_user_statistics.c \
-    ../gc_hal_user_resource.c
+    ../gc_hal_user_statistics.c
 
 !ELSE
 !    IF "$(VIVANTE_ENABLE_VG)" == "1"

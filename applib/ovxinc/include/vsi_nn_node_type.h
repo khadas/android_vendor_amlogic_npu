@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2018 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -21,10 +21,12 @@
 *    DEALINGS IN THE SOFTWARE.
 *
 *****************************************************************************/
+/** @file */
 #ifndef _VSI_NN_NODE_TYPES_H_
 #define _VSI_NN_NODE_TYPES_H_
 
 #include "vsi_nn_types.h"
+#include "vsi_nn_assert.h"
 #include "ops/vsi_nn_op_activations.h"
 #include "ops/vsi_nn_op_batch_norm.h"
 #include "ops/vsi_nn_op_multiply.h"
@@ -55,7 +57,7 @@
 #include "ops/vsi_nn_op_reverse.h"
 #include "ops/vsi_nn_op_space2depth.h"
 #include "ops/vsi_nn_op_depth2space.h"
-#include "ops/vsi_nn_op_eltwisemax.h"
+#include "ops/vsi_nn_op_maximum.h"
 #include "ops/vsi_nn_op_scale.h"
 #include "ops/vsi_nn_op_slice.h"
 #include "ops/vsi_nn_op_space2batch.h"
@@ -75,7 +77,6 @@
 #include "ops/vsi_nn_op_svdf.h"
 #include "ops/vsi_nn_op_conv1d.h"
 #include "ops/vsi_nn_op_nbg.h"
-#include "ops/vsi_nn_op_minimum.h"
 #include "ops/vsi_nn_op_spatial_transformer.h"
 #include "ops/vsi_nn_op_logical_ops.h"
 #include "ops/vsi_nn_op_select.h"
@@ -86,8 +87,63 @@
 #include "ops/vsi_nn_op_lstmunit_activation.h"
 #include "ops/vsi_nn_op_lstmunit_ovxlib.h"
 #include "ops/vsi_nn_op_tensor_add_mean_stddev_norm.h"
+#include "ops/vsi_nn_op_lstm_ovxlib.h"
+#include "ops/vsi_nn_op_lsh_projection.h"
+#include "ops/vsi_nn_op_rnn.h"
 #include "ops/vsi_nn_op_stack.h"
-
+#include "ops/vsi_nn_op_floor.h"
+#include "ops/vsi_nn_op_neg.h"
+#include "ops/vsi_nn_op_exp.h"
+#include "ops/vsi_nn_op_clip.h"
+#include "ops/vsi_nn_op_pre_process_tensor.h"
+#include "ops/vsi_nn_op_post_process.h"
+#include "ops/vsi_nn_op_pre_process_gray.h"
+#include "ops/vsi_nn_op_unstack.h"
+#include "ops/vsi_nn_op_pre_process_rgb.h"
+#include "ops/vsi_nn_op_pre_process.h"
+#include "ops/vsi_nn_op_addn.h"
+#include "ops/vsi_nn_op_softmax_internal.h"
+#include "ops/vsi_nn_op_pre_process_yuv420.h"
+#include "ops/vsi_nn_op_extra_ending.h"
+#include "ops/vsi_nn_op_gather.h"
+#include "ops/vsi_nn_op_tile.h"
+#include "ops/vsi_nn_op_grouped_conv2d.h"
+#include "ops/vsi_nn_op_topk.h"
+#include "ops/vsi_nn_op_pre_process_bgra.h"
+#include "ops/vsi_nn_op_logical_not.h"
+#include "ops/vsi_nn_op_sin.h"
+#include "ops/vsi_nn_op_log.h"
+#include "ops/vsi_nn_op_argmin.h"
+#include "ops/vsi_nn_op_roi_align.h"
+#include "ops/vsi_nn_op_heatmap_max_keypoint.h"
+#include "ops/vsi_nn_op_axis_aligned_bbox_transform.h"
+#include "ops/vsi_nn_op_box_with_nms_limit.h"
+#include "ops/vsi_nn_op_generate_proposals.h"
+#include "ops/vsi_nn_op_detection_postprocess.h"
+#include "ops/vsi_nn_op_random_multinomial.h"
+#include "ops/vsi_nn_op_log_softmax.h"
+#include "ops/vsi_nn_op_relu_keras.h"
+#include "ops/vsi_nn_op_relu_keras_internal.h"
+#include "ops/vsi_nn_op_reducesum_internal.h"
+#include "ops/vsi_nn_op_reducemax_internal.h"
+#include "ops/vsi_nn_op_reducemin_internal.h"
+#include "ops/vsi_nn_op_gru_ovxlib.h"
+#include "ops/vsi_nn_op_grucell_ovxlib.h"
+#include "ops/vsi_nn_op_embedding_lookup.h"
+#include "ops/vsi_nn_op_reduceprod_internal.h"
+#include "ops/vsi_nn_op_reduceall_internal.h"
+#include "ops/vsi_nn_op_reduceany_internal.h"
+#include "ops/vsi_nn_op_unidirectional_sequence_rnn.h"
+#include "ops/vsi_nn_op_quantized_16bit_lstm.h"
+#include "ops/vsi_nn_op_bidirectional_sequence_rnn.h"
+#include "ops/vsi_nn_op_bidirectional_sequence_lstm.h"
+#include "ops/vsi_nn_op_resize_internal.h"
+#include "ops/vsi_nn_op_resize_nearest_internal.h"
+#include "ops/vsi_nn_op_variable.h"
+#include "ops/vsi_nn_op_rnncell_ovxlib.h"
+#include "ops/vsi_nn_op_l2_normalize.h"
+#include "ops/vsi_nn_op_swish.h"
+#include "ops/vsi_nn_op_depthwise_conv1d.h"
 /* custom node head define define */
 #include "custom/vsi_nn_custom_node_type.h"
 
@@ -95,6 +151,7 @@
 extern "C"{
 #endif
 
+/** Operation attributes */
 typedef union _vsi_nn_nn_param
 {
     struct
@@ -130,7 +187,7 @@ typedef union _vsi_nn_nn_param
     vsi_nn_reverse_param            reverse;
     vsi_nn_space2depth_param        space2depth;
     vsi_nn_depth2space_param        depth2space;
-    vsi_nn_eltwisemax_param         eltwisemax;
+    vsi_nn_maximum_param            maximum;
     vsi_nn_scale_param              scale;
     vsi_nn_slice_param              slice;
     vsi_nn_space2batch_param        space2batch;
@@ -153,14 +210,70 @@ typedef union _vsi_nn_nn_param
     vsi_nn_relational_ops_param     relational_ops;
     vsi_nn_pow_param                pow;
     vsi_nn_floordiv_param           floordiv;
-    vsi_nn_minimum_param            minimum;
     vsi_nn_spatial_transformer_param spatial_transformer;
     vsi_nn_logical_ops_param        logical_ops;
     vsi_nn_select_param             select;
     vsi_nn_lstmunit_activation_param lstmunit_activation;
     vsi_nn_lstmunit_ovxlib_param    lstmunit_ovxlib;
     vsi_nn_tensor_add_mean_stddev_norm_param tensor_add_mean_stddev_norm;
+    vsi_nn_lstm_ovxlib_param        lstm_ovxlib;
+    vsi_nn_lsh_projection_param     lsh_projection;
+    vsi_nn_rnn_param                rnn;
     vsi_nn_stack_param              stack;
+    vsi_nn_floor_param              floor;
+    vsi_nn_neg_param                neg;
+    vsi_nn_exp_param                exp;
+    vsi_nn_clip_param               clip;
+    vsi_nn_pre_process_tensor_param pre_process_tensor;
+    vsi_nn_post_process_param       post_process;
+    vsi_nn_pre_process_gray_param   pre_process_gray;
+    vsi_nn_unstack_param            unstack;
+    vsi_nn_pre_process_rgb_param    pre_process_rgb;
+    vsi_nn_pre_process_param        pre_process;
+    vsi_nn_addn_param               addn;
+    vsi_nn_softmax_internal_param   softmax_internal;
+    vsi_nn_pre_process_yuv420_param pre_process_yuv420;
+    vsi_nn_extra_ending_param       extra_ending;
+    vsi_nn_gather_param             gather;
+    vsi_nn_tile_param               tile;
+    vsi_nn_grouped_conv2d_param     grouped_conv2d;
+    vsi_nn_topk_param               topk;
+    vsi_nn_pre_process_bgra_param   pre_process_bgra;
+    vsi_nn_logical_not_param        logical_not;
+    vsi_nn_argmax_param             argmax;
+    vsi_nn_sin_param                sin;
+    vsi_nn_log_param                log;
+    vsi_nn_argmin_param             argmin;
+    vsi_nn_roi_align_param          roi_align;
+    vsi_nn_heatmap_max_keypoint_param heatmap_max_keypoint;
+    vsi_nn_axis_aligned_bbox_transform_param axis_aligned_bbox_transform;
+    vsi_nn_box_with_nms_limit_param box_with_nms_limit;
+    vsi_nn_generate_proposals_param generate_proposals;
+    vsi_nn_detection_postprocess_param detection_postprocess;
+    vsi_nn_random_multinomial_param random_multinomial;
+    vsi_nn_log_softmax_param        log_softmax;
+    vsi_nn_relu_keras_param         relu_keras;
+    vsi_nn_relu_keras_internal_param relu_keras_internal;
+    vsi_nn_reducesum_internal_param reducesum_internal;
+    vsi_nn_reducemax_internal_param reducemax_internal;
+    vsi_nn_reducemin_internal_param reducemin_internal;
+    vsi_nn_gru_ovxlib_param         gru_ovxlib;
+    vsi_nn_grucell_ovxlib_param     grucell_ovxlib;
+    vsi_nn_embedding_lookup_param   embedding_lookup;
+    vsi_nn_reduceprod_internal_param reduceprod_internal;
+    vsi_nn_reduceall_internal_param reduceall_internal;
+    vsi_nn_reduceany_internal_param reduceany_internal;
+    vsi_nn_unidirectional_sequence_rnn_param unidirectional_sequence_rnn;
+    vsi_nn_quantized_16bit_lstm_param quantized_16bit_lstm;
+    vsi_nn_bidirectional_sequence_rnn_param bidirectional_sequence_rnn;
+    vsi_nn_bidirectional_sequence_lstm_param bidirectional_sequence_lstm;
+    vsi_nn_resize_internal_param    resize_internal;
+    vsi_nn_resize_nearest_internal_param resize_nearest_internal;
+    vsi_nn_variable_param variable;
+    vsi_nn_rnncell_ovxlib_param     rnncell_ovxlib;
+    vsi_nn_l2_normalize_param       l2_normalize;
+    vsi_nn_depthwise_conv1d_param   depthwise_conv1d;
+    vsi_nn_swish_param              swish;
     uint8_t                         client_param[128];
 
     /* custom node data struct define */
@@ -169,6 +282,13 @@ typedef union _vsi_nn_nn_param
 #undef DEF_NODE_TYPE
 } vsi_nn_nn_param_t;
 
+/**
+ * Number 576 is the size of `vsi_nn_nn_param_t` from V1.1.2
+ * We this check to avoid application binary interface(ABI) compatibility issue.
+ */
+_compiler_assert( sizeof(vsi_nn_nn_param_t) <= 576, vsi_nn_node_type_h_potential_abi_compatibility_issue );
+
+/** Node params for openvx attributes */
 typedef struct _vsi_nn_vx_param
 {
     vsi_enum   overflow_policy;

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2018 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -40,6 +40,7 @@ typedef uint32_t vsi_nn_relational_ops_type_t; enum
     VSI_NN_RELATIONAL_OPS_LESS,
     VSI_NN_RELATIONAL_OPS_LESS_EQUAL,
     VSI_NN_RELATIONAL_OPS_NOT_EQUAL,
+    VSI_NN_RELATIONAL_OPS_EQUAL,
 };
 
 typedef struct _vsi_nn_relational_ops_lcl_data

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -17,7 +17,7 @@
 
 #if gcdNULL_DRIVER < 2
 
-#define _GC_OBJ_ZONE            gcvZONE_INDEX
+#define _GC_OBJ_ZONE            gcdZONE_INDEX
 
 /******************************************************************************\
 ********************************** Structures **********************************
@@ -29,17 +29,33 @@
 #define SPILIT_INDEX_OFFSET       48
 #define SPILIT_INDEX_CHUNCK_BYTE  64
 
+#if gcdCAPTURE_ONLY_MODE
+#define REUSE_CACHED_INDEX 1
+#endif
+
 #define COMPUTE_LAST_INDEX_ADDR(LastBufAddr, indexSize)  ((LastBufAddr) - (indexSize))
 
 /* Index buffer range information. */
 typedef struct _gcsINDEXRANGE
 {
-    gctUINT32                   offset;
+    gctSIZE_T                   offset;
     gctUINT32                   count;
     gctUINT32                   minIndex;
     gctUINT32                   maxIndex;
 }
 * gcsINDEXRANGE_PTR;
+
+#if REUSE_CACHED_INDEX
+typedef struct _gcsINDEX_CACHED_NODE
+{
+    gctSIZE_T                         bytes;
+    gctUINT32                         start;
+    gctUINT32                         end;
+    struct _gcsINDEX_CACHED_NODE * next;
+}
+gcsINDEX_CACHED_NODE,
+* gcsINDEX_CACHED_NODE_PTR;
+#endif
 
 /* Dynamic buffer management. */
 typedef struct _gcsINDEX_DYNAMIC
@@ -57,6 +73,13 @@ typedef struct _gcsINDEX_DYNAMIC
     /* For dynamic allocation */
     gcsSURF_NODE                memory;
     struct _gcsINDEX_DYNAMIC *  next;
+
+#if REUSE_CACHED_INDEX
+    gctUINT32                   realLastStart;
+    gctUINT32                   realLastEnd;
+    gctBOOL                     isReuseCachedIndex;
+    gcsINDEX_CACHED_NODE_PTR    list;
+#endif
 }
 * gcsINDEX_DYNAMIC_PTR;
 
@@ -515,7 +538,8 @@ gcoINDEX_Load(
                                      address,
                                      endAddress,
                                      IndexType,
-                                     Index->bytes));
+                                     Index->bytes,
+                                     0xFFFFFFFF));
 
     /* Success. */
     gcmFOOTER_NO();
@@ -589,7 +613,8 @@ gcoINDEX_Bind(
                                    address,
                                    endAddress,
                                    Type,
-                                   Index->bytes);
+                                   Index->bytes,
+                                   0xFFFFFFFF);
     gcmFOOTER();
     return status;
 }
@@ -642,7 +667,8 @@ gcoINDEX_BindOffset(
                                    address + Offset,
                                    endAddress,
                                    Type,
-                                   Index->bytes - Offset);
+                                   Index->bytes - Offset,
+                                   0xFFFFFFFF);
     gcmFOOTER();
     return status;
 }
@@ -655,6 +681,19 @@ _FreeDynamic(
     gceSTATUS status;
 
     gcmHEADER_ARG("Dynamic=0x%x", Dynamic);
+
+#if REUSE_CACHED_INDEX
+    while (Dynamic->list)
+    {
+        gcsINDEX_CACHED_NODE_PTR tempPtr;
+
+        tempPtr = Dynamic->list;
+        Dynamic->list = Dynamic->list->next;
+
+        gcoOS_Free(gcvNULL, tempPtr);
+        tempPtr = gcvNULL;
+    }
+#endif
 
     /* Do we have a buffer allocated? */
     if (Dynamic->memory.pool != gcvPOOL_UNKNOWN)
@@ -1152,7 +1191,7 @@ gceSTATUS
 gcoINDEX_GetIndexRange(
     IN gcoINDEX Index,
     IN gceINDEX_TYPE Type,
-    IN gctUINT32 Offset,
+    IN gctSIZE_T Offset,
     IN gctUINT32 Count,
     OUT gctUINT32 * MinimumIndex,
     OUT gctUINT32 * MaximumIndex
@@ -1853,7 +1892,11 @@ gcoINDEX_UploadDynamicEx(
     /* If the index wasn't initialized as dynamic, do it now */
     if (Index->dynamic == gcvNULL)
     {
+#if !gcdCAPTURE_ONLY_MODE
         gcmONERROR(gcoINDEX_SetDynamic(Index, 128 << 10, 32));
+#else
+        gcmONERROR(gcoINDEX_SetDynamic(Index, 4 << 10, 2));
+#endif
     }
 
     if (Index->dynamicAllocate)
@@ -1966,7 +2009,7 @@ gcoINDEX_UploadDynamicEx(
         status = gcoOS_WaitSignal(gcvNULL, dynamic->signal, 0);
         if (status == gcvSTATUS_TIMEOUT)
         {
-            gcmTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_INDEX,
+            gcmTRACE_ZONE(gcvLEVEL_INFO, gcdZONE_INDEX,
                           "Waiting for index buffer 0x%x",
                           dynamic);
 
@@ -2062,6 +2105,13 @@ gcoINDEX_UploadDynamicEx2(
     gctSIZE_T count = 0, convertedBytes = 0;
     gctUINT32 offset = 0;
     gctUINT indexSize = 0;
+#if REUSE_CACHED_INDEX
+    gctUINT8 tempBuffer[4096] = {0};
+    gcsINDEX_DYNAMIC_PTR preDynamic;
+    gcsINDEX_CACHED_NODE_PTR pNote = NULL;
+    gctBOOL  needRealCopy = gcvTRUE;
+    gctUINT8_PTR srcLogical = NULL;
+#endif
 
     gcmHEADER_ARG("Index=0x%x IndexType=%d Data=0x%x Bytes=%lu",
         Index, IndexType, Data, Bytes);
@@ -2099,6 +2149,15 @@ gcoINDEX_UploadDynamicEx2(
     default:
         gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
     }
+
+#if REUSE_CACHED_INDEX
+    if (dynamic->isReuseCachedIndex)
+    {
+        dynamic->lastStart = dynamic->realLastStart;
+        dynamic->lastEnd   = dynamic->realLastEnd;
+        dynamic->isReuseCachedIndex = gcvFALSE;
+    }
+#endif
 
     if (ConvertToIndexedTriangleList)
     {
@@ -2173,7 +2232,7 @@ gcoINDEX_UploadDynamicEx2(
             {
                 if (Index->dynamicAllocatedCount == Index->dynamicCount)
                 {
-                    gcmTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_INDEX,
+                    gcmTRACE_ZONE(gcvLEVEL_INFO, gcdZONE_INDEX,
                         "Waiting for index buffer 0x%x",
                         dynamic);
 
@@ -2226,6 +2285,103 @@ gcoINDEX_UploadDynamicEx2(
     src  = (gctUINT8_PTR) Data;
     dest = dynamic->logical + dynamic->lastEnd + offset;
 
+#if REUSE_CACHED_INDEX
+
+    preDynamic = dynamic;
+
+    /* copy the final index data to temp buffer */
+    if (ConvertToIndexedTriangleList)
+    {
+        _PatchIndices(tempBuffer,
+                      Data,
+                      IndexType,
+                      count);
+    }
+    else
+    {
+        /* Full copy.*/
+        gcoOS_MemCopy(tempBuffer, src, Bytes);
+    }
+
+    pNote = dynamic->list;
+    while (pNote)
+    {
+        if (pNote->bytes == Bytes)
+        {
+            srcLogical = (gctUINT8_PTR) (dynamic->logical + pNote->start);
+            if (gcmIS_SUCCESS(gcoOS_MemCmp(srcLogical, tempBuffer, Bytes)))
+            {
+                needRealCopy = gcvFALSE;
+
+                dynamic->isReuseCachedIndex = gcvTRUE;
+                dynamic->realLastStart = dynamic->lastStart;
+                dynamic->realLastEnd = dynamic->lastEnd;
+
+                dynamic->lastStart = pNote->start;
+                dynamic->lastEnd   = pNote->end;
+
+                break;
+            }
+        }
+
+        pNote = pNote->next;
+    }
+
+    if (needRealCopy)
+    {
+        gcsINDEX_CACHED_NODE_PTR newNodePtr = gcvNULL;
+        gcsINDEX_CACHED_NODE_PTR tempNodePtr = gcvNULL;
+
+        dynamic = preDynamic;
+
+        /* Dispatch on index type. */
+        if (ConvertToIndexedTriangleList)
+        {
+            _PatchIndices(dynamic->logical + dynamic->lastEnd,
+                          Data,
+                          IndexType,
+                          count);
+        }
+        else
+        {
+            /* Full copy.*/
+            gcoOS_MemCopy(dest, src, Bytes);
+        }
+
+        /* Flush the cache. */
+        gcmONERROR(gcoSURF_NODE_Cache(&dynamic->memory,
+            dynamic->logical + dynamic->lastEnd,
+            Bytes,gcvCACHE_CLEAN));
+
+        /* Update the pointers. */
+        dynamic->lastStart = dynamic->lastEnd + offset;
+        gcmSAFECASTSIZET(aligned32, aligned);
+        dynamic->lastEnd   = dynamic->lastEnd + aligned32;
+        dynamic->free     -= aligned;
+
+        tempNodePtr = dynamic->list;
+
+        /* add new sub stream node to the header of the list */
+        gcmONERROR(gcoOS_Allocate(gcvNULL, gcmSIZEOF(gcsINDEX_CACHED_NODE), (gctPOINTER *)&newNodePtr));
+
+        newNodePtr->bytes = Bytes;
+        newNodePtr->start = dynamic->lastStart;
+        newNodePtr->end   = dynamic->lastEnd;
+
+        newNodePtr->next = tempNodePtr;
+        dynamic->list = newNodePtr;
+        dynamic->isReuseCachedIndex = gcvFALSE;
+
+        /* Dump the buffer. */
+        gcmDUMP_BUFFER(gcvNULL,
+            gcvDUMP_BUFFER_INDEX,
+            dynamic->physical,
+            dynamic->logical,
+            dynamic->lastStart,
+            Bytes);
+    }
+#else
+
     /* Dispatch on index type. */
     if (ConvertToIndexedTriangleList)
     {
@@ -2258,6 +2414,7 @@ gcoINDEX_UploadDynamicEx2(
         dynamic->logical,
         dynamic->lastStart,
         Bytes);
+#endif
 
     /* Success. */
     gcmFOOTER_NO();
@@ -2316,7 +2473,8 @@ gcoINDEX_BindDynamic(
                                      (Index->dynamicHead->physical + Index->dynamicHead->lastStart),
                                      endAddress,
                                      Type,
-                                     (Index->dynamicHead->lastEnd - Index->dynamicHead->lastStart)));
+                                     (Index->dynamicHead->lastEnd - Index->dynamicHead->lastStart),
+                                     0xFFFFFFFF));
 
     /* Success. */
     gcmFOOTER_NO();
@@ -2462,7 +2620,7 @@ gceSTATUS gcoINDEX_QueryCaps(
 gceSTATUS gcoINDEX_GetIndexRange(
     IN gcoINDEX Index,
     IN gceINDEX_TYPE Type,
-    IN gctUINT32 Offset,
+    IN gctSIZE_T Offset,
     IN gctUINT32 Count,
     OUT gctUINT32 * MinimumIndex,
     OUT gctUINT32 * MaximumIndex

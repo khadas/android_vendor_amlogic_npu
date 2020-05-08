@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -185,10 +185,6 @@ gcoHARDWAREVX_CommitCmd(
     OUT gctUINT32*          pCmdBytes
     )
 {
-
-#if gcdENABLE_3D
-    gctUINT32 coreIndex;
-#endif
     gceSTATUS status = gcvSTATUS_NOT_SUPPORTED;
 
 #if (gcdENABLE_3D)
@@ -208,11 +204,9 @@ gcoHARDWAREVX_CommitCmd(
 #if gcdENABLE_3D
     if (Hardware->deltas)
     {
-        for (i = 1; i < Hardware->config->gpuCoreCount; i++)
+        for (i = 1; i < Hardware->config->coreCount; i++)
         {
-            gcoHARDWARE_QueryCoreIndex(Hardware, i, &coreIndex);
-
-            gcoHARDWARE_CopyDelta(Hardware->deltas[coreIndex], Hardware->delta);
+            gcoHARDWARE_CopyDelta(Hardware->deltas[Hardware->localCoreIndexs[i]], Hardware->delta);
         }
     }
 #endif
@@ -259,19 +253,15 @@ gcoHARDWAREVX_CommitCmd(
 #if gcdENABLE_3D
     if (Hardware->deltas)
     {
-        for (i = 0; i < Hardware->config->gpuCoreCount; i++)
+        for (i = 0; i < Hardware->config->coreCount; i++)
         {
-            /* Update deltas for all GPUs bound to this hardware. */
-            gcoHARDWARE_QueryCoreIndex(Hardware, i, &coreIndex);
-
-            _UpdateDelta(Hardware, coreIndex);
+            /* Update deltas for all cores bound to this hardware. */
+            _UpdateDelta(Hardware, Hardware->localCoreIndexs[i]);
         }
 
-        /* Delta list for the first GPU is updated in _UpdateDelta,
+        /* Delta list for the first core is updated in _UpdateDelta,
         *  update Hardware->delta to the current one. */
-        gcoHARDWARE_QueryCoreIndex(Hardware, 0, &coreIndex);
-
-        Hardware->delta = Hardware->deltas[coreIndex];
+        Hardware->delta = Hardware->deltas[Hardware->localCoreIndexs[0]];
     }
 #endif
 
@@ -391,7 +381,12 @@ gceSTATUS _getCLFormatFromInternalFormat(gcsVX_IMAGE_INFO_PTR info, gctUINT32_PT
         break;
 
     case gcvSURF_R32:
-        if(info->format == 0x2)
+        if((info->format == 0x2) && (info->componentCount == 2))
+        {
+            *channelOrder = CLK_Rx;
+            *channelDataType = CLK_UNSIGNED_INT32;
+        }
+        else if(info->format == 0x2)
         {
             *channelOrder = CLK_R;
             *channelDataType = CLK_SIGNED_INT32;
@@ -468,12 +463,34 @@ gcoHARDWAREVX_SetImageInfo(
             /* 8 bits per pixel.*/
             shift = 0;
             multiply = 0x0;
+            if (Info->format == 0x7)
+            {
+                conversion = 0x7;
+            }
+            else if (Info->format == 0x4)
+            {
+                conversion = 0x4;
+            }
+
             break;
 
         case 16:
             /* 16 bits per pixel.*/
             shift = 1;
-            conversion = Info->isFloat ? 0x1 : 0x6;
+
+            if (Info->format == 0x1)
+            {
+                conversion = 0x1;
+            }
+            else if (Info->format == 0x6)
+            {
+                conversion = 0x6;
+            }
+            else if (Info->format == 0x3)
+            {
+                conversion = 0x3;
+            }
+
             multiply = 0x0;
             break;
 
@@ -485,15 +502,24 @@ gcoHARDWAREVX_SetImageInfo(
             break;
 
         case 32:
-            /* Evis image load/store cannot support 32-bit yet. Use normal image load/store. */
-            shift = 2; /* Always use 4x32-bit. bpp = 16 */
-            multiply = 0x0;
-            conversion = Info->isFloat ? 0x0 : 0x5;
-            swizzleR = 0x0;
-            swizzleG = 0x1;
-            swizzleB = 0x2;
-            swizzleA = 0x3;
-            componentCount = 0x0;
+            if(Info->isVXC)
+            {
+                /* Evis image load/store cannot support 32-bit yet. Use normal image load/store. */
+                shift = 2; /* Always use 4x32-bit. bpp = 16 */
+                multiply = 0x0;
+                conversion = Info->isFloat ? 0x0 : 0x5;
+                swizzleR = 0x0;
+                swizzleG = 0x1;
+                swizzleB = 0x2;
+                swizzleA = 0x3;
+                componentCount = 0x0;
+            }
+            else
+            {
+                shift = (unsigned int)gcoMATH_Log2(4.0);
+                multiply = 0x0;
+                conversion = Info->format;
+            }
             break;
         case 64:
             /* 64 bits per pixel.*/
@@ -543,18 +569,37 @@ gcoHARDWAREVX_SetImageInfo(
         gcmONERROR(_getCLFormatFromInternalFormat(Info, &imageChannelOrder, &imageChannelDataType));
     }
 
-    switch(Info->border)
+    if (Info->isVXC)
     {
-    case gcvVX_BORDER_MODE_UNDEFINED:
-    case gcvVX_BORDER_MODE_CONSTANT:
-        border = 0x0;
-        break;
-    case gcvVX_BORDER_MODE_REPLACEMENT:
-        border = 0x3;
-        break;
-    default:
-        border = 0x1;
-        break;
+        switch(Info->border)
+        {
+        case gcvVX_BORDER_MODE_UNDEFINED:
+        case gcvVX_BORDER_MODE_CONSTANT:
+            border = 0x0;
+            break;
+        case gcvVX_BORDER_MODE_REPLACEMENT:
+            border = 0x3;
+            break;
+        default:
+            border = 0x1;
+            break;
+        }
+    }
+    else
+    {
+        switch(Info->border)
+        {
+        case gcvVX_BORDER_MODE_UNDEFINED:
+        case gcvVX_BORDER_MODE_CONSTANT:
+            border = 0x0;
+            break;
+        case gcvVX_BORDER_MODE_REPLACEMENT:
+            border = 0x3;
+            break;
+        default:
+            border = 0x1;
+            break;
+        }
     }
 
     shImage = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
@@ -1153,6 +1198,9 @@ gcoHARDWAREVX_InvokeThreadWalker(
     /* Switch to the 3D pipe. */
     gcmONERROR(gcoHARDWARE_SelectPipe(gcvNULL, gcvPIPE_3D, cmdBuffer));
 
+    /* Initialize some video memories that allocated by compiler. */
+    gcmONERROR(gcoHARDWARE_InitVidMemAllocatedByCompiler(Hardware));
+
     if (Hardware->SHDirty->shaderDirty)
     {
         /* Flush shader states. */
@@ -1215,8 +1263,7 @@ gcoHARDWAREVX_InvokeThreadWalker(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0240) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0240, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  1:0) - (0 ?
  1:0) + 1) == 32) ?
@@ -1306,8 +1353,7 @@ gcoHARDWAREVX_InvokeThreadWalker(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0249) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0249, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -1368,8 +1414,7 @@ gcoHARDWAREVX_InvokeThreadWalker(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0247) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0247, gcmCEIL((gctFLOAT)(Parameters->workGroupSizeX * Parameters->workGroupSizeY) / (Hardware->config->shaderCoreCount * 4)) );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -1422,8 +1467,7 @@ gcoHARDWAREVX_InvokeThreadWalker(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0250) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
 
 
         gcmSETSTATEDATA_NEW(
@@ -1493,8 +1537,7 @@ gcoHARDWAREVX_InvokeThreadWalker(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0253) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0253, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  9:0) - (0 ?
  9:0) + 1) == 32) ?
@@ -1555,8 +1598,7 @@ gcoHARDWAREVX_InvokeThreadWalker(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0254) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0254, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  9:0) - (0 ?
  9:0) + 1) == 32) ?
@@ -1617,8 +1659,7 @@ gcoHARDWAREVX_InvokeThreadWalker(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x024B) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x024B, Parameters->globalOffsetX );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -1671,8 +1712,7 @@ gcoHARDWAREVX_InvokeThreadWalker(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x024D) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x024D, Parameters->globalOffsetY );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -1725,8 +1765,7 @@ gcoHARDWAREVX_InvokeThreadWalker(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0256) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0256, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  7:0) - (0 ?
  7:0) + 1) == 32) ?
@@ -1787,8 +1826,7 @@ gcoHARDWAREVX_InvokeThreadWalker(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0257) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0257, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  7:0) - (0 ?
  7:0) + 1) == 32) ?
@@ -1850,56 +1888,47 @@ gcoHARDWAREVX_InvokeThreadWalker(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0248) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0248, 0xBADABEEB );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
 
-#ifdef GCREG_MCFE_STD_DESC_RING_BUF_START_ADDR_Address
     if (Hardware->features[gcvFEATURE_MCFE])
     {
         /* SubmitJob. */
         *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
- MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_SUB_COMMAND & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)))
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x16 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
                   | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ?
- MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ?
- MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ?
- MCFE_COMMAND_SUB_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_SUB_OPCODE_SUBMIT_JOB & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ?
- MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ?
- MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_SUB_OPCODE)));
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) (0x001 & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
 
         *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
- MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_NOP & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)));
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x03 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
     }
-#endif
 
     /* Validate the state buffer. */
     gcmENDSTATEBUFFER_NEW(Hardware, reserve, memory, cmdBuffer);
@@ -1931,10 +1960,12 @@ gcoHARDWAREVX_InvokeThreadWalker(
     }
 #else
     /* Flush the Shader L1 cache. */
-    gcmONERROR(gcoHARDWARE_LoadCtrlState(
-        Hardware,
-        0x0380C,
-            ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+    if (!Hardware->config->parallelNoFix || !Hardware->options.enableNNTPParallel || Hardware->options.enableSwtilingPhase1)
+    {
+        gcmONERROR(gcoHARDWARE_LoadCtrlState(
+            Hardware,
+            0x0380C,
+                ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  5:5) - (0 ?
  5:5) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -1944,7 +1975,25 @@ gcoHARDWAREVX_InvokeThreadWalker(
  5:5) - (0 ?
  5:5) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)))
-        ));
+            ));
+    }
+    else
+    {
+        gcmONERROR(gcoHARDWARE_LoadCtrlState(
+            Hardware,
+            0x0380C,
+                ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1))))))) << (0 ?
+ 5:5))) | (((gctUINT32) (0x0 & ((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)))
+            ));
+    }
 
     if (Hardware->features[gcvFEATURE_MCFE])
     {
@@ -2889,6 +2938,114 @@ gcoHARDWAREVX_SetInstructionType(
 }
 
 gceSTATUS
+gcoHARDWAREVX_IsEndOfBB(
+    IN gctUINT32                            Opcode,
+    OUT gcoVX_Instruction                   *Instruction
+)
+{
+    gceSTATUS status = gcvSTATUS_OK;
+    gcmHEADER_ARG("Opcode=0x%x", Opcode);
+
+    if (Instruction != NULL)
+    {
+        gcoHARDWARE Hardware = NULL;
+        gcmGETHARDWARE(Hardware);
+
+
+
+        if (Hardware->features[gcvFEATURE_SH_END_OF_BB])
+        {
+            switch (Opcode)
+            {
+            case 0x09:
+            case 0x56:
+            case 0x0A:
+            case 0x0B:
+            case 0x0F:
+            case 0x31:
+            case 0x10:
+                Instruction->binary[1] = (((gctUINT32)(Instruction->binary[1]) & ~((gctUINT32)(((((1 ?
+ 10:3) - (0 ?
+ 10:3) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:3) - (0 ?
+ 10:3) + 1))))) << (0 ?
+ 10:3))) | ((gctUINT32)((gctUINT32)(SETBITS(Instruction->binary[1], 3, 3, 1)) & ((((1 ?
+ 10:3) - (0 ?
+ 10:3) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:3) - (0 ? 10:3) + 1))))) << (0 ? 10:3)));
+                break;
+            case 0x65:
+            case 0x66:
+            case 0x67:
+            case 0x68:
+            case 0x69:
+            case 0x6A:
+            case 0x6B:
+            case 0x6C:
+            case 0x46:
+                Instruction->binary[0] = (((gctUINT32)(Instruction->binary[0]) & ~((gctUINT32)(((((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1))))) << (0 ?
+ 10:6))) | ((gctUINT32)((gctUINT32)(SETBITS(Instruction->binary[0], 2, 2, 1)) & ((((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:6) - (0 ? 10:6) + 1))))) << (0 ? 10:6)));
+                break;
+            case 0x32:
+            case 0x39:
+            case 0x33:
+            case 0x3A:
+            case 0x79:
+            case 0x34:
+            case 0x7A:
+            case 0x35:
+                Instruction->binary[0] = (((gctUINT32)(Instruction->binary[0]) & ~((gctUINT32)(((((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1))))) << (0 ?
+ 10:6))) | ((gctUINT32)((gctUINT32)(SETBITS(Instruction->binary[0], 2, 2, 1)) & ((((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:6) - (0 ? 10:6) + 1))))) << (0 ? 10:6)));
+                break;
+            default:
+                if (Opcode != 0x16 &&
+                    Opcode != 0x24 &&
+                    Opcode != 0x14 &&
+                    Opcode != 0x15 &&
+                    Opcode != 0x17)
+                    Instruction->binary[0] = (((gctUINT32)(Instruction->binary[0]) & ~((gctUINT32)(((((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1))))) << (0 ?
+ 10:6))) | ((gctUINT32)((gctUINT32)(SETBITS(Instruction->binary[0], 2, 2, 1)) & ((((1 ?
+ 10:6) - (0 ?
+ 10:6) + 1) == 32) ?
+ ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
+ 10:6) - (0 ? 10:6) + 1))))) << (0 ? 10:6)));
+                break;
+            }
+        }
+    }
+
+OnError:
+    /* Return the status. */
+    gcmFOOTER();
+    return status;
+}
+
+gceSTATUS
 gcoHARDWAREVX_AddOpcode(
     IN gctUINT32                            Opcode,
     IN gctUINT32                            Extended,
@@ -2959,6 +3116,8 @@ gcoHARDWAREVX_AddOpcode(
 
     if((gctUINT32)Type != GCREG_SH_INSTRUCTION_TYPE_INVALID)
         gcmONERROR(gcoHARDWAREVX_SetInstructionType(Type, Instruction));
+
+    gcmONERROR(gcoHARDWAREVX_IsEndOfBB(Opcode, Instruction));
 
 OnError:
     /* Return the status. */
@@ -3225,7 +3384,7 @@ static gceSTATUS _SetUniformItem(
     IN gctUINT32                            Offset3,
     IN gctUINT32                            Shift,
     IN gctBOOL                              IgnoreOffset,
-    IN gcVXConfig                           Config,
+    IN gcVXConfig                           *Config,
     IN gctUINT32                            AccumulatorType,
     IN OUT gcoVX_Kernel_Context_Uniform     *Uniform
 )
@@ -3237,8 +3396,8 @@ static gceSTATUS _SetUniformItem(
 
     for(k = 0; k < 8; k++)
     {
-        Uniform->uniform.bins[0].bin16[k] = Config.matrix[k];
-        Uniform->uniform.bins[1].bin16[k] = Config.matrix[k + 8];
+        Uniform->uniform.bins[0].bin16[k] = Config->matrix[k];
+        Uniform->uniform.bins[1].bin16[k] = Config->matrix[k + 8];
     }
 
     Uniform->uniform.termConfig = ((((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
@@ -3247,7 +3406,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  1:0) - (0 ?
  1:0) + 1))))) << (0 ?
- 1:0))) | ((gctUINT32)((gctUINT32)(Config.termconfig[0]) & ((((1 ?
+ 1:0))) | ((gctUINT32)((gctUINT32)(Config->termconfig[0]) & ((((1 ?
  1:0) - (0 ?
  1:0) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3258,7 +3417,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  3:2) - (0 ?
  3:2) + 1))))) << (0 ?
- 3:2))) | ((gctUINT32)((gctUINT32)(Config.termconfig[1]) & ((((1 ?
+ 3:2))) | ((gctUINT32)((gctUINT32)(Config->termconfig[1]) & ((((1 ?
  3:2) - (0 ?
  3:2) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3269,7 +3428,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  5:4) - (0 ?
  5:4) + 1))))) << (0 ?
- 5:4))) | ((gctUINT32)((gctUINT32)(Config.termconfig[2]) & ((((1 ?
+ 5:4))) | ((gctUINT32)((gctUINT32)(Config->termconfig[2]) & ((((1 ?
  5:4) - (0 ?
  5:4) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3280,7 +3439,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  7:6) - (0 ?
  7:6) + 1))))) << (0 ?
- 7:6))) | ((gctUINT32)((gctUINT32)(Config.termconfig[3]) & ((((1 ?
+ 7:6))) | ((gctUINT32)((gctUINT32)(Config->termconfig[3]) & ((((1 ?
  7:6) - (0 ?
  7:6) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3291,7 +3450,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  9:8) - (0 ?
  9:8) + 1))))) << (0 ?
- 9:8))) | ((gctUINT32)((gctUINT32)(Config.termconfig[4]) & ((((1 ?
+ 9:8))) | ((gctUINT32)((gctUINT32)(Config->termconfig[4]) & ((((1 ?
  9:8) - (0 ?
  9:8) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3302,7 +3461,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  11:10) - (0 ?
  11:10) + 1))))) << (0 ?
- 11:10))) | ((gctUINT32)((gctUINT32)(Config.termconfig[5]) & ((((1 ?
+ 11:10))) | ((gctUINT32)((gctUINT32)(Config->termconfig[5]) & ((((1 ?
  11:10) - (0 ?
  11:10) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3313,7 +3472,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  13:12) - (0 ?
  13:12) + 1))))) << (0 ?
- 13:12))) | ((gctUINT32)((gctUINT32)(Config.termconfig[6]) & ((((1 ?
+ 13:12))) | ((gctUINT32)((gctUINT32)(Config->termconfig[6]) & ((((1 ?
  13:12) - (0 ?
  13:12) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3324,7 +3483,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  15:14) - (0 ?
  15:14) + 1))))) << (0 ?
- 15:14))) | ((gctUINT32)((gctUINT32)(Config.termconfig[7]) & ((((1 ?
+ 15:14))) | ((gctUINT32)((gctUINT32)(Config->termconfig[7]) & ((((1 ?
  15:14) - (0 ?
  15:14) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3335,7 +3494,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  17:16) - (0 ?
  17:16) + 1))))) << (0 ?
- 17:16))) | ((gctUINT32)((gctUINT32)(Config.termconfig[8]) & ((((1 ?
+ 17:16))) | ((gctUINT32)((gctUINT32)(Config->termconfig[8]) & ((((1 ?
  17:16) - (0 ?
  17:16) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3346,7 +3505,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  19:18) - (0 ?
  19:18) + 1))))) << (0 ?
- 19:18))) | ((gctUINT32)((gctUINT32)(Config.termconfig[9]) & ((((1 ?
+ 19:18))) | ((gctUINT32)((gctUINT32)(Config->termconfig[9]) & ((((1 ?
  19:18) - (0 ?
  19:18) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3357,7 +3516,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  21:20) - (0 ?
  21:20) + 1))))) << (0 ?
- 21:20))) | ((gctUINT32)((gctUINT32)(Config.termconfig[10]) & ((((1 ?
+ 21:20))) | ((gctUINT32)((gctUINT32)(Config->termconfig[10]) & ((((1 ?
  21:20) - (0 ?
  21:20) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3368,7 +3527,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  23:22) - (0 ?
  23:22) + 1))))) << (0 ?
- 23:22))) | ((gctUINT32)((gctUINT32)(Config.termconfig[11]) & ((((1 ?
+ 23:22))) | ((gctUINT32)((gctUINT32)(Config->termconfig[11]) & ((((1 ?
  23:22) - (0 ?
  23:22) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3379,7 +3538,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  25:24) - (0 ?
  25:24) + 1))))) << (0 ?
- 25:24))) | ((gctUINT32)((gctUINT32)(Config.termconfig[12]) & ((((1 ?
+ 25:24))) | ((gctUINT32)((gctUINT32)(Config->termconfig[12]) & ((((1 ?
  25:24) - (0 ?
  25:24) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3390,7 +3549,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  27:26) - (0 ?
  27:26) + 1))))) << (0 ?
- 27:26))) | ((gctUINT32)((gctUINT32)(Config.termconfig[13]) & ((((1 ?
+ 27:26))) | ((gctUINT32)((gctUINT32)(Config->termconfig[13]) & ((((1 ?
  27:26) - (0 ?
  27:26) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3401,7 +3560,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  29:28) - (0 ?
  29:28) + 1))))) << (0 ?
- 29:28))) | ((gctUINT32)((gctUINT32)(Config.termconfig[14]) & ((((1 ?
+ 29:28))) | ((gctUINT32)((gctUINT32)(Config->termconfig[14]) & ((((1 ?
  29:28) - (0 ?
  29:28) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3412,7 +3571,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  31:30) - (0 ?
  31:30) + 1))))) << (0 ?
- 31:30))) | ((gctUINT32)((gctUINT32)(Config.termconfig[15]) & ((((1 ?
+ 31:30))) | ((gctUINT32)((gctUINT32)(Config->termconfig[15]) & ((((1 ?
  31:30) - (0 ?
  31:30) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3420,7 +3579,7 @@ static gceSTATUS _SetUniformItem(
                      );
 
     Uniform->uniform.aSelect = (
-                    ((Config.aselect[0] == 0) ?
+                    ((Config->aselect[0] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  1:0) - (0 ?
  1:0) + 1) == 32) ?
@@ -3444,7 +3603,7 @@ static gceSTATUS _SetUniformItem(
  1:0) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  1:0) - (0 ? 1:0) + 1))))) << (0 ? 1:0))))
-                  | ((Config.aselect[1] == 0) ?
+                  | ((Config->aselect[1] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  3:2) - (0 ?
  3:2) + 1) == 32) ?
@@ -3468,7 +3627,7 @@ static gceSTATUS _SetUniformItem(
  3:2) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  3:2) - (0 ? 3:2) + 1))))) << (0 ? 3:2))))
-                  | ((Config.aselect[2] == 0) ?
+                  | ((Config->aselect[2] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  5:4) - (0 ?
  5:4) + 1) == 32) ?
@@ -3492,7 +3651,7 @@ static gceSTATUS _SetUniformItem(
  5:4) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  5:4) - (0 ? 5:4) + 1))))) << (0 ? 5:4))))
-                  | ((Config.aselect[3] == 0) ?
+                  | ((Config->aselect[3] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  7:6) - (0 ?
  7:6) + 1) == 32) ?
@@ -3516,7 +3675,7 @@ static gceSTATUS _SetUniformItem(
  7:6) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  7:6) - (0 ? 7:6) + 1))))) << (0 ? 7:6))))
-                  | ((Config.aselect[4] == 0) ?
+                  | ((Config->aselect[4] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  9:8) - (0 ?
  9:8) + 1) == 32) ?
@@ -3540,7 +3699,7 @@ static gceSTATUS _SetUniformItem(
  9:8) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  9:8) - (0 ? 9:8) + 1))))) << (0 ? 9:8))))
-                  | ((Config.aselect[5] == 0) ?
+                  | ((Config->aselect[5] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  11:10) - (0 ?
  11:10) + 1) == 32) ?
@@ -3564,7 +3723,7 @@ static gceSTATUS _SetUniformItem(
  11:10) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  11:10) - (0 ? 11:10) + 1))))) << (0 ? 11:10))))
-                  | ((Config.aselect[6] == 0) ?
+                  | ((Config->aselect[6] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  13:12) - (0 ?
  13:12) + 1) == 32) ?
@@ -3588,7 +3747,7 @@ static gceSTATUS _SetUniformItem(
  13:12) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  13:12) - (0 ? 13:12) + 1))))) << (0 ? 13:12))))
-                  | ((Config.aselect[7] == 0) ?
+                  | ((Config->aselect[7] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  15:14) - (0 ?
  15:14) + 1) == 32) ?
@@ -3612,7 +3771,7 @@ static gceSTATUS _SetUniformItem(
  15:14) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  15:14) - (0 ? 15:14) + 1))))) << (0 ? 15:14))))
-                  | ((Config.aselect[8] == 0) ?
+                  | ((Config->aselect[8] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  17:16) - (0 ?
  17:16) + 1) == 32) ?
@@ -3636,7 +3795,7 @@ static gceSTATUS _SetUniformItem(
  17:16) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  17:16) - (0 ? 17:16) + 1))))) << (0 ? 17:16))))
-                  | ((Config.aselect[9] == 0) ?
+                  | ((Config->aselect[9] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  19:18) - (0 ?
  19:18) + 1) == 32) ?
@@ -3660,7 +3819,7 @@ static gceSTATUS _SetUniformItem(
  19:18) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  19:18) - (0 ? 19:18) + 1))))) << (0 ? 19:18))))
-                  | ((Config.aselect[10] == 0) ?
+                  | ((Config->aselect[10] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  21:20) - (0 ?
  21:20) + 1) == 32) ?
@@ -3684,7 +3843,7 @@ static gceSTATUS _SetUniformItem(
  21:20) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  21:20) - (0 ? 21:20) + 1))))) << (0 ? 21:20))))
-                  | ((Config.aselect[11] == 0) ?
+                  | ((Config->aselect[11] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  23:22) - (0 ?
  23:22) + 1) == 32) ?
@@ -3708,7 +3867,7 @@ static gceSTATUS _SetUniformItem(
  23:22) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  23:22) - (0 ? 23:22) + 1))))) << (0 ? 23:22))))
-                  | ((Config.aselect[12] == 0) ?
+                  | ((Config->aselect[12] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  25:24) - (0 ?
  25:24) + 1) == 32) ?
@@ -3732,7 +3891,7 @@ static gceSTATUS _SetUniformItem(
  25:24) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  25:24) - (0 ? 25:24) + 1))))) << (0 ? 25:24))))
-                  | ((Config.aselect[13] == 0) ?
+                  | ((Config->aselect[13] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  27:26) - (0 ?
  27:26) + 1) == 32) ?
@@ -3756,7 +3915,7 @@ static gceSTATUS _SetUniformItem(
  27:26) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  27:26) - (0 ? 27:26) + 1))))) << (0 ? 27:26))))
-                  | ((Config.aselect[14] == 0) ?
+                  | ((Config->aselect[14] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  29:28) - (0 ?
  29:28) + 1) == 32) ?
@@ -3780,7 +3939,7 @@ static gceSTATUS _SetUniformItem(
  29:28) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  29:28) - (0 ? 29:28) + 1))))) << (0 ? 29:28))))
-                  | ((Config.aselect[15] == 0) ?
+                  | ((Config->aselect[15] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  31:30) - (0 ?
  31:30) + 1) == 32) ?
@@ -3813,7 +3972,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  3:0) - (0 ?
  3:0) + 1))))) << (0 ?
- 3:0))) | ((gctUINT32)((gctUINT32)(Offset0 + Config.abin0[0]) & ((((1 ?
+ 3:0))) | ((gctUINT32)((gctUINT32)(Offset0 + Config->abin0[0]) & ((((1 ?
  3:0) - (0 ?
  3:0) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3824,7 +3983,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  7:4) - (0 ?
  7:4) + 1))))) << (0 ?
- 7:4))) | ((gctUINT32)((gctUINT32)(Offset0 + Config.abin0[1]) & ((((1 ?
+ 7:4))) | ((gctUINT32)((gctUINT32)(Offset0 + Config->abin0[1]) & ((((1 ?
  7:4) - (0 ?
  7:4) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3835,12 +3994,12 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  11:8) - (0 ?
  11:8) + 1))))) << (0 ?
- 11:8))) | ((gctUINT32)((gctUINT32)(Offset0 + Config.abin0[2]) & ((((1 ?
+ 11:8))) | ((gctUINT32)((gctUINT32)(Offset0 + Config->abin0[2]) & ((((1 ?
  11:8) - (0 ?
  11:8) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  11:8) - (0 ? 11:8) + 1))))) << (0 ? 11:8)))
-                  | ((Config.termconfig[3] == VX_ACCUMULATOR && IgnoreOffset)
+                  | ((Config->termconfig[3] == VX_ACCUMULATOR && IgnoreOffset)
                         ?
 (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  15:12) - (0 ?
@@ -3848,7 +4007,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  15:12) - (0 ?
  15:12) + 1))))) << (0 ?
- 15:12))) | ((gctUINT32)((gctUINT32)(Config.abin0[3]) & ((((1 ?
+ 15:12))) | ((gctUINT32)((gctUINT32)(Config->abin0[3]) & ((((1 ?
  15:12) - (0 ?
  15:12) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3859,7 +4018,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  15:12) - (0 ?
  15:12) + 1))))) << (0 ?
- 15:12))) | ((gctUINT32)((gctUINT32)(Offset0 + Config.abin0[3]) & ((((1 ?
+ 15:12))) | ((gctUINT32)((gctUINT32)(Offset0 + Config->abin0[3]) & ((((1 ?
  15:12) - (0 ?
  15:12) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3871,7 +4030,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  19:16) - (0 ?
  19:16) + 1))))) << (0 ?
- 19:16))) | ((gctUINT32)((gctUINT32)(Offset1 + Config.abin0[4]) & ((((1 ?
+ 19:16))) | ((gctUINT32)((gctUINT32)(Offset1 + Config->abin0[4]) & ((((1 ?
  19:16) - (0 ?
  19:16) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3882,7 +4041,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  23:20) - (0 ?
  23:20) + 1))))) << (0 ?
- 23:20))) | ((gctUINT32)((gctUINT32)(Offset1 + Config.abin0[5]) & ((((1 ?
+ 23:20))) | ((gctUINT32)((gctUINT32)(Offset1 + Config->abin0[5]) & ((((1 ?
  23:20) - (0 ?
  23:20) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3893,12 +4052,12 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  27:24) - (0 ?
  27:24) + 1))))) << (0 ?
- 27:24))) | ((gctUINT32)((gctUINT32)(Offset1 + Config.abin0[6]) & ((((1 ?
+ 27:24))) | ((gctUINT32)((gctUINT32)(Offset1 + Config->abin0[6]) & ((((1 ?
  27:24) - (0 ?
  27:24) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  27:24) - (0 ? 27:24) + 1))))) << (0 ? 27:24)))
-                  | ((Config.termconfig[7] == VX_ACCUMULATOR && IgnoreOffset)
+                  | ((Config->termconfig[7] == VX_ACCUMULATOR && IgnoreOffset)
                         ?
 (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  31:28) - (0 ?
@@ -3906,7 +4065,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  31:28) - (0 ?
  31:28) + 1))))) << (0 ?
- 31:28))) | ((gctUINT32)((gctUINT32)(Config.abin0[7]) & ((((1 ?
+ 31:28))) | ((gctUINT32)((gctUINT32)(Config->abin0[7]) & ((((1 ?
  31:28) - (0 ?
  31:28) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3917,7 +4076,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  31:28) - (0 ?
  31:28) + 1))))) << (0 ?
- 31:28))) | ((gctUINT32)((gctUINT32)(Offset1 + Config.abin0[7]) & ((((1 ?
+ 31:28))) | ((gctUINT32)((gctUINT32)(Offset1 + Config->abin0[7]) & ((((1 ?
  31:28) - (0 ?
  31:28) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3932,7 +4091,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  3:0) - (0 ?
  3:0) + 1))))) << (0 ?
- 3:0))) | ((gctUINT32)((gctUINT32)(Offset2 + Config.abin1[0]) & ((((1 ?
+ 3:0))) | ((gctUINT32)((gctUINT32)(Offset2 + Config->abin1[0]) & ((((1 ?
  3:0) - (0 ?
  3:0) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3943,7 +4102,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  7:4) - (0 ?
  7:4) + 1))))) << (0 ?
- 7:4))) | ((gctUINT32)((gctUINT32)(Offset2 + Config.abin1[1]) & ((((1 ?
+ 7:4))) | ((gctUINT32)((gctUINT32)(Offset2 + Config->abin1[1]) & ((((1 ?
  7:4) - (0 ?
  7:4) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3954,12 +4113,12 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  11:8) - (0 ?
  11:8) + 1))))) << (0 ?
- 11:8))) | ((gctUINT32)((gctUINT32)(Offset2 + Config.abin1[2]) & ((((1 ?
+ 11:8))) | ((gctUINT32)((gctUINT32)(Offset2 + Config->abin1[2]) & ((((1 ?
  11:8) - (0 ?
  11:8) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  11:8) - (0 ? 11:8) + 1))))) << (0 ? 11:8)))
-                  | ((Config.termconfig[11] == VX_ACCUMULATOR && IgnoreOffset)
+                  | ((Config->termconfig[11] == VX_ACCUMULATOR && IgnoreOffset)
                         ?
 (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  15:12) - (0 ?
@@ -3967,7 +4126,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  15:12) - (0 ?
  15:12) + 1))))) << (0 ?
- 15:12))) | ((gctUINT32)((gctUINT32)(Config.abin1[3]) & ((((1 ?
+ 15:12))) | ((gctUINT32)((gctUINT32)(Config->abin1[3]) & ((((1 ?
  15:12) - (0 ?
  15:12) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3978,7 +4137,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  15:12) - (0 ?
  15:12) + 1))))) << (0 ?
- 15:12))) | ((gctUINT32)((gctUINT32)(Offset2 + Config.abin1[3]) & ((((1 ?
+ 15:12))) | ((gctUINT32)((gctUINT32)(Offset2 + Config->abin1[3]) & ((((1 ?
  15:12) - (0 ?
  15:12) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -3990,7 +4149,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  19:16) - (0 ?
  19:16) + 1))))) << (0 ?
- 19:16))) | ((gctUINT32)((gctUINT32)(Offset3 + Config.abin1[4]) & ((((1 ?
+ 19:16))) | ((gctUINT32)((gctUINT32)(Offset3 + Config->abin1[4]) & ((((1 ?
  19:16) - (0 ?
  19:16) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4001,7 +4160,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  23:20) - (0 ?
  23:20) + 1))))) << (0 ?
- 23:20))) | ((gctUINT32)((gctUINT32)(Offset3 + Config.abin1[5]) & ((((1 ?
+ 23:20))) | ((gctUINT32)((gctUINT32)(Offset3 + Config->abin1[5]) & ((((1 ?
  23:20) - (0 ?
  23:20) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4012,12 +4171,12 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  27:24) - (0 ?
  27:24) + 1))))) << (0 ?
- 27:24))) | ((gctUINT32)((gctUINT32)(Offset3 + Config.abin1[6]) & ((((1 ?
+ 27:24))) | ((gctUINT32)((gctUINT32)(Offset3 + Config->abin1[6]) & ((((1 ?
  27:24) - (0 ?
  27:24) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  27:24) - (0 ? 27:24) + 1))))) << (0 ? 27:24)))
-                  | ((Config.termconfig[15] == VX_ACCUMULATOR)
+                  | ((Config->termconfig[15] == VX_ACCUMULATOR)
                         ?
 (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  31:28) - (0 ?
@@ -4025,7 +4184,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  31:28) - (0 ?
  31:28) + 1))))) << (0 ?
- 31:28))) | ((gctUINT32)((gctUINT32)(Config.abin1[7]) & ((((1 ?
+ 31:28))) | ((gctUINT32)((gctUINT32)(Config->abin1[7]) & ((((1 ?
  31:28) - (0 ?
  31:28) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4036,7 +4195,7 @@ static gceSTATUS _SetUniformItem(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  31:28) - (0 ?
  31:28) + 1))))) << (0 ?
- 31:28))) | ((gctUINT32)((gctUINT32)(Offset3 + Config.abin1[7]) & ((((1 ?
+ 31:28))) | ((gctUINT32)((gctUINT32)(Offset3 + Config->abin1[7]) & ((((1 ?
  31:28) - (0 ?
  31:28) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4322,7 +4481,7 @@ static gceSTATUS _SetUniformItemExt(
     IN gctUINT32                            Offset3,
     IN gctINT32                             Shift,
     IN gctBOOL                              IgnoreOffset,
-    IN gcVXConfig                           Config,
+    IN gcVXConfig                           *Config,
     IN gctUINT32                            AccumulatorType,
     IN OUT gcoVX_Kernel_Context_Uniform     *Uniform
 )
@@ -4334,8 +4493,8 @@ static gceSTATUS _SetUniformItemExt(
 
     for(k = 0; k < 8; k++)
     {
-        Uniform->uniform.bins[0].bin16[k] = Config.matrix[k];
-        Uniform->uniform.bins[1].bin16[k] = Config.matrix[k + 8];
+        Uniform->uniform.bins[0].bin16[k] = Config->matrix[k];
+        Uniform->uniform.bins[1].bin16[k] = Config->matrix[k + 8];
     }
 
     Uniform->uniform.termConfig = ((((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
@@ -4344,7 +4503,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  1:0) - (0 ?
  1:0) + 1))))) << (0 ?
- 1:0))) | ((gctUINT32)((gctUINT32)(Config.termconfig[0]) & ((((1 ?
+ 1:0))) | ((gctUINT32)((gctUINT32)(Config->termconfig[0]) & ((((1 ?
  1:0) - (0 ?
  1:0) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4355,7 +4514,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  3:2) - (0 ?
  3:2) + 1))))) << (0 ?
- 3:2))) | ((gctUINT32)((gctUINT32)(Config.termconfig[1]) & ((((1 ?
+ 3:2))) | ((gctUINT32)((gctUINT32)(Config->termconfig[1]) & ((((1 ?
  3:2) - (0 ?
  3:2) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4366,7 +4525,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  5:4) - (0 ?
  5:4) + 1))))) << (0 ?
- 5:4))) | ((gctUINT32)((gctUINT32)(Config.termconfig[2]) & ((((1 ?
+ 5:4))) | ((gctUINT32)((gctUINT32)(Config->termconfig[2]) & ((((1 ?
  5:4) - (0 ?
  5:4) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4377,7 +4536,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  7:6) - (0 ?
  7:6) + 1))))) << (0 ?
- 7:6))) | ((gctUINT32)((gctUINT32)(Config.termconfig[3]) & ((((1 ?
+ 7:6))) | ((gctUINT32)((gctUINT32)(Config->termconfig[3]) & ((((1 ?
  7:6) - (0 ?
  7:6) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4388,7 +4547,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  9:8) - (0 ?
  9:8) + 1))))) << (0 ?
- 9:8))) | ((gctUINT32)((gctUINT32)(Config.termconfig[4]) & ((((1 ?
+ 9:8))) | ((gctUINT32)((gctUINT32)(Config->termconfig[4]) & ((((1 ?
  9:8) - (0 ?
  9:8) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4399,7 +4558,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  11:10) - (0 ?
  11:10) + 1))))) << (0 ?
- 11:10))) | ((gctUINT32)((gctUINT32)(Config.termconfig[5]) & ((((1 ?
+ 11:10))) | ((gctUINT32)((gctUINT32)(Config->termconfig[5]) & ((((1 ?
  11:10) - (0 ?
  11:10) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4410,7 +4569,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  13:12) - (0 ?
  13:12) + 1))))) << (0 ?
- 13:12))) | ((gctUINT32)((gctUINT32)(Config.termconfig[6]) & ((((1 ?
+ 13:12))) | ((gctUINT32)((gctUINT32)(Config->termconfig[6]) & ((((1 ?
  13:12) - (0 ?
  13:12) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4421,7 +4580,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  15:14) - (0 ?
  15:14) + 1))))) << (0 ?
- 15:14))) | ((gctUINT32)((gctUINT32)(Config.termconfig[7]) & ((((1 ?
+ 15:14))) | ((gctUINT32)((gctUINT32)(Config->termconfig[7]) & ((((1 ?
  15:14) - (0 ?
  15:14) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4432,7 +4591,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  17:16) - (0 ?
  17:16) + 1))))) << (0 ?
- 17:16))) | ((gctUINT32)((gctUINT32)(Config.termconfig[8]) & ((((1 ?
+ 17:16))) | ((gctUINT32)((gctUINT32)(Config->termconfig[8]) & ((((1 ?
  17:16) - (0 ?
  17:16) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4443,7 +4602,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  19:18) - (0 ?
  19:18) + 1))))) << (0 ?
- 19:18))) | ((gctUINT32)((gctUINT32)(Config.termconfig[9]) & ((((1 ?
+ 19:18))) | ((gctUINT32)((gctUINT32)(Config->termconfig[9]) & ((((1 ?
  19:18) - (0 ?
  19:18) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4454,7 +4613,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  21:20) - (0 ?
  21:20) + 1))))) << (0 ?
- 21:20))) | ((gctUINT32)((gctUINT32)(Config.termconfig[10]) & ((((1 ?
+ 21:20))) | ((gctUINT32)((gctUINT32)(Config->termconfig[10]) & ((((1 ?
  21:20) - (0 ?
  21:20) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4465,7 +4624,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  23:22) - (0 ?
  23:22) + 1))))) << (0 ?
- 23:22))) | ((gctUINT32)((gctUINT32)(Config.termconfig[11]) & ((((1 ?
+ 23:22))) | ((gctUINT32)((gctUINT32)(Config->termconfig[11]) & ((((1 ?
  23:22) - (0 ?
  23:22) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4476,7 +4635,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  25:24) - (0 ?
  25:24) + 1))))) << (0 ?
- 25:24))) | ((gctUINT32)((gctUINT32)(Config.termconfig[12]) & ((((1 ?
+ 25:24))) | ((gctUINT32)((gctUINT32)(Config->termconfig[12]) & ((((1 ?
  25:24) - (0 ?
  25:24) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4487,7 +4646,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  27:26) - (0 ?
  27:26) + 1))))) << (0 ?
- 27:26))) | ((gctUINT32)((gctUINT32)(Config.termconfig[13]) & ((((1 ?
+ 27:26))) | ((gctUINT32)((gctUINT32)(Config->termconfig[13]) & ((((1 ?
  27:26) - (0 ?
  27:26) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4498,7 +4657,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  29:28) - (0 ?
  29:28) + 1))))) << (0 ?
- 29:28))) | ((gctUINT32)((gctUINT32)(Config.termconfig[14]) & ((((1 ?
+ 29:28))) | ((gctUINT32)((gctUINT32)(Config->termconfig[14]) & ((((1 ?
  29:28) - (0 ?
  29:28) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4509,7 +4668,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  31:30) - (0 ?
  31:30) + 1))))) << (0 ?
- 31:30))) | ((gctUINT32)((gctUINT32)(Config.termconfig[15]) & ((((1 ?
+ 31:30))) | ((gctUINT32)((gctUINT32)(Config->termconfig[15]) & ((((1 ?
  31:30) - (0 ?
  31:30) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4517,7 +4676,7 @@ static gceSTATUS _SetUniformItemExt(
                      );
 
     Uniform->uniform.aSelect = (
-                    ((Config.aselect[0] == 0) ?
+                    ((Config->aselect[0] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  1:0) - (0 ?
  1:0) + 1) == 32) ?
@@ -4541,7 +4700,7 @@ static gceSTATUS _SetUniformItemExt(
  1:0) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  1:0) - (0 ? 1:0) + 1))))) << (0 ? 1:0))))
-                  | ((Config.aselect[1] == 0) ?
+                  | ((Config->aselect[1] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  3:2) - (0 ?
  3:2) + 1) == 32) ?
@@ -4565,7 +4724,7 @@ static gceSTATUS _SetUniformItemExt(
  3:2) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  3:2) - (0 ? 3:2) + 1))))) << (0 ? 3:2))))
-                  | ((Config.aselect[2] == 0) ?
+                  | ((Config->aselect[2] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  5:4) - (0 ?
  5:4) + 1) == 32) ?
@@ -4589,7 +4748,7 @@ static gceSTATUS _SetUniformItemExt(
  5:4) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  5:4) - (0 ? 5:4) + 1))))) << (0 ? 5:4))))
-                  | ((Config.aselect[3] == 0) ?
+                  | ((Config->aselect[3] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  7:6) - (0 ?
  7:6) + 1) == 32) ?
@@ -4613,7 +4772,7 @@ static gceSTATUS _SetUniformItemExt(
  7:6) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  7:6) - (0 ? 7:6) + 1))))) << (0 ? 7:6))))
-                  | ((Config.aselect[4] == 0) ?
+                  | ((Config->aselect[4] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  9:8) - (0 ?
  9:8) + 1) == 32) ?
@@ -4637,7 +4796,7 @@ static gceSTATUS _SetUniformItemExt(
  9:8) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  9:8) - (0 ? 9:8) + 1))))) << (0 ? 9:8))))
-                  | ((Config.aselect[5] == 0) ?
+                  | ((Config->aselect[5] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  11:10) - (0 ?
  11:10) + 1) == 32) ?
@@ -4661,7 +4820,7 @@ static gceSTATUS _SetUniformItemExt(
  11:10) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  11:10) - (0 ? 11:10) + 1))))) << (0 ? 11:10))))
-                  | ((Config.aselect[6] == 0) ?
+                  | ((Config->aselect[6] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  13:12) - (0 ?
  13:12) + 1) == 32) ?
@@ -4685,7 +4844,7 @@ static gceSTATUS _SetUniformItemExt(
  13:12) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  13:12) - (0 ? 13:12) + 1))))) << (0 ? 13:12))))
-                  | ((Config.aselect[7] == 0) ?
+                  | ((Config->aselect[7] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  15:14) - (0 ?
  15:14) + 1) == 32) ?
@@ -4709,7 +4868,7 @@ static gceSTATUS _SetUniformItemExt(
  15:14) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  15:14) - (0 ? 15:14) + 1))))) << (0 ? 15:14))))
-                  | ((Config.aselect[8] == 0) ?
+                  | ((Config->aselect[8] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  17:16) - (0 ?
  17:16) + 1) == 32) ?
@@ -4733,7 +4892,7 @@ static gceSTATUS _SetUniformItemExt(
  17:16) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  17:16) - (0 ? 17:16) + 1))))) << (0 ? 17:16))))
-                  | ((Config.aselect[9] == 0) ?
+                  | ((Config->aselect[9] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  19:18) - (0 ?
  19:18) + 1) == 32) ?
@@ -4757,7 +4916,7 @@ static gceSTATUS _SetUniformItemExt(
  19:18) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  19:18) - (0 ? 19:18) + 1))))) << (0 ? 19:18))))
-                  | ((Config.aselect[10] == 0) ?
+                  | ((Config->aselect[10] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  21:20) - (0 ?
  21:20) + 1) == 32) ?
@@ -4781,7 +4940,7 @@ static gceSTATUS _SetUniformItemExt(
  21:20) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  21:20) - (0 ? 21:20) + 1))))) << (0 ? 21:20))))
-                  | ((Config.aselect[11] == 0) ?
+                  | ((Config->aselect[11] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  23:22) - (0 ?
  23:22) + 1) == 32) ?
@@ -4805,7 +4964,7 @@ static gceSTATUS _SetUniformItemExt(
  23:22) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  23:22) - (0 ? 23:22) + 1))))) << (0 ? 23:22))))
-                  | ((Config.aselect[12] == 0) ?
+                  | ((Config->aselect[12] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  25:24) - (0 ?
  25:24) + 1) == 32) ?
@@ -4829,7 +4988,7 @@ static gceSTATUS _SetUniformItemExt(
  25:24) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  25:24) - (0 ? 25:24) + 1))))) << (0 ? 25:24))))
-                  | ((Config.aselect[13] == 0) ?
+                  | ((Config->aselect[13] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  27:26) - (0 ?
  27:26) + 1) == 32) ?
@@ -4853,7 +5012,7 @@ static gceSTATUS _SetUniformItemExt(
  27:26) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  27:26) - (0 ? 27:26) + 1))))) << (0 ? 27:26))))
-                  | ((Config.aselect[14] == 0) ?
+                  | ((Config->aselect[14] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  29:28) - (0 ?
  29:28) + 1) == 32) ?
@@ -4877,7 +5036,7 @@ static gceSTATUS _SetUniformItemExt(
  29:28) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  29:28) - (0 ? 29:28) + 1))))) << (0 ? 29:28))))
-                  | ((Config.aselect[15] == 0) ?
+                  | ((Config->aselect[15] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  31:30) - (0 ?
  31:30) + 1) == 32) ?
@@ -4910,7 +5069,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  3:0) - (0 ?
  3:0) + 1))))) << (0 ?
- 3:0))) | ((gctUINT32)((gctUINT32)(Offset0 + Config.abin0[0]) & ((((1 ?
+ 3:0))) | ((gctUINT32)((gctUINT32)(Offset0 + Config->abin0[0]) & ((((1 ?
  3:0) - (0 ?
  3:0) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4921,7 +5080,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  7:4) - (0 ?
  7:4) + 1))))) << (0 ?
- 7:4))) | ((gctUINT32)((gctUINT32)(Offset0 + Config.abin0[1]) & ((((1 ?
+ 7:4))) | ((gctUINT32)((gctUINT32)(Offset0 + Config->abin0[1]) & ((((1 ?
  7:4) - (0 ?
  7:4) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4932,7 +5091,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  11:8) - (0 ?
  11:8) + 1))))) << (0 ?
- 11:8))) | ((gctUINT32)((gctUINT32)(Offset0 + Config.abin0[2]) & ((((1 ?
+ 11:8))) | ((gctUINT32)((gctUINT32)(Offset0 + Config->abin0[2]) & ((((1 ?
  11:8) - (0 ?
  11:8) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4943,7 +5102,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  15:12) - (0 ?
  15:12) + 1))))) << (0 ?
- 15:12))) | ((gctUINT32)((gctUINT32)(Offset0 + Config.abin0[3]) & ((((1 ?
+ 15:12))) | ((gctUINT32)((gctUINT32)(Offset0 + Config->abin0[3]) & ((((1 ?
  15:12) - (0 ?
  15:12) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4954,7 +5113,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  19:16) - (0 ?
  19:16) + 1))))) << (0 ?
- 19:16))) | ((gctUINT32)((gctUINT32)(Offset1 + Config.abin0[4]) & ((((1 ?
+ 19:16))) | ((gctUINT32)((gctUINT32)(Offset1 + Config->abin0[4]) & ((((1 ?
  19:16) - (0 ?
  19:16) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4965,7 +5124,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  23:20) - (0 ?
  23:20) + 1))))) << (0 ?
- 23:20))) | ((gctUINT32)((gctUINT32)(Offset1 + Config.abin0[5]) & ((((1 ?
+ 23:20))) | ((gctUINT32)((gctUINT32)(Offset1 + Config->abin0[5]) & ((((1 ?
  23:20) - (0 ?
  23:20) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4976,7 +5135,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  27:24) - (0 ?
  27:24) + 1))))) << (0 ?
- 27:24))) | ((gctUINT32)((gctUINT32)(Offset1 + Config.abin0[6]) & ((((1 ?
+ 27:24))) | ((gctUINT32)((gctUINT32)(Offset1 + Config->abin0[6]) & ((((1 ?
  27:24) - (0 ?
  27:24) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -4987,7 +5146,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  31:28) - (0 ?
  31:28) + 1))))) << (0 ?
- 31:28))) | ((gctUINT32)((gctUINT32)(Offset1 + Config.abin0[7]) & ((((1 ?
+ 31:28))) | ((gctUINT32)((gctUINT32)(Offset1 + Config->abin0[7]) & ((((1 ?
  31:28) - (0 ?
  31:28) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5001,7 +5160,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  3:0) - (0 ?
  3:0) + 1))))) << (0 ?
- 3:0))) | ((gctUINT32)((gctUINT32)(Offset2 + Config.abin1[0]) & ((((1 ?
+ 3:0))) | ((gctUINT32)((gctUINT32)(Offset2 + Config->abin1[0]) & ((((1 ?
  3:0) - (0 ?
  3:0) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5012,7 +5171,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  7:4) - (0 ?
  7:4) + 1))))) << (0 ?
- 7:4))) | ((gctUINT32)((gctUINT32)(Offset2 + Config.abin1[1]) & ((((1 ?
+ 7:4))) | ((gctUINT32)((gctUINT32)(Offset2 + Config->abin1[1]) & ((((1 ?
  7:4) - (0 ?
  7:4) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5023,7 +5182,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  11:8) - (0 ?
  11:8) + 1))))) << (0 ?
- 11:8))) | ((gctUINT32)((gctUINT32)(Offset2 + Config.abin1[2]) & ((((1 ?
+ 11:8))) | ((gctUINT32)((gctUINT32)(Offset2 + Config->abin1[2]) & ((((1 ?
  11:8) - (0 ?
  11:8) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5034,7 +5193,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  15:12) - (0 ?
  15:12) + 1))))) << (0 ?
- 15:12))) | ((gctUINT32)((gctUINT32)(Offset2 + Config.abin1[3]) & ((((1 ?
+ 15:12))) | ((gctUINT32)((gctUINT32)(Offset2 + Config->abin1[3]) & ((((1 ?
  15:12) - (0 ?
  15:12) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5045,7 +5204,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  19:16) - (0 ?
  19:16) + 1))))) << (0 ?
- 19:16))) | ((gctUINT32)((gctUINT32)(Offset3 + Config.abin1[4]) & ((((1 ?
+ 19:16))) | ((gctUINT32)((gctUINT32)(Offset3 + Config->abin1[4]) & ((((1 ?
  19:16) - (0 ?
  19:16) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5056,7 +5215,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  23:20) - (0 ?
  23:20) + 1))))) << (0 ?
- 23:20))) | ((gctUINT32)((gctUINT32)(Offset3 + Config.abin1[5]) & ((((1 ?
+ 23:20))) | ((gctUINT32)((gctUINT32)(Offset3 + Config->abin1[5]) & ((((1 ?
  23:20) - (0 ?
  23:20) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5067,7 +5226,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  27:24) - (0 ?
  27:24) + 1))))) << (0 ?
- 27:24))) | ((gctUINT32)((gctUINT32)(Offset3 + Config.abin1[6]) & ((((1 ?
+ 27:24))) | ((gctUINT32)((gctUINT32)(Offset3 + Config->abin1[6]) & ((((1 ?
  27:24) - (0 ?
  27:24) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5078,7 +5237,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  31:28) - (0 ?
  31:28) + 1))))) << (0 ?
- 31:28))) | ((gctUINT32)((gctUINT32)(Offset3 + Config.abin1[7]) & ((((1 ?
+ 31:28))) | ((gctUINT32)((gctUINT32)(Offset3 + Config->abin1[7]) & ((((1 ?
  31:28) - (0 ?
  31:28) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5086,7 +5245,7 @@ static gceSTATUS _SetUniformItemExt(
                   );
 
     Uniform->uniform.bSelect = (
-                    ((Config.bselect[0] == 0) ?
+                    ((Config->bselect[0] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  1:0) - (0 ?
  1:0) + 1) == 32) ?
@@ -5110,7 +5269,7 @@ static gceSTATUS _SetUniformItemExt(
  1:0) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  1:0) - (0 ? 1:0) + 1))))) << (0 ? 1:0))))
-                  | ((Config.bselect[1] == 0) ?
+                  | ((Config->bselect[1] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  3:2) - (0 ?
  3:2) + 1) == 32) ?
@@ -5134,7 +5293,7 @@ static gceSTATUS _SetUniformItemExt(
  3:2) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  3:2) - (0 ? 3:2) + 1))))) << (0 ? 3:2))))
-                  | ((Config.bselect[2] == 0) ?
+                  | ((Config->bselect[2] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  5:4) - (0 ?
  5:4) + 1) == 32) ?
@@ -5158,7 +5317,7 @@ static gceSTATUS _SetUniformItemExt(
  5:4) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  5:4) - (0 ? 5:4) + 1))))) << (0 ? 5:4))))
-                  | ((Config.bselect[3] == 0) ?
+                  | ((Config->bselect[3] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  7:6) - (0 ?
  7:6) + 1) == 32) ?
@@ -5182,7 +5341,7 @@ static gceSTATUS _SetUniformItemExt(
  7:6) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  7:6) - (0 ? 7:6) + 1))))) << (0 ? 7:6))))
-                  | ((Config.bselect[4] == 0) ?
+                  | ((Config->bselect[4] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  9:8) - (0 ?
  9:8) + 1) == 32) ?
@@ -5206,7 +5365,7 @@ static gceSTATUS _SetUniformItemExt(
  9:8) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  9:8) - (0 ? 9:8) + 1))))) << (0 ? 9:8))))
-                  | ((Config.bselect[5] == 0) ?
+                  | ((Config->bselect[5] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  11:10) - (0 ?
  11:10) + 1) == 32) ?
@@ -5230,7 +5389,7 @@ static gceSTATUS _SetUniformItemExt(
  11:10) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  11:10) - (0 ? 11:10) + 1))))) << (0 ? 11:10))))
-                  | ((Config.bselect[6] == 0) ?
+                  | ((Config->bselect[6] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  13:12) - (0 ?
  13:12) + 1) == 32) ?
@@ -5254,7 +5413,7 @@ static gceSTATUS _SetUniformItemExt(
  13:12) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  13:12) - (0 ? 13:12) + 1))))) << (0 ? 13:12))))
-                  | ((Config.bselect[7] == 0) ?
+                  | ((Config->bselect[7] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  15:14) - (0 ?
  15:14) + 1) == 32) ?
@@ -5278,7 +5437,7 @@ static gceSTATUS _SetUniformItemExt(
  15:14) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  15:14) - (0 ? 15:14) + 1))))) << (0 ? 15:14))))
-                  | ((Config.bselect[8] == 0) ?
+                  | ((Config->bselect[8] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  17:16) - (0 ?
  17:16) + 1) == 32) ?
@@ -5302,7 +5461,7 @@ static gceSTATUS _SetUniformItemExt(
  17:16) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  17:16) - (0 ? 17:16) + 1))))) << (0 ? 17:16))))
-                  | ((Config.bselect[9] == 0) ?
+                  | ((Config->bselect[9] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  19:18) - (0 ?
  19:18) + 1) == 32) ?
@@ -5326,7 +5485,7 @@ static gceSTATUS _SetUniformItemExt(
  19:18) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  19:18) - (0 ? 19:18) + 1))))) << (0 ? 19:18))))
-                  | ((Config.bselect[10] == 0) ?
+                  | ((Config->bselect[10] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  21:20) - (0 ?
  21:20) + 1) == 32) ?
@@ -5350,7 +5509,7 @@ static gceSTATUS _SetUniformItemExt(
  21:20) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  21:20) - (0 ? 21:20) + 1))))) << (0 ? 21:20))))
-                  | ((Config.bselect[11] == 0) ?
+                  | ((Config->bselect[11] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  23:22) - (0 ?
  23:22) + 1) == 32) ?
@@ -5374,7 +5533,7 @@ static gceSTATUS _SetUniformItemExt(
  23:22) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  23:22) - (0 ? 23:22) + 1))))) << (0 ? 23:22))))
-                  | ((Config.bselect[12] == 0) ?
+                  | ((Config->bselect[12] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  25:24) - (0 ?
  25:24) + 1) == 32) ?
@@ -5398,7 +5557,7 @@ static gceSTATUS _SetUniformItemExt(
  25:24) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  25:24) - (0 ? 25:24) + 1))))) << (0 ? 25:24))))
-                  | ((Config.bselect[13] == 0) ?
+                  | ((Config->bselect[13] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  27:26) - (0 ?
  27:26) + 1) == 32) ?
@@ -5422,7 +5581,7 @@ static gceSTATUS _SetUniformItemExt(
  27:26) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  27:26) - (0 ? 27:26) + 1))))) << (0 ? 27:26))))
-                  | ((Config.bselect[14] == 0) ?
+                  | ((Config->bselect[14] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  29:28) - (0 ?
  29:28) + 1) == 32) ?
@@ -5446,7 +5605,7 @@ static gceSTATUS _SetUniformItemExt(
  29:28) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  29:28) - (0 ? 29:28) + 1))))) << (0 ? 29:28))))
-                  | ((Config.bselect[15] == 0) ?
+                  | ((Config->bselect[15] == 0) ?
  (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  31:30) - (0 ?
  31:30) + 1) == 32) ?
@@ -5479,7 +5638,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  3:0) - (0 ?
  3:0) + 1))))) << (0 ?
- 3:0))) | ((gctUINT32)((gctUINT32)(Offset0 + Config.bbin0[0]) & ((((1 ?
+ 3:0))) | ((gctUINT32)((gctUINT32)(Offset0 + Config->bbin0[0]) & ((((1 ?
  3:0) - (0 ?
  3:0) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5490,7 +5649,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  7:4) - (0 ?
  7:4) + 1))))) << (0 ?
- 7:4))) | ((gctUINT32)((gctUINT32)(Offset0 + Config.bbin0[1]) & ((((1 ?
+ 7:4))) | ((gctUINT32)((gctUINT32)(Offset0 + Config->bbin0[1]) & ((((1 ?
  7:4) - (0 ?
  7:4) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5501,12 +5660,12 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  11:8) - (0 ?
  11:8) + 1))))) << (0 ?
- 11:8))) | ((gctUINT32)((gctUINT32)(Offset0 + Config.bbin0[2]) & ((((1 ?
+ 11:8))) | ((gctUINT32)((gctUINT32)(Offset0 + Config->bbin0[2]) & ((((1 ?
  11:8) - (0 ?
  11:8) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  11:8) - (0 ? 11:8) + 1))))) << (0 ? 11:8)))
-                  | ((Config.termconfig[3] == VX_ACCUMULATOR && IgnoreOffset)
+                  | ((Config->termconfig[3] == VX_ACCUMULATOR && IgnoreOffset)
                         ?
 (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  15:12) - (0 ?
@@ -5514,7 +5673,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  15:12) - (0 ?
  15:12) + 1))))) << (0 ?
- 15:12))) | ((gctUINT32)((gctUINT32)(Config.bbin0[3]) & ((((1 ?
+ 15:12))) | ((gctUINT32)((gctUINT32)(Config->bbin0[3]) & ((((1 ?
  15:12) - (0 ?
  15:12) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5525,7 +5684,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  15:12) - (0 ?
  15:12) + 1))))) << (0 ?
- 15:12))) | ((gctUINT32)((gctUINT32)(Offset0 + Config.bbin0[3]) & ((((1 ?
+ 15:12))) | ((gctUINT32)((gctUINT32)(Offset0 + Config->bbin0[3]) & ((((1 ?
  15:12) - (0 ?
  15:12) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5537,7 +5696,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  19:16) - (0 ?
  19:16) + 1))))) << (0 ?
- 19:16))) | ((gctUINT32)((gctUINT32)(Offset1 + Config.bbin0[4]) & ((((1 ?
+ 19:16))) | ((gctUINT32)((gctUINT32)(Offset1 + Config->bbin0[4]) & ((((1 ?
  19:16) - (0 ?
  19:16) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5548,7 +5707,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  23:20) - (0 ?
  23:20) + 1))))) << (0 ?
- 23:20))) | ((gctUINT32)((gctUINT32)(Offset1 + Config.bbin0[5]) & ((((1 ?
+ 23:20))) | ((gctUINT32)((gctUINT32)(Offset1 + Config->bbin0[5]) & ((((1 ?
  23:20) - (0 ?
  23:20) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5559,12 +5718,12 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  27:24) - (0 ?
  27:24) + 1))))) << (0 ?
- 27:24))) | ((gctUINT32)((gctUINT32)(Offset1 + Config.bbin0[6]) & ((((1 ?
+ 27:24))) | ((gctUINT32)((gctUINT32)(Offset1 + Config->bbin0[6]) & ((((1 ?
  27:24) - (0 ?
  27:24) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  27:24) - (0 ? 27:24) + 1))))) << (0 ? 27:24)))
-                  | ((Config.termconfig[7] == VX_ACCUMULATOR && IgnoreOffset)
+                  | ((Config->termconfig[7] == VX_ACCUMULATOR && IgnoreOffset)
                         ?
 (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  31:28) - (0 ?
@@ -5572,7 +5731,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  31:28) - (0 ?
  31:28) + 1))))) << (0 ?
- 31:28))) | ((gctUINT32)((gctUINT32)(Config.bbin0[7]) & ((((1 ?
+ 31:28))) | ((gctUINT32)((gctUINT32)(Config->bbin0[7]) & ((((1 ?
  31:28) - (0 ?
  31:28) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5583,7 +5742,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  31:28) - (0 ?
  31:28) + 1))))) << (0 ?
- 31:28))) | ((gctUINT32)((gctUINT32)(Offset1 + Config.bbin0[7]) & ((((1 ?
+ 31:28))) | ((gctUINT32)((gctUINT32)(Offset1 + Config->bbin0[7]) & ((((1 ?
  31:28) - (0 ?
  31:28) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5598,7 +5757,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  3:0) - (0 ?
  3:0) + 1))))) << (0 ?
- 3:0))) | ((gctUINT32)((gctUINT32)(Offset2 + Config.bbin1[0]) & ((((1 ?
+ 3:0))) | ((gctUINT32)((gctUINT32)(Offset2 + Config->bbin1[0]) & ((((1 ?
  3:0) - (0 ?
  3:0) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5609,7 +5768,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  7:4) - (0 ?
  7:4) + 1))))) << (0 ?
- 7:4))) | ((gctUINT32)((gctUINT32)(Offset2 + Config.bbin1[1]) & ((((1 ?
+ 7:4))) | ((gctUINT32)((gctUINT32)(Offset2 + Config->bbin1[1]) & ((((1 ?
  7:4) - (0 ?
  7:4) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5620,12 +5779,12 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  11:8) - (0 ?
  11:8) + 1))))) << (0 ?
- 11:8))) | ((gctUINT32)((gctUINT32)(Offset2 + Config.bbin1[2]) & ((((1 ?
+ 11:8))) | ((gctUINT32)((gctUINT32)(Offset2 + Config->bbin1[2]) & ((((1 ?
  11:8) - (0 ?
  11:8) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  11:8) - (0 ? 11:8) + 1))))) << (0 ? 11:8)))
-                  | ((Config.termconfig[11] == VX_ACCUMULATOR && IgnoreOffset)
+                  | ((Config->termconfig[11] == VX_ACCUMULATOR && IgnoreOffset)
                         ?
 (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  15:12) - (0 ?
@@ -5633,7 +5792,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  15:12) - (0 ?
  15:12) + 1))))) << (0 ?
- 15:12))) | ((gctUINT32)((gctUINT32)(Config.bbin1[3]) & ((((1 ?
+ 15:12))) | ((gctUINT32)((gctUINT32)(Config->bbin1[3]) & ((((1 ?
  15:12) - (0 ?
  15:12) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5644,7 +5803,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  15:12) - (0 ?
  15:12) + 1))))) << (0 ?
- 15:12))) | ((gctUINT32)((gctUINT32)(Offset2 + Config.bbin1[3]) & ((((1 ?
+ 15:12))) | ((gctUINT32)((gctUINT32)(Offset2 + Config->bbin1[3]) & ((((1 ?
  15:12) - (0 ?
  15:12) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5656,7 +5815,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  19:16) - (0 ?
  19:16) + 1))))) << (0 ?
- 19:16))) | ((gctUINT32)((gctUINT32)(Offset3 + Config.bbin1[4]) & ((((1 ?
+ 19:16))) | ((gctUINT32)((gctUINT32)(Offset3 + Config->bbin1[4]) & ((((1 ?
  19:16) - (0 ?
  19:16) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5667,7 +5826,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  23:20) - (0 ?
  23:20) + 1))))) << (0 ?
- 23:20))) | ((gctUINT32)((gctUINT32)(Offset3 + Config.bbin1[5]) & ((((1 ?
+ 23:20))) | ((gctUINT32)((gctUINT32)(Offset3 + Config->bbin1[5]) & ((((1 ?
  23:20) - (0 ?
  23:20) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5678,12 +5837,12 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  27:24) - (0 ?
  27:24) + 1))))) << (0 ?
- 27:24))) | ((gctUINT32)((gctUINT32)(Offset3 + Config.bbin1[6]) & ((((1 ?
+ 27:24))) | ((gctUINT32)((gctUINT32)(Offset3 + Config->bbin1[6]) & ((((1 ?
  27:24) - (0 ?
  27:24) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  27:24) - (0 ? 27:24) + 1))))) << (0 ? 27:24)))
-                  | ((Config.termconfig[15] == VX_ACCUMULATOR)
+                  | ((Config->termconfig[15] == VX_ACCUMULATOR)
                         ?
 (((gctUINT32)(0) & ~((gctUINT32)(((((1 ?
  31:28) - (0 ?
@@ -5691,7 +5850,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  31:28) - (0 ?
  31:28) + 1))))) << (0 ?
- 31:28))) | ((gctUINT32)((gctUINT32)(Config.bbin1[7]) & ((((1 ?
+ 31:28))) | ((gctUINT32)((gctUINT32)(Config->bbin1[7]) & ((((1 ?
  31:28) - (0 ?
  31:28) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5702,7 +5861,7 @@ static gceSTATUS _SetUniformItemExt(
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
  31:28) - (0 ?
  31:28) + 1))))) << (0 ?
- 31:28))) | ((gctUINT32)((gctUINT32)(Offset3 + Config.bbin1[7]) & ((((1 ?
+ 31:28))) | ((gctUINT32)((gctUINT32)(Offset3 + Config->bbin1[7]) & ((((1 ?
  31:28) - (0 ?
  31:28) + 1) == 32) ?
  ~0 : (gctUINT32)(~((gctUINT64)(~0) << ((1 ?
@@ -5928,7 +6087,7 @@ static gceSTATUS _max_pooling(
             config.abin1[p]    = (p % 4 == 0)?(p + 8)/2:0;
         }
 
-        _SetUniformItem(&index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x3, &Uinform);
+        _SetUniformItem(&index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x3, &Uinform);
     }
     */
     /*dp4.u8 r4[0-2], r4, r4, c4 */
@@ -6523,7 +6682,7 @@ static gceSTATUS _nonlinearfilter(
                          * r5: | ffffxxff |   ff     |          |          |
                          */
                         {
-                            _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, Input, &Uinform[*index]);
+                            _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, Input, &Uinform[*index]);
 
                             /*mov r6, c4.x/y/z */
                             gcmONERROR(gcoHARDWAREVX_AddOpcode(0x09, 0, GCREG_SH_INSTRUCTION_TYPE_INVALID, &Instructions->binarys[Instructions->count]));
@@ -6685,7 +6844,7 @@ static gceSTATUS _nonlinearfilter(
                      * r6: |  ffxxff  |   src2   |   src2   |          |
                      */
                     {
-                        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, Input, &Uinform[*index]);
+                        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, Input, &Uinform[*index]);
 
                         /*mov r7, c4.x/y/z */
                         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x09, 0, GCREG_SH_INSTRUCTION_TYPE_INVALID, &Instructions->binarys[Instructions->count]));
@@ -6906,7 +7065,7 @@ static gceSTATUS _nonlinearfilter_vx2(
                          */
 
                         {
-                            _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, Input, &Uinform[*index]);
+                            _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, Input, &Uinform[*index]);
 
                             /*mov r6, c4.x/y/z */
                             gcmONERROR(gcoHARDWAREVX_AddOpcode(0x09, 0, GCREG_SH_INSTRUCTION_TYPE_INVALID, &Instructions->binarys[Instructions->count]));
@@ -7172,7 +7331,7 @@ static gceSTATUS _nonlinearfilter_vx2(
                      */
 
                     {
-                        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, Input, &Uinform[*index]);
+                        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, Input, &Uinform[*index]);
 
                         /*mov r7, c4.x/y/z */
                         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x09, 0, GCREG_SH_INSTRUCTION_TYPE_INVALID, &Instructions->binarys[Instructions->count]));
@@ -7607,7 +7766,7 @@ static gceSTATUS _histogram_vx2(
         gcmONERROR(gcoHARDWAREVX_SetUniform(0, 0, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetTempReg(1, 0, gcdVX_SWIZZLE2(0, 1), 0, &Instructions->binarys[Instructions->count++]));
 
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, subConfig, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &subConfig, 0x7, &Uinform[*index]);
         /*dp2x8.u8 r3, r3, r5, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x0B, 0x3, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(3, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -7829,7 +7988,7 @@ static gceSTATUS _histogram_vx2(
         gcmONERROR(gcoHARDWAREVX_SetUniform(0, 0, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetTempReg(1, 0, gcdVX_SWIZZLE2(0, 1), 0, &Instructions->binarys[Instructions->count++]));
 
-        _SetUniformItemExt(index, 0, 0, 0, 0, 0, gcvTRUE, subConfig, 0x7, &Uinform[*index]);
+        _SetUniformItemExt(index, 0, 0, 0, 0, 0, gcvTRUE, &subConfig, 0x7, &Uinform[*index]);
         /*dp2x8.u8 r3, r3, r4, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x0B, 0x3, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(3, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -9389,7 +9548,7 @@ static gceSTATUS _minmaxloc_loc(
         config.matrix[i] = 1;
     }
 
-    _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, Input, &Uinform[*index]);
+    _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, Input, &Uinform[*index]);
 
     /*mov r4, r0 */
     gcmONERROR(gcoHARDWAREVX_AddOpcode(0x09, 0, GCREG_SH_INSTRUCTION_TYPE_INVALID, &Instructions->binarys[Instructions->count]));
@@ -10074,7 +10233,7 @@ static gceSTATUS _meanstddev(
         gcmONERROR(gcoHARDWAREVX_SetUniform(0, 0, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetTempReg(1, 0, gcdVX_SWIZZLE2(0, 1), 0, &Instructions->binarys[Instructions->count++]));
 
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, sumConfig, Input, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &sumConfig, Input, &Uinform[*index]);
 
         /*dp16.u8 r2, r1, 1, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x08, 0x2, &Instructions->binarys[Instructions->count]));
@@ -10090,7 +10249,7 @@ static gceSTATUS _meanstddev(
         gcmONERROR(gcoHARDWAREVX_SetTempReg(0, 3, gcdVX_SWIZZLE1(0), 0, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetTempReg(2, 2, gcdVX_SWIZZLE1(0), 0, &Instructions->binarys[Instructions->count++]));
 
-        _SetUniformItemExt(index, 0, 0, 0, 0, 0, gcvTRUE, sqsumConfig, Input, &Uinform[*index]);
+        _SetUniformItemExt(index, 0, 0, 0, 0, 0, gcvTRUE, &sqsumConfig, Input, &Uinform[*index]);
 
         /*dp16.u8 r2, r1, r1, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x08, 0x5, &Instructions->binarys[Instructions->count]));
@@ -10140,7 +10299,7 @@ static gceSTATUS _meanstddev(
     }
     else /*size of sqsum is smaller than 32-bit*/
     {
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, sumConfig, Input, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &sumConfig, Input, &Uinform[*index]);
 
         /*mov r1, 0; clean r1 to avoid garbage  */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x09, 0, GCREG_SH_INSTRUCTION_TYPE_INVALID, &Instructions->binarys[Instructions->count]));
@@ -10173,7 +10332,7 @@ static gceSTATUS _meanstddev(
         gcmONERROR(gcoHARDWAREVX_SetImmediateValue(1, 0, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetTempReg(2, 2, gcdVX_SWIZZLE1(0), 0, &Instructions->binarys[Instructions->count++]));
 
-        _SetUniformItemExt(index, 0, 0, 0, 0, 0, gcvTRUE, sqsumConfig, Input, &Uinform[*index]);
+        _SetUniformItemExt(index, 0, 0, 0, 0, 0, gcvTRUE, &sqsumConfig, Input, &Uinform[*index]);
 
         /*dp16.u8 r2, r1, r1, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x08, 0x5, &Instructions->binarys[Instructions->count]));
@@ -13518,32 +13677,62 @@ static gceSTATUS _threshold(
     gcmHEADER_ARG("Instructions=0x%x", Instructions);
 
     /*img_load.u8 r1, c0, r0.xy */
-    gcmONERROR(gcoHARDWAREVX_AddOpcode(0x79, 0, 0x7, &Instructions->binarys[0]));
-    gcmONERROR(gcoHARDWAREVX_SetDestination(1, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[0]));
-    gcmONERROR(gcoHARDWAREVX_SetEVIS(0, 15, 1, &Instructions->binarys[0]));
-    gcmONERROR(gcoHARDWAREVX_SetUniform(0, 0, gcdVX_SWIZZLE, 0, &Instructions->binarys[0]));
-    gcmONERROR(gcoHARDWAREVX_SetTempReg(1, 0, gcdVX_SWIZZLE2(0, 1), 0, &Instructions->binarys[0]));
+    gcmONERROR(gcoHARDWAREVX_AddOpcode(0x79, 0, 0x7, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetDestination(1, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetEVIS(0, 15, 1, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetUniform(0, 0, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetTempReg(1, 0, gcdVX_SWIZZLE2(0, 1), 0, &Instructions->binarys[Instructions->count]));
     Instructions->count++;
 
     /*clamp.u8 r1, r1, c2.x, c2.y */
-    gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x0C, 0x7, &Instructions->binarys[1]));
-    gcmONERROR(gcoHARDWAREVX_SetDestination(1, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[1]));
-    gcmONERROR(gcoHARDWAREVX_SetEVIS(0, 15, (0x7 | (1 << 3)), &Instructions->binarys[1]));
-    gcmONERROR(gcoHARDWAREVX_SetTempReg(0, 1, gcdVX_SWIZZLE, 0, &Instructions->binarys[1]));
-    gcmONERROR(gcoHARDWAREVX_SetUniform(1, 2, gcdVX_SWIZZLE1(0), 0, &Instructions->binarys[1]));
-    gcmONERROR(gcoHARDWAREVX_SetUniform(2, 2, gcdVX_SWIZZLE1(1), 0, &Instructions->binarys[1]));
-    gcmONERROR(gcoHARDWAREVX_SetSourceBin(0, &Instructions->binarys[1]));
+    gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x0C, 0x7, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetDestination(1, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetEVIS(0, 15, (0x7 | (1 << 3)), &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetTempReg(0, 1, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetUniform(1, 2, gcdVX_SWIZZLE1(0), 0, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetUniform(2, 2, gcdVX_SWIZZLE1(1), 0, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetSourceBin(0, &Instructions->binarys[Instructions->count]));
     Instructions->count++;
+
+    /*mov r4, c3 */
+    gcmONERROR(gcoHARDWAREVX_AddOpcode(0x09, 0, GCREG_SH_INSTRUCTION_TYPE_INVALID, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetDestination(4, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetUniform(2, 3, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count++]));
+
+    /*cmp r2, r1, r4, c5;*/
+    gcmONERROR(gcoHARDWAREVX_AddOpcode(0x31, 0x05, 0x7, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetDestination(2, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetTempReg(0, 1, gcdVX_SWIZZLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetTempReg(1, 4, gcdVX_SWIZZLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetUniform(2, 5, gcdVX_SWIZZLE, gcvFALSE, &Instructions->binarys[Instructions->count++]));
+
+    /*mov r5, c4 */
+    gcmONERROR(gcoHARDWAREVX_AddOpcode(0x09, 0, GCREG_SH_INSTRUCTION_TYPE_INVALID, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetDestination(5, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetUniform(2, 4, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count++]));
+
+    /*cmp r3, r1, r5, c6;*/
+    gcmONERROR(gcoHARDWAREVX_AddOpcode(0x31, 0x05, 0x7, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetDestination(3, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetTempReg(0, 1, gcdVX_SWIZZLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetTempReg(1, 5, gcdVX_SWIZZLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetUniform(2, 6, gcdVX_SWIZZLE, gcvFALSE, &Instructions->binarys[Instructions->count++]));
+
+    /* add r1, r2, r3 */
+    gcmONERROR(gcoHARDWAREVX_AddOpcode(0x01, 0, 0x7, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetDestination(1, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetTempReg(0, 2, gcdVX_SWIZZLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetTempReg(2, 3, gcdVX_SWIZZLE, gcvFALSE, &Instructions->binarys[Instructions->count++]));
 
     /*img_store, c1, r0.xy, r1 */
-    gcmONERROR(gcoHARDWAREVX_AddOpcode(0x7A, 0, 0x7, &Instructions->binarys[2]));
-    gcmONERROR(gcoHARDWAREVX_SetEVIS(0, 15, 1, &Instructions->binarys[2]));
-    gcmONERROR(gcoHARDWAREVX_SetUniform(0, 1, gcdVX_SWIZZLE, 0, &Instructions->binarys[2]));
-    gcmONERROR(gcoHARDWAREVX_SetTempReg(1, 0, gcdVX_SWIZZLE2(0, 1), 0, &Instructions->binarys[2]));
-    gcmONERROR(gcoHARDWAREVX_SetTempReg(2, 1, gcdVX_SWIZZLE, 0, &Instructions->binarys[2]));
+    gcmONERROR(gcoHARDWAREVX_AddOpcode(0x7A, 0, 0x7, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetEVIS(0, 15, 1, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetUniform(0, 1, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetTempReg(1, 0, gcdVX_SWIZZLE2(0, 1), 0, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetTempReg(2, 1, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count]));
     Instructions->count++;
 
-    Instructions->regs_count = 0x2;
+    Instructions->regs_count = 0x6;
 
 OnError:
     gcmFOOTER();
@@ -13897,7 +14086,7 @@ static gceSTATUS _convolution8x(
                 end = start + 1;
             }
 
-            _SetUniformItem(&index, 2*i, 2*i, 2*i + 1, 2*i + 1, 0, gcvTRUE, config, 0x5, &Uinform[index]);
+            _SetUniformItem(&index, 2*i, 2*i, 2*i + 1, 2*i + 1, 0, gcvTRUE, &config, 0x5, &Uinform[index]);
 
             /*dp8.u16 r2[6-7], r1, r2, c4_512 :selection for first dp8 pixels 0-1*/
             gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x09, 0x2, &Instructions->binarys[Instructions->count]));
@@ -13951,7 +14140,7 @@ static gceSTATUS _convolution8x(
             config.abin1[p]    = ((p + 1) % 4 == 0)?(p/4 + 2):(offset0 + p%4);
         }
 
-        _SetUniformItem(&index, 4*j + 0, 4*j + 1, 4*j + 2, 4*j + 3, Scale, gcvTRUE, config, 0x5, &Uinform[index]);
+        _SetUniformItem(&index, 4*j + 0, 4*j + 1, 4*j + 2, 4*j + 3, Scale, gcvTRUE, &config, 0x2, &Uinform[index]);
 
         /*dp4.u8 r7[0-3], r6, r5, c28_512 :selection for last dp4 pixels 0-3 + r5[6,7];r4[6,7]*/
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x0A, Output, &Instructions->binarys[Instructions->count]));
@@ -14099,7 +14288,7 @@ static gceSTATUS _convolution16x(
                 end = start;
             }
 
-            _SetUniformItem(&index, i, i, i, i, shift, gcvTRUE, config, 0x5, &Uinform[index]);
+            _SetUniformItem(&index, i, i, i, i, shift, gcvTRUE, &config, 0x5, &Uinform[index]);
 
             /*dp8.u16 r2[6-7], r1, r2, c4_512 :selection for first dp8 pixels 0-1*/
             gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x08, output, &Instructions->binarys[Instructions->count]));
@@ -18137,6 +18326,7 @@ static gceSTATUS _convertdepth(
             gcmONERROR(gcoHARDWAREVX_SetUniform(0, 1, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count]));
             gcmONERROR(gcoHARDWAREVX_SetTempReg(1, 0, gcdVX_SWIZZLE2(0, 1), 0, &Instructions->binarys[Instructions->count]));
             gcmONERROR(gcoHARDWAREVX_SetTempReg(2, 2, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count++]));
+            break;
         default:
             status = gcvSTATUS_INVALID_ARGUMENT;
             break;
@@ -18264,9 +18454,11 @@ static gceSTATUS _convertdepth(
         {
         case 0x6:
             /*TO DO*/
+            status = gcvSTATUS_NOT_SUPPORTED;
             break;
         case 0x7:
             /*TO DO*/
+            status = gcvSTATUS_NOT_SUPPORTED;
             break;
         default:
             status = gcvSTATUS_INVALID_ARGUMENT;
@@ -18279,6 +18471,7 @@ static gceSTATUS _convertdepth(
         {
         case 0x3:
             /*TO DO*/
+            status = gcvSTATUS_NOT_SUPPORTED;
             break;
         default:
             status = gcvSTATUS_INVALID_ARGUMENT;
@@ -18291,6 +18484,7 @@ static gceSTATUS _convertdepth(
         {
         case 0x7:
             /*TO DO*/
+            status = gcvSTATUS_NOT_SUPPORTED;
             break;
         default:
             status = gcvSTATUS_INVALID_ARGUMENT;
@@ -19345,7 +19539,7 @@ static gceSTATUS _harriscorners(
                     config.bbin1[p%8]       = p%8;
                 }
 
-                _SetUniformItemExt(index, 0, 0, 1, 1, shift, 0, config, 0x2, &Context->uniform[*index]);
+                _SetUniformItemExt(index, 0, 0, 1, 1, shift, 0, &config, 0x2, &Context->uniform[*index]);
 
                 /*dp8.u16 r.dst[0, 1], r1, r2, c4x */
                 gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x09, output, &Instructions->binarys[Instructions->count]));
@@ -20695,7 +20889,7 @@ static gceSTATUS _edge_trace_hysteresis(
         config.matrix[i] = 1;
     }
 
-    _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+    _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
 
     /*mov r0.yz, 0 */
     gcmONERROR(gcoHARDWAREVX_AddOpcode(0x09, 0, GCREG_SH_INSTRUCTION_TYPE_INVALID, &Instructions->binarys[Instructions->count]));
@@ -20886,7 +21080,7 @@ static gceSTATUS _edge_trace_hysteresis_vx2(
         config.matrix[i] = 1;
     }
 
-    _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+    _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
 
     /*mov r0.yz, 0 */
     gcmONERROR(gcoHARDWAREVX_AddOpcode(0x09, 0, GCREG_SH_INSTRUCTION_TYPE_INVALID, &Instructions->binarys[Instructions->count]));
@@ -21634,7 +21828,7 @@ static gceSTATUS _sobel_mxn(
                     end = start + 1;
                 }
 
-                _SetUniformItem(index, 2*i, 2*i, 2*i + 1, 2*i + 1, 0, gcvTRUE, config, 0x5, &Uinform[*index]);
+                _SetUniformItem(index, 2*i, 2*i, 2*i + 1, 2*i + 1, 0, gcvTRUE, &config, 0x5, &Uinform[*index]);
 
                 /*dp8.u16 r2[6-7], r1, r2, c4_512 :selection for first dp8 pixels 0-1*/
                 gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x09, 0x2, &Instructions->binarys[Instructions->count]));
@@ -21683,7 +21877,7 @@ static gceSTATUS _sobel_mxn(
                 config.abin1[p]    = ((p + 1) % 4 == 0)?(p/4 + 2):(offset0 + p%4);
             }
 
-            _SetUniformItem(index, 4*j + 0, 4*j + 1, 4*j + 2, 4*j + 3, Scale, gcvTRUE, config, 0x5, &Uinform[*index]);
+            _SetUniformItem(index, 4*j + 0, 4*j + 1, 4*j + 2, 4*j + 3, Scale, gcvTRUE, &config, 0x5, &Uinform[*index]);
 
             /*dp4.u8 r7[0-3], r6, r5, c28_512 :selection for last dp4 pixels 0-3 + r5[6,7];r4[6,7]*/
             gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x0A, Output, &Instructions->binarys[Instructions->count]));
@@ -21764,7 +21958,7 @@ static gceSTATUS _sobel_mxn(
                     end = start + 1;
                 }
 
-                _SetUniformItem(index, 2*i, 2*i, 2*i + 1, 2*i + 1, 0, gcvTRUE, config, 0x2, &Uinform[*index]);
+                _SetUniformItem(index, 2*i, 2*i, 2*i + 1, 2*i + 1, 0, gcvTRUE, &config, 0x2, &Uinform[*index]);
 
                 /*dp8.u16 r2[6-7], r1, r2, c4_512 :selection for first dp8 pixels 0-1*/
                 gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x09, 0x2, &Instructions->binarys[Instructions->count]));
@@ -21818,7 +22012,7 @@ static gceSTATUS _sobel_mxn(
                 config.abin1[p]    = ((p + 1) % 4 == 0)?(p/4 + 2):(offset0 + p%4);
             }
 
-            _SetUniformItem(index, 4*j + 0, 4*j + 1, 4*j + 2, 4*j + 3, Scale, gcvTRUE, config, 0x2, &Uinform[*index]);
+            _SetUniformItem(index, 4*j + 0, 4*j + 1, 4*j + 2, 4*j + 3, Scale, gcvTRUE, &config, 0x2, &Uinform[*index]);
 
             /*dp4.u8 r7[0-3], r6, r5, c28_512 :selection for last dp4 pixels 0-3 + r5[6,7];r4[6,7]*/
             gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x0A, Output, &Instructions->binarys[Instructions->count]));
@@ -21897,7 +22091,7 @@ static gceSTATUS _sobel_mxn(
                     end = start + 1;
                 }
 
-                _SetUniformItem(index, 2*i, 2*i, 2*i + 1, 2*i + 1, 0, gcvTRUE, config, 0x2, &Uinform[*index]);
+                _SetUniformItem(index, 2*i, 2*i, 2*i + 1, 2*i + 1, 0, gcvTRUE, &config, 0x2, &Uinform[*index]);
 
                 /*dp8.u16 r2[6-7], r1, r2, c4_512 :selection for first dp8 pixels 0-1*/
                 gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x09, 0x2, &Instructions->binarys[Instructions->count]));
@@ -21951,7 +22145,7 @@ static gceSTATUS _sobel_mxn(
                 config.abin1[p]    = ((p + 1) % 4 == 0)?(p/4 + 2):(offset0 + p%4);
             }
 
-            _SetUniformItem(index, 4*j + 0, 4*j + 1, 4*j + 2, 4*j + 3, Scale, gcvTRUE, config, 0x2, &Uinform[*index]);
+            _SetUniformItem(index, 4*j + 0, 4*j + 1, 4*j + 2, 4*j + 3, Scale, gcvTRUE, &config, 0x2, &Uinform[*index]);
 
             /*dp4.u8 r7[0-3], r6, r5, c28_512 :selection for last dp4 pixels 0-3 + r5[6,7];r4[6,7]*/
             gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x0A, Output, &Instructions->binarys[Instructions->count]));
@@ -22273,7 +22467,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r11, r12, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -22424,7 +22618,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r10, r11, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -22576,7 +22770,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r9, r10, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -22852,7 +23046,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r11, r12, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -23003,7 +23197,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r10, r11, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -23155,7 +23349,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r9, r10, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -23431,7 +23625,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r11, r12, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -23582,7 +23776,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r10, r11, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -23734,7 +23928,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r9, r10, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -24010,7 +24204,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r11, r12, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -24161,7 +24355,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r10, r11, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -24313,7 +24507,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r9, r10, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -24589,7 +24783,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r11, r12, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -24740,7 +24934,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r10, r11, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -24892,7 +25086,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r9, r10, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -25168,7 +25362,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r11, r12, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -25319,7 +25513,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r10, r11, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -25471,7 +25665,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r9, r10, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -25747,7 +25941,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r11, r12, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -25898,7 +26092,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r10, r11, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -26050,7 +26244,7 @@ static gceSTATUS _sgm_cost(
                 config.matrix[i] = 1;
             }
         }
-        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+        _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
         /*dp16.u8 r16, r9, r10, c4_512 */
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x13, 0x7, &Instructions->binarys[Instructions->count]));
         gcmONERROR(gcoHARDWAREVX_SetDestination(16, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
@@ -26314,7 +26508,7 @@ static gceSTATUS _laplacian(
                 end = start + 1;
             }
 
-            _SetUniformItem(index, 2*i, 2*i, 2*i + 1, 2*i + 1, 0, gcvTRUE, config, 0x5, &Uinform[*index]);
+            _SetUniformItem(index, 2*i, 2*i, 2*i + 1, 2*i + 1, 0, gcvTRUE, &config, 0x5, &Uinform[*index]);
 
             /*dp8.u16 r2[6-7], r1, r2, c4_512 :selection for first dp8 pixels 0-1*/
             gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x09, 0x2, &Instructions->binarys[Instructions->count]));
@@ -26368,7 +26562,7 @@ static gceSTATUS _laplacian(
             config.abin1[p]    = ((p + 1) % 4 == 0)?(p/4 + 2):(offset0 + p%4);
         }
 
-        _SetUniformItem(index, 4*j + 0, 4*j + 1, 4*j + 2, 4*j + 3, Scale, gcvTRUE, config, 0x5, &Uinform[*index]);
+        _SetUniformItem(index, 4*j + 0, 4*j + 1, 4*j + 2, 4*j + 3, Scale, gcvTRUE, &config, 0x5, &Uinform[*index]);
 
         /*dp4.u8 r7[0-3], r6, r5, c28_512 :selection for last dp4 pixels 0-3 + r5[6,7];r4[6,7]*/
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x0A, Output, &Instructions->binarys[Instructions->count]));
@@ -27186,7 +27380,7 @@ static gceSTATUS _absdiff_halfevis(
     gcmONERROR(gcoHARDWAREVX_SetUniform(0, 1, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count]));
     gcmONERROR(gcoHARDWAREVX_SetTempReg(1, 0, gcdVX_SWIZZLE2(0, 1), 0, &Instructions->binarys[Instructions->count++]));
 
-    _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, subConfig, Input1, &Uinform[*index]);
+    _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &subConfig, Input1, &Uinform[*index]);
 
     /*dp2x8.u8 r3, r1, r2, c4_512 */
     gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x0B, 0x3, &Instructions->binarys[Instructions->count]));
@@ -27221,7 +27415,7 @@ static gceSTATUS _absdiff_halfevis(
         }
     }
 
-    _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, subConfig, Input1, &Uinform[*index]);
+    _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &subConfig, Input1, &Uinform[*index]);
 
     /*dp2x8.u8 r3, r1, r2, c4_512 */
     gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x0B, 0x3, &Instructions->binarys[Instructions->count]));
@@ -27357,7 +27551,7 @@ static gceSTATUS _add_sub_halfevis(
     gcmONERROR(gcoHARDWAREVX_SetUniform(0, 1, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count]));
     gcmONERROR(gcoHARDWAREVX_SetTempReg(1, 0, gcdVX_SWIZZLE2(0, 1), 0, &Instructions->binarys[Instructions->count++]));
 
-    _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, Input1, &Uinform[*index]);
+    _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, Input1, &Uinform[*index]);
 
     /*dp2x8.u8 r1, r1, r2, c4_512 */
     gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x0B, Output, &Instructions->binarys[Instructions->count]));
@@ -27424,7 +27618,7 @@ static gceSTATUS _accumulate_halfevis(
     gcmONERROR(gcoHARDWAREVX_SetUniform(0, 1, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count]));
     gcmONERROR(gcoHARDWAREVX_SetTempReg(1, 0, gcdVX_SWIZZLE2(0, 1), 0, &Instructions->binarys[Instructions->count++]));
 
-    _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+    _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
 
     /*dp2x8.u8 r2, r1, r2, c4_512 */
     gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x0B, 0x3, &Instructions->binarys[Instructions->count]));
@@ -27524,6 +27718,7 @@ static gceSTATUS _convertdepth_halfevis(
             gcmONERROR(gcoHARDWAREVX_SetUniform(0, 1, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count]));
             gcmONERROR(gcoHARDWAREVX_SetTempReg(1, 0, gcdVX_SWIZZLE2(0, 1), 0, &Instructions->binarys[Instructions->count]));
             gcmONERROR(gcoHARDWAREVX_SetTempReg(2, 2, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count++]));
+            break;
         default:
             status = gcvSTATUS_INVALID_ARGUMENT;
             break;
@@ -27657,9 +27852,11 @@ static gceSTATUS _convertdepth_halfevis(
         {
         case 0x6:
             /*TO DO*/
+            status = gcvSTATUS_NOT_SUPPORTED;
             break;
         case 0x7:
             /*TO DO*/
+            status = gcvSTATUS_NOT_SUPPORTED;
             break;
         default:
             status = gcvSTATUS_INVALID_ARGUMENT;
@@ -27672,6 +27869,7 @@ static gceSTATUS _convertdepth_halfevis(
         {
         case 0x3:
             /*TO DO*/
+            status = gcvSTATUS_NOT_SUPPORTED;
             break;
         default:
             status = gcvSTATUS_INVALID_ARGUMENT;
@@ -27684,6 +27882,7 @@ static gceSTATUS _convertdepth_halfevis(
         {
         case 0x7:
             /*TO DO*/
+            status = gcvSTATUS_NOT_SUPPORTED;
             break;
         default:
             status = gcvSTATUS_INVALID_ARGUMENT;
@@ -27836,7 +28035,7 @@ static gceSTATUS _sobel_mxn_halfevis(
                 end = start + 1;
             }
 
-            _SetUniformItem(index, 2*i, 2*i, 2*i + 1, 2*i + 1, 0, gcvTRUE, config, 0x2, &Uinform[*index]);
+            _SetUniformItem(index, 2*i, 2*i, 2*i + 1, 2*i + 1, 0, gcvTRUE, &config, 0x2, &Uinform[*index]);
 
             /*dp8.u16 r2[6-7], r1, r2, c4_512 :selection for first dp8 pixels 0-1*/
             gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x09, 0x2, &Instructions->binarys[Instructions->count]));
@@ -27890,7 +28089,7 @@ static gceSTATUS _sobel_mxn_halfevis(
             config.abin1[p]    = ((p + 1) % 4 == 0)?(p/4 + 2):(offset0 + p%4);
         }
 
-        _SetUniformItem(index, 4*j + 0, 4*j + 1, 4*j + 2, 4*j + 3, Scale, gcvTRUE, config, 0x2, &Uinform[*index]);
+        _SetUniformItem(index, 4*j + 0, 4*j + 1, 4*j + 2, 4*j + 3, Scale, gcvTRUE, &config, 0x2, &Uinform[*index]);
 
         /*dp4.u8 r7[0-3], r6, r5, c28_512 :selection for last dp4 pixels 0-3 + r5[6,7];r4[6,7]*/
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x0A, Output, &Instructions->binarys[Instructions->count]));
@@ -27973,7 +28172,7 @@ static gceSTATUS _sobel_mxn_halfevis(
                 end = start + 1;
             }
 
-            _SetUniformItem(index, 2*i, 2*i, 2*i + 1, 2*i + 1, 0, gcvTRUE, config, 0x2, &Uinform[*index]);
+            _SetUniformItem(index, 2*i, 2*i, 2*i + 1, 2*i + 1, 0, gcvTRUE, &config, 0x2, &Uinform[*index]);
 
             /*dp8.u16 r2[6-7], r1, r2, c4_512 :selection for first dp8 pixels 0-1*/
             gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x09, 0x2, &Instructions->binarys[Instructions->count]));
@@ -28027,7 +28226,7 @@ static gceSTATUS _sobel_mxn_halfevis(
             config.abin1[p]    = ((p + 1) % 4 == 0)?(p/4 + 2):(offset0 + p%4);
         }
 
-        _SetUniformItem(index, 4*j + 0, 4*j + 1, 4*j + 2, 4*j + 3, Scale, gcvTRUE, config, 0x2, &Uinform[*index]);
+        _SetUniformItem(index, 4*j + 0, 4*j + 1, 4*j + 2, 4*j + 3, Scale, gcvTRUE, &config, 0x2, &Uinform[*index]);
 
         /*dp4.u8 r7[0-3], r6, r5, c28_512 :selection for last dp4 pixels 0-3 + r5[6,7];r4[6,7]*/
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x0A, Output, &Instructions->binarys[Instructions->count]));
@@ -28197,7 +28396,7 @@ static gceSTATUS _filter_halfevis(
                 end = start + 1;
             }
 
-            _SetUniformItem(index, 2*i, 2*i, 2*i + 1, 2*i + 1, 0, gcvTRUE, config, 0x5, &Uinform[*index]);
+            _SetUniformItem(index, 2*i, 2*i, 2*i + 1, 2*i + 1, 0, gcvTRUE, &config, 0x5, &Uinform[*index]);
 
             /*dp8.u16 r2[6-7], r1, r2, c4_512 :selection for first dp8 pixels 0-1*/
             gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x09, 0x2, &Instructions->binarys[Instructions->count]));
@@ -28251,7 +28450,7 @@ static gceSTATUS _filter_halfevis(
             config.abin1[p]    = ((p + 1) % 4 == 0)?(p/4 + 2):(offset0 + p%4);
         }
 
-        _SetUniformItem(index, 4*j + 0, 4*j + 1, 4*j + 2, 4*j + 3, Scale, gcvTRUE, config, 0x5, &Uinform[*index]);
+        _SetUniformItem(index, 4*j + 0, 4*j + 1, 4*j + 2, 4*j + 3, Scale, gcvTRUE, &config, 0x5, &Uinform[*index]);
 
         /*dp4.u8 r7[0-3], r6, r5, c28_512 :selection for last dp4 pixels 0-3 + r5[6,7];r4[6,7]*/
         gcmONERROR(gcoHARDWAREVX_AddOpcode(0x45, 0x0A, OutputDp4, &Instructions->binarys[Instructions->count]));
@@ -30052,7 +30251,7 @@ static gceSTATUS _edge_trace_non_filter_hysteresis(
         config.aselect[i] = 0;
     }
 
-    _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, config, 0x7, &Uinform[*index]);
+    _SetUniformItem(index, 0, 0, 0, 0, 0, gcvTRUE, &config, 0x7, &Uinform[*index]);
 
     /*mov r0.yz, 0 */
     gcmONERROR(gcoHARDWAREVX_AddOpcode(0x09, 0, GCREG_SH_INSTRUCTION_TYPE_INVALID, &Instructions->binarys[Instructions->count]));
@@ -30622,6 +30821,36 @@ static gceSTATUS _threshold_halfevis(
     gcmONERROR(gcoHARDWAREVX_SetUniform(2, 2, gcdVX_SWIZZLE1(1), 0, &Instructions->binarys[Instructions->count]));
     gcmONERROR(gcoHARDWAREVX_SetSourceBin(8, &Instructions->binarys[Instructions->count++]));
 
+    /*mov r4, c3 */
+    gcmONERROR(gcoHARDWAREVX_AddOpcode(0x09, 0, GCREG_SH_INSTRUCTION_TYPE_INVALID, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetDestination(4, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetUniform(2, 3, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count++]));
+
+    /*cmp r2, r1, r4, c5;*/
+    gcmONERROR(gcoHARDWAREVX_AddOpcode(0x31, 0x05, 0x7, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetDestination(2, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetTempReg(0, 1, gcdVX_SWIZZLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetTempReg(1, 4, gcdVX_SWIZZLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetUniform(2, 5, gcdVX_SWIZZLE, gcvFALSE, &Instructions->binarys[Instructions->count++]));
+
+    /*mov r5, c4 */
+    gcmONERROR(gcoHARDWAREVX_AddOpcode(0x09, 0, GCREG_SH_INSTRUCTION_TYPE_INVALID, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetDestination(5, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetUniform(2, 4, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count++]));
+
+    /*cmp r3, r1, r5, c6;*/
+    gcmONERROR(gcoHARDWAREVX_AddOpcode(0x31, 0x05, 0x7, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetDestination(3, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetTempReg(0, 1, gcdVX_SWIZZLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetTempReg(1, 5, gcdVX_SWIZZLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetUniform(2, 6, gcdVX_SWIZZLE, gcvFALSE, &Instructions->binarys[Instructions->count++]));
+
+    /* add r1, r2, r3 */
+    gcmONERROR(gcoHARDWAREVX_AddOpcode(0x01, 0, 0x7, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetDestination(1, gcdVX_ENABLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetTempReg(0, 2, gcdVX_SWIZZLE, gcvFALSE, &Instructions->binarys[Instructions->count]));
+    gcmONERROR(gcoHARDWAREVX_SetTempReg(2, 3, gcdVX_SWIZZLE, gcvFALSE, &Instructions->binarys[Instructions->count++]));
+
     /*img_store, c1, r0.xy, r1 */
     gcmONERROR(gcoHARDWAREVX_AddOpcode(0x7A, 0, 0x7, &Instructions->binarys[Instructions->count]));
     gcmONERROR(gcoHARDWAREVX_SetEVIS(0, 15, 1, &Instructions->binarys[Instructions->count]));
@@ -30629,7 +30858,7 @@ static gceSTATUS _threshold_halfevis(
     gcmONERROR(gcoHARDWAREVX_SetTempReg(1, 0, gcdVX_SWIZZLE2(0, 1), 0, &Instructions->binarys[Instructions->count]));
     gcmONERROR(gcoHARDWAREVX_SetTempReg(2, 1, gcdVX_SWIZZLE, 0, &Instructions->binarys[Instructions->count++]));
 
-    Instructions->regs_count = 0x2;
+    Instructions->regs_count = 0x6;
 
 OnError:
     gcmFOOTER();
@@ -34637,8 +34866,7 @@ gcoHARDWAREVX_LoadKernel(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x021F) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
 
 
     gcmSETSTATEDATA_NEW(
@@ -34706,8 +34934,7 @@ gcoHARDWAREVX_LoadKernel(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0424) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
 
 
     gcmSETSTATEDATA_NEW(
@@ -34775,8 +35002,7 @@ gcoHARDWAREVX_LoadKernel(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0425) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0425, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  19:0) - (0 ?
  19:0) + 1) == 32) ?
@@ -34837,8 +35063,7 @@ gcoHARDWAREVX_LoadKernel(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0402) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
 
 
     gcmSETSTATEDATA_NEW(
@@ -34946,8 +35171,7 @@ gcoHARDWAREVX_LoadKernel(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x022C) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x022C, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  0:0) - (0 ?
  0:0) + 1) == 32) ?
@@ -35057,8 +35281,7 @@ gcoHARDWAREVX_LoadKernel(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x040A) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x040A, (gctUINT32)(Address) );
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -35112,8 +35335,7 @@ gcoHARDWAREVX_LoadKernel(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0409) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0409, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  9:0) - (0 ?
  9:0) + 1) == 32) ?
@@ -35174,8 +35396,7 @@ gcoHARDWAREVX_LoadKernel(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x021A) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x021A, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  0:0) - (0 ?
  0:0) + 1) == 32) ?
@@ -35378,8 +35599,7 @@ gcoHARDWAREVX_InitVX(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E21) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETSTATEDATA_NEW(stateDelta, reserve, memory, gcvFALSE, 0x0E21, uscConfig);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -35412,8 +35632,12 @@ gcoHARDWAREVX_TriggerAccelerator(
     IN gctUINT32                EventId,
     IN gctBOOL                  waitEvent,
     IN gctUINT32                gpuId,
-    IN gctBOOL                  sync
-)
+    IN gctBOOL                  sync,
+    IN gctUINT32                syncEventID,
+    IN gctUINT32                vipSRAMRemapStartAddr,
+    IN gctUINT32                axiSRAMRemapStartAddr,
+    IN gctUINT32                axiSRAMRemapEndAddr
+    )
 {
     gceSTATUS status = gcvSTATUS_OK;
     gctPOINTER *cmdBuffer = gcvNULL;
@@ -35430,11 +35654,11 @@ gcoHARDWAREVX_TriggerAccelerator(
     gcmBEGINSTATEBUFFER_NEW(Hardware, reserve, stateDelta, memory, cmdBuffer);
 
     stateDelta = stateDelta; /* Keep the compiler happy. */
-    gpuCount = Hardware->config->gpuCoreCount;
+    gpuCount = Hardware->config->coreCount;
 
     if (gpuCount > 1)
     {
-        { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+        { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -35451,10 +35675,192 @@ gcoHARDWAREVX_TriggerAccelerator(
 
     }
 
+    {
+    gctSTRING envSave = gcvNULL;
+    gctSTRING envCache = gcvNULL;
+    gctUINT32 enableSaveBinary = 0;
+    if (gcmIS_SUCCESS(gcoOS_GetEnv(gcvNULL, "VIV_VX_ENABLE_SAVE_NETWORK_BINARY", &envSave)) && envSave)
+    {
+        enableSaveBinary = atoi(envSave);
+        if (gcmIS_SUCCESS(gcoOS_GetEnv(gcvNULL, "VIV_VX_ENABLE_CACHE_GRAPH_BINARY", &envCache)) && envCache)
+        {
+            enableSaveBinary |= atoi(envCache);
+        }
+    }
+    if (0 == enableSaveBinary)
+    {
+        if (gcoHAL_IsFeatureAvailable(gcvNULL, gcvFEATURE_SWTILING_PHASE3))
+        {
+            gcmASSERT(vipSRAMRemapStartAddr != gcvINVALID_ADDRESS);
+            {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E4E) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E4E, vipSRAMRemapStartAddr);
+    gcmENDSTATEBATCH_NEW(reserve, memory);
+};
+
+        }
+
+        if (gcoHAL_IsFeatureAvailable(gcvNULL, gcvFEATURE_SWTILING_PHASE1))
+        {
+            {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E4F) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E4F, axiSRAMRemapStartAddr);
+    gcmENDSTATEBATCH_NEW(reserve, memory);
+};
+
+
+            {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E50) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E50, axiSRAMRemapEndAddr);
+    gcmENDSTATEBATCH_NEW(reserve, memory);
+};
+
+        }
+    }
+    }
+
     if (gcvVX_ACCELERATOR_NN == Type)
     {
         gctBOOL enableZDP3, enableZDP6, enableNNStride;
-        gctUINT disableZDPN, disableSWTiling, smallBatch;
+        gctUINT disableZDPN, disableSWTiling, smallBatch, ddrBurstSize = 0;
 
         gctUINT NNconfig = 0;
 
@@ -35466,7 +35872,36 @@ gcoHARDWAREVX_TriggerAccelerator(
                          gcoHAL_GetOption(gcvNULL, gcvOPTION_OVX_ENABLE_NN_STRIDE);
         disableSWTiling = enableNNStride ? 0 : 1;
 
-        smallBatch = Hardware->features[gcvFEATURE_NN_SMALLBATCH_PHASE1] ? 0x0 : 0x1;
+        if (!Hardware->config->parallelNoFix)
+        {
+            smallBatch = (Hardware->features[gcvFEATURE_NN_SMALLBATCH_PHASE1] && Hardware->features[gcvFEATURE_NN_COMMAND_KERNEL_REQUEST_CONFICT_FIX])
+                         ? 0x0 : 0x1;
+        }
+        else
+        {
+            smallBatch = 0x0;
+        }
+
+        if (gcoHAL_GetOption(gcvNULL, gcvOPTION_OVX_ENABLE_NN_DDR_BURST_SIZE_256B))
+        {
+            ddrBurstSize = 0x2;
+        }
+        else if (gcoHAL_GetOption(gcvNULL, gcvOPTION_OVX_ENABLE_NN_DDR_BURST_SIZE_64B))
+        {
+            ddrBurstSize = 0x0;
+        }
+        else if (Hardware->config->nnConfig.customizedFeature.ddrKernelBurstSize == 256)
+        {
+            ddrBurstSize = 0x2;
+        }
+        else if (Hardware->config->nnConfig.customizedFeature.ddrKernelBurstSize == 64)
+        {
+            ddrBurstSize = 0x0;
+        }
+        else
+        {
+            gcmASSERT("unsupport ddrBurstSize" && 0);
+        }
 
         NNconfig |= ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  2:2) - (0 ?
@@ -35497,7 +35932,27 @@ gcoHARDWAREVX_TriggerAccelerator(
  4:4))) | (((gctUINT32) ((gctUINT32) (smallBatch) & ((gctUINT32) ((((1 ?
  4:4) - (0 ?
  4:4) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 4:4) - (0 ? 4:4) + 1))))))) << (0 ? 4:4)));
+ ~0U : (~(~0U << ((1 ? 4:4) - (0 ? 4:4) + 1))))))) << (0 ? 4:4)))
+                 |  ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 6:5) - (0 ?
+ 6:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 6:5) - (0 ?
+ 6:5) + 1))))))) << (0 ?
+ 6:5))) | (((gctUINT32) ((gctUINT32) (ddrBurstSize) & ((gctUINT32) ((((1 ?
+ 6:5) - (0 ?
+ 6:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 6:5) - (0 ? 6:5) + 1))))))) << (0 ? 6:5)))
+                 |  ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 12:12) - (0 ?
+ 12:12) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 12:12) - (0 ?
+ 12:12) + 1))))))) << (0 ?
+ 12:12))) | (((gctUINT32) ((gctUINT32) (0x0) & ((gctUINT32) ((((1 ?
+ 12:12) - (0 ?
+ 12:12) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 12:12) - (0 ? 12:12) + 1))))))) << (0 ? 12:12)));
 
         {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
     gcmASSERT((gctUINT32)1 <= 1024);
@@ -35546,8 +36001,7 @@ gcoHARDWAREVX_TriggerAccelerator(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E4C) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E4C, NNconfig);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -35633,8 +36087,7 @@ gcoHARDWAREVX_TriggerAccelerator(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E53) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E53, TPconfig);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -35647,84 +36100,6 @@ gcoHARDWAREVX_TriggerAccelerator(
     {
         if (Type == gcvVX_ACCELERATOR_NN)
         {
-            {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
-    gcmASSERT((gctUINT32)1 <= 1024);
-    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
- 31:27) - (0 ?
- 31:27) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 31:27) - (0 ?
- 31:27) + 1))))))) << (0 ?
- 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
- 26:26) - (0 ?
- 26:26) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 26:26) - (0 ?
- 26:26) + 1))))))) << (0 ?
- 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
- 25:16) - (0 ?
- 25:16) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 25:16) - (0 ?
- 25:16) + 1))))))) << (0 ?
- 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 15:0) - (0 ?
- 15:0) + 1))))))) << (0 ?
- 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E54) & ((gctUINT32) ((((1 ?
- 15:0) - (0 ?
- 15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
-    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E54, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 0:0) - (0 ?
- 0:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 0:0) - (0 ?
- 0:0) + 1))))))) << (0 ?
- 0:0))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- 1:1) - (0 ?
- 1:1) + 1))))))) << (0 ?
- 1:1))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 1:1) - (0 ?
- 1:1) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 1:1) - (0 ? 1:1) + 1))))))) << (0 ? 1:1))));    gcmENDSTATEBATCH_NEW(reserve, memory);
-};
-
-        }
-        else if (Type == gcvVX_ACCELERATOR_TP)
-        {
-            static unsigned char cid = 0;
-
             if (EventId == 0)
             {
                 {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
@@ -35774,34 +36149,31 @@ gcoHARDWAREVX_TriggerAccelerator(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E54) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E54, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 2:2) - (0 ?
- 2:2) + 1) == 32) ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
- 2:2) - (0 ?
- 2:2) + 1))))))) << (0 ?
- 2:2))) | (((gctUINT32) ((gctUINT32) (cid) & ((gctUINT32) ((((1 ?
- 2:2) - (0 ?
- 2:2) + 1) == 32) ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
- 2:2) - (0 ?
- 2:2) + 1))))))) << (0 ?
- 2:2))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 1:1) - (0 ?
+ 1:1) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
- 3:3) - (0 ?
- 3:3) + 1))))))) << (0 ?
- 3:3))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
- 3:3) - (0 ?
- 3:3) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 3:3) - (0 ? 3:3) + 1))))))) << (0 ? 3:3))));    gcmENDSTATEBATCH_NEW(reserve, memory);
+ 1:1) - (0 ?
+ 1:1) + 1))))))) << (0 ?
+ 1:1))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
+ 1:1) - (0 ?
+ 1:1) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 1:1) - (0 ? 1:1) + 1))))))) << (0 ? 1:1))));    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
-
-                /* cid = cid == 0 ? 1 : 0; */
             }
             else
             {
@@ -35852,15 +36224,168 @@ gcoHARDWAREVX_TriggerAccelerator(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E54) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E54, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 0:0) - (0 ?
+ 0:0) + 1))))))) << (0 ?
+ 0:0))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 1:1) - (0 ?
+ 1:1) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 1:1) - (0 ?
+ 1:1) + 1))))))) << (0 ?
+ 1:1))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 1:1) - (0 ?
+ 1:1) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 1:1) - (0 ? 1:1) + 1))))))) << (0 ? 1:1))));    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
+
+            }
+        }
+        else if (Type == gcvVX_ACCELERATOR_TP)
+        {
+            if (EventId == 0)
+            {
+                {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E54) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E54, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  2:2) - (0 ?
  2:2) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
  2:2) - (0 ?
  2:2) + 1))))))) << (0 ?
- 2:2))) | (((gctUINT32) ((gctUINT32) (cid) & ((gctUINT32) ((((1 ?
+ 2:2))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1))))))) << (0 ?
+ 2:2))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 3:3) - (0 ?
+ 3:3) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 3:3) - (0 ?
+ 3:3) + 1))))))) << (0 ?
+ 3:3))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
+ 3:3) - (0 ?
+ 3:3) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 3:3) - (0 ? 3:3) + 1))))))) << (0 ? 3:3))));    gcmENDSTATEBATCH_NEW(reserve, memory);
+};
+
+
+            }
+            else
+            {
+                {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (0x0E54) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E54, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1))))))) << (0 ?
+ 2:2))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ?
  2:2) - (0 ?
  2:2) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -35890,16 +36415,30 @@ gcoHARDWAREVX_TriggerAccelerator(
             0x042E,
             0x042F
         };
+
 #if gcdFRAMEINFO_STATISTIC
         {
             gctUINT32 drawID;
+            gctSTRING envSave = gcvNULL;
+            gctSTRING envCache = gcvNULL;
+            gctUINT32 enableSaveBinary = 0;
+            if (gcmIS_SUCCESS(gcoOS_GetEnv(gcvNULL, "VIV_VX_ENABLE_SAVE_NETWORK_BINARY", &envSave)) && envSave)
+            {
+                enableSaveBinary = atoi(envSave);
+                if (gcmIS_SUCCESS(gcoOS_GetEnv(gcvNULL, "VIV_VX_ENABLE_CACHE_GRAPH_BINARY", &envCache)) && envCache)
+                {
+                    enableSaveBinary |= atoi(envCache);
+                }
+            }
 
-            gcoHAL_FrameInfoOps(gcvNULL,
-                                gcvFRAMEINFO_COMPUTE_NUM,
-                                gcvFRAMEINFO_OP_GET,
-                                &drawID);
+            if (0 == enableSaveBinary)
+            {
+                gcoHAL_FrameInfoOps(gcvNULL,
+                                    gcvFRAMEINFO_COMPUTE_NUM,
+                                    gcvFRAMEINFO_OP_GET,
+                                    &drawID);
 
-            {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+                {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
     gcmASSERT((gctUINT32)1 <= 1024);
     *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
@@ -35946,15 +36485,18 @@ gcoHARDWAREVX_TriggerAccelerator(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E27) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E27, drawID);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
+            }
         }
 #endif
-        {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+
+        if (syncEventID != 0)
+        {
+            {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
     gcmASSERT((gctUINT32)1 <= 1024);
     *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
@@ -36001,8 +36543,82 @@ gcoHARDWAREVX_TriggerAccelerator(
  15:0))) | (((gctUINT32) ((gctUINT32) (triggerRegAddr[Type]) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
+    gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, triggerRegAddr[Type], ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:6) - (0 ?
+ 31:6) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:6) - (0 ?
+ 31:6) + 1))))))) << (0 ?
+ 31:6))) | (((gctUINT32) ((gctUINT32) ((CmdAddress >> 6)) & ((gctUINT32) ((((1 ?
+ 31:6) - (0 ?
+ 31:6) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:6) - (0 ?
+ 31:6) + 1))))))) << (0 ?
+ 31:6))) | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1))))))) << (0 ?
+ 4:0))) | (((gctUINT32) ((gctUINT32) (syncEventID) & ((gctUINT32) ((((1 ?
+ 4:0) - (0 ?
+ 4:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 4:0) - (0 ? 4:0) + 1))))))) << (0 ? 4:0))));    gcmENDSTATEBATCH_NEW(reserve, memory);
 };
+
+        }
+        else
+        {
+            {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+    gcmASSERT((gctUINT32)1 <= 1024);
+    *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x01 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (gcvFALSE) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16)))        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1))))))) << (0 ?
+ 15:0))) | (((gctUINT32) ((gctUINT32) (triggerRegAddr[Type]) & ((gctUINT32) ((((1 ?
+ 15:0) - (0 ?
+ 15:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, triggerRegAddr[Type], ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:6) - (0 ?
  31:6) + 1) == 32) ?
@@ -36028,9 +36644,9 @@ gcoHARDWAREVX_TriggerAccelerator(
 };
 
 
-        if (EventId == 0 || waitEvent)
-        {
-            {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
+            if (EventId == 0 || waitEvent)
+            {
+                {    {    gcmVERIFYLOADSTATEALIGNED(reserve, memory);
     gcmASSERT((gctUINT32)1 <= 1024);
     *memory++        = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
@@ -36077,12 +36693,12 @@ gcoHARDWAREVX_TriggerAccelerator(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0429) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0429, EventId);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
 
+            }
         }
     }
     else
@@ -36140,8 +36756,7 @@ gcoHARDWAREVX_TriggerAccelerator(
  15:0))) | (((gctUINT32) ((gctUINT32) (triggerRegAddr[Type]) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, triggerRegAddr[Type], ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  25:0) - (0 ?
  25:0) + 1) == 32) ?
@@ -36156,54 +36771,46 @@ gcoHARDWAREVX_TriggerAccelerator(
 
 
 
-#ifdef GCREG_MCFE_STD_DESC_RING_BUF_START_ADDR_Address
 
         /* SubmitJob. */
         *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
- MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_SUB_COMMAND & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)))
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x16 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)))
                     | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ?
- MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ?
- MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ?
- MCFE_COMMAND_SUB_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_SUB_OPCODE_SUBMIT_JOB & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ?
- MCFE_COMMAND_SUB_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_SUB_OPCODE) - (0 ?
- MCFE_COMMAND_SUB_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_SUB_OPCODE)));
+ 25:16) - (0 ?
+ 25:16) + 1))))))) << (0 ?
+ 25:16))) | (((gctUINT32) (0x001 & ((gctUINT32) ((((1 ?
+ 25:16) - (0 ?
+ 25:16) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:16) - (0 ? 25:16) + 1))))))) << (0 ? 25:16)));
 
         *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1) == 32) ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1))))))) << (0 ?
- MCFE_COMMAND_OPCODE))) | (((gctUINT32) (MCFE_COMMAND_OPCODE_NOP & ((gctUINT32) ((((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ?
- MCFE_COMMAND_OPCODE) - (0 ?
- MCFE_COMMAND_OPCODE) + 1))))))) << (0 ? MCFE_COMMAND_OPCODE)));
+ 31:27) - (0 ?
+ 31:27) + 1))))))) << (0 ?
+ 31:27))) | (((gctUINT32) (0x03 & ((gctUINT32) ((((1 ?
+ 31:27) - (0 ?
+ 31:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
 
-#endif
 
     }
 
     if (gpuCount > 1)
     {
-        { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+        { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -36540,6 +37147,16 @@ gcoHARDWAREVX_ProgrammeNNEngine(
  31:19) - (0 ?
  31:19) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 31:19) - (0 ? 31:19) + 1))))))) << (0 ? 31:19)))
+                         | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1))))))) << (0 ?
+ 2:2))) | (((gctUINT32) ((gctUINT32) (info->noBias) & ((gctUINT32) ((((1 ?
+ 2:2) - (0 ?
+ 2:2) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 2:2) - (0 ? 2:2) + 1))))))) << (0 ? 2:2)))
                          | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  3:3) - (0 ?
  3:3) + 1) == 32) ?
@@ -36878,9 +37495,30 @@ gcoHARDWAREVX_ProgrammeNNEngine(
  30:30))) | (((gctUINT32) ((gctUINT32) ((info->inImageYOffset >> 4) & 0x1) & ((gctUINT32) ((((1 ?
  30:30) - (0 ?
  30:30) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 30:30) - (0 ? 30:30) + 1))))))) << (0 ? 30:30)));
+ ~0U : (~(~0U << ((1 ? 30:30) - (0 ? 30:30) + 1))))))) << (0 ? 30:30)))
+                            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 28:28) - (0 ?
+ 28:28) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 28:28) - (0 ?
+ 28:28) + 1))))))) << (0 ?
+ 28:28))) | (((gctUINT32) ((gctUINT32) (info->slowOutput) & ((gctUINT32) ((((1 ?
+ 28:28) - (0 ?
+ 28:28) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 28:28) - (0 ? 28:28) + 1))))))) << (0 ? 28:28)))
+                            | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:31) - (0 ?
+ 31:31) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:31) - (0 ?
+ 31:31) + 1))))))) << (0 ?
+ 31:31))) | (((gctUINT32) ((gctUINT32) (info->kernelDataTypeBit3) & ((gctUINT32) ((((1 ?
+ 31:31) - (0 ?
+ 31:31) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:31) - (0 ? 31:31) + 1))))))) << (0 ? 31:31)));
 
     /*25:0*/
+
      *(*Instruction)++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  25:0) - (0 ?
  25:0) + 1) == 32) ?
@@ -36890,7 +37528,39 @@ gcoHARDWAREVX_ProgrammeNNEngine(
  25:0))) | (((gctUINT32) ((gctUINT32) (info->outImageCircularBufEndAddrPlus1 >> 6) & ((gctUINT32) ((((1 ?
  25:0) - (0 ?
  25:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:0) - (0 ? 25:0) + 1))))))) << (0 ? 25:0)));
+ ~0U : (~(~0U << ((1 ? 25:0) - (0 ? 25:0) + 1))))))) << (0 ? 25:0)))
+                         | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 30:30) - (0 ?
+ 30:30) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 30:30) - (0 ?
+ 30:30) + 1))))))) << (0 ?
+ 30:30))) | (((gctUINT32) ((gctUINT32) (info->bFloat16Mode) & ((gctUINT32) ((((1 ?
+ 30:30) - (0 ?
+ 30:30) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 30:30) - (0 ? 30:30) + 1))))))) << (0 ? 30:30)))
+                         | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:31) - (0 ?
+ 31:31) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:31) - (0 ?
+ 31:31) + 1))))))) << (0 ?
+ 31:31))) | (((gctUINT32) ((gctUINT32) (info->inImageDataTypeBit3) & ((gctUINT32) ((((1 ?
+ 31:31) - (0 ?
+ 31:31) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:31) - (0 ? 31:31) + 1))))))) << (0 ? 31:31)))
+                         | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 29:28) - (0 ?
+ 29:28) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 29:28) - (0 ?
+ 29:28) + 1))))))) << (0 ?
+ 29:28))) | (((gctUINT32) ((gctUINT32) (info->dwOutputZPBit1To0) & ((gctUINT32) ((((1 ?
+ 29:28) - (0 ?
+ 29:28) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 29:28) - (0 ? 29:28) + 1))))))) << (0 ? 29:28)));
+
+
 
     /*GCREG_NN_INST_WORD20*/
     *(*Instruction)++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
@@ -36902,7 +37572,37 @@ gcoHARDWAREVX_ProgrammeNNEngine(
  25:0))) | (((gctUINT32) ((gctUINT32) (info->inImageCircularBufSize >> 6) & ((gctUINT32) ((((1 ?
  25:0) - (0 ?
  25:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:0) - (0 ? 25:0) + 1))))))) << (0 ? 25:0)));
+ ~0U : (~(~0U << ((1 ? 25:0) - (0 ? 25:0) + 1))))))) << (0 ? 25:0)))
+                        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1))))))) << (0 ?
+ 26:26))) | (((gctUINT32) ((gctUINT32) (info->outImageDataTypeBit3) & ((gctUINT32) ((((1 ?
+ 26:26) - (0 ?
+ 26:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 26:26) - (0 ? 26:26) + 1))))))) << (0 ? 26:26)))
+                        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 30:30) - (0 ?
+ 30:30) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 30:30) - (0 ?
+ 30:30) + 1))))))) << (0 ?
+ 30:30))) | (((gctUINT32) ((gctUINT32) (info->convolutionStride) & ((gctUINT32) ((((1 ?
+ 30:30) - (0 ?
+ 30:30) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 30:30) - (0 ? 30:30) + 1))))))) << (0 ? 30:30)))
+                        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 29:27) - (0 ?
+ 29:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 29:27) - (0 ?
+ 29:27) + 1))))))) << (0 ?
+ 29:27))) | (((gctUINT32) ((gctUINT32) (info->nnAluFunction) & ((gctUINT32) ((((1 ?
+ 29:27) - (0 ?
+ 29:27) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 29:27) - (0 ? 29:27) + 1))))))) << (0 ? 29:27)));
 
     /*25:0*/
     *(*Instruction)++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
@@ -36914,7 +37614,17 @@ gcoHARDWAREVX_ProgrammeNNEngine(
  25:0))) | (((gctUINT32) ((gctUINT32) (info->inImageCircularBufEndAddrPlus1 >> 6) & ((gctUINT32) ((((1 ?
  25:0) - (0 ?
  25:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 25:0) - (0 ? 25:0) + 1))))))) << (0 ? 25:0)));
+ ~0U : (~(~0U << ((1 ? 25:0) - (0 ? 25:0) + 1))))))) << (0 ? 25:0)))
+                        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:26) - (0 ?
+ 31:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:26) - (0 ?
+ 31:26) + 1))))))) << (0 ?
+ 31:26))) | (((gctUINT32) ((gctUINT32) (info->dwCoefZPBit5To0) & ((gctUINT32) ((((1 ?
+ 31:26) - (0 ?
+ 31:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:26) - (0 ? 31:26) + 1))))))) << (0 ? 31:26)));
 
     /*GCREG_NN_INST_WORD22*/
     *(*Instruction)++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
@@ -36967,6 +37677,149 @@ gcoHARDWAREVX_ProgrammeNNEngine(
  25:18) - (0 ?
  25:18) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ? 25:18) - (0 ? 25:18) + 1))))))) << (0 ? 25:18)));
+
+    /*GCREG_NN_INST_WORD23*/
+    *(*Instruction)++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 24:2) - (0 ?
+ 24:2) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 24:2) - (0 ?
+ 24:2) + 1))))))) << (0 ?
+ 24:2))) | (((gctUINT32) ((gctUINT32) (info->negPostMultiplier) & ((gctUINT32) ((((1 ?
+ 24:2) - (0 ?
+ 24:2) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 24:2) - (0 ? 24:2) + 1))))))) << (0 ? 24:2)))
+                        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:25) - (0 ?
+ 31:25) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:25) - (0 ?
+ 31:25) + 1))))))) << (0 ?
+ 31:25))) | (((gctUINT32) ((gctUINT32) (info->negPostShift) & ((gctUINT32) ((((1 ?
+ 31:25) - (0 ?
+ 31:25) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:25) - (0 ? 31:25) + 1))))))) << (0 ? 31:25)));
+
+    /*GCREG_NN_INST_WORD24*/
+    *(*Instruction)++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 3:0) - (0 ?
+ 3:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 3:0) - (0 ?
+ 3:0) + 1))))))) << (0 ?
+ 3:0))) | (((gctUINT32) ((gctUINT32) (info->inImageTransposeChMinusOne) & ((gctUINT32) ((((1 ?
+ 3:0) - (0 ?
+ 3:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 3:0) - (0 ? 3:0) + 1))))))) << (0 ? 3:0)))
+                        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:4) - (0 ?
+ 31:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:4) - (0 ?
+ 31:4) + 1))))))) << (0 ?
+ 31:4))) | (((gctUINT32) ((gctUINT32) (info->outImageTransposeBufStartAddr >> 4) & ((gctUINT32) ((((1 ?
+ 31:4) - (0 ?
+ 31:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:4) - (0 ? 31:4) + 1))))))) << (0 ? 31:4)));
+
+    /*GCREG_NN_INST_WORD25*/
+    *(*Instruction)++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 3:0) - (0 ?
+ 3:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 3:0) - (0 ?
+ 3:0) + 1))))))) << (0 ?
+ 3:0))) | (((gctUINT32) ((gctUINT32) (info->outImageTransposeChMinusOne) & ((gctUINT32) ((((1 ?
+ 3:0) - (0 ?
+ 3:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 3:0) - (0 ? 3:0) + 1))))))) << (0 ? 3:0)))
+                        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:4) - (0 ?
+ 31:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:4) - (0 ?
+ 31:4) + 1))))))) << (0 ?
+ 31:4))) | (((gctUINT32) ((gctUINT32) (info->outImageTransposeBufEndAddr >> 4) & ((gctUINT32) ((((1 ?
+ 31:4) - (0 ?
+ 31:4) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:4) - (0 ? 31:4) + 1))))))) << (0 ? 31:4)));
+
+    /* GCREG_NN_INST_WORD26, NN_SECOND_INPUT_BASE_ADDRESS */
+    *(*Instruction)++ =  info->secInImageAddress;
+
+    /* GCREG_NN_INST_WORD27*/
+    *(*Instruction)++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:0) - (0 ?
+ 25:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:0) - (0 ?
+ 25:0) + 1))))))) << (0 ?
+ 25:0))) | (((gctUINT32) ((gctUINT32) (info->secInImageCircularBufSize >> 6) & ((gctUINT32) ((((1 ?
+ 25:0) - (0 ?
+ 25:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:0) - (0 ? 25:0) + 1))))))) << (0 ? 25:0)))
+                        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 27:26) - (0 ?
+ 27:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 27:26) - (0 ?
+ 27:26) + 1))))))) << (0 ?
+ 27:26))) | (((gctUINT32) ((gctUINT32) (info->dwCoefZPBit7To6) & ((gctUINT32) ((((1 ?
+ 27:26) - (0 ?
+ 27:26) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 27:26) - (0 ? 27:26) + 1))))))) << (0 ? 27:26)))
+                        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 28:28) - (0 ?
+ 28:28) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 28:28) - (0 ?
+ 28:28) + 1))))))) << (0 ?
+ 28:28))) | (((gctUINT32) ((gctUINT32) (info->postMultiplierSign) & ((gctUINT32) ((((1 ?
+ 28:28) - (0 ?
+ 28:28) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 28:28) - (0 ? 28:28) + 1))))))) << (0 ? 28:28)))
+                        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 29:29) - (0 ?
+ 29:29) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 29:29) - (0 ?
+ 29:29) + 1))))))) << (0 ?
+ 29:29))) | (((gctUINT32) ((gctUINT32) (info->negPostMultiplierSign) & ((gctUINT32) ((((1 ?
+ 29:29) - (0 ?
+ 29:29) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 29:29) - (0 ? 29:29) + 1))))))) << (0 ? 29:29)))
+                        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 30:30) - (0 ?
+ 30:30) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 30:30) - (0 ?
+ 30:30) + 1))))))) << (0 ?
+ 30:30))) | (((gctUINT32) ((gctUINT32) (info->postShiftBits7) & ((gctUINT32) ((((1 ?
+ 30:30) - (0 ?
+ 30:30) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 30:30) - (0 ? 30:30) + 1))))))) << (0 ? 30:30)))
+                        | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 31:31) - (0 ?
+ 31:31) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 31:31) - (0 ?
+ 31:31) + 1))))))) << (0 ?
+ 31:31))) | (((gctUINT32) ((gctUINT32) (info->negPostShiftBits7) & ((gctUINT32) ((((1 ?
+ 31:31) - (0 ?
+ 31:31) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 31:31) - (0 ? 31:31) + 1))))))) << (0 ? 31:31)));
+
+    /* GCREG_NN_INST_WORD28*/
+    *(*Instruction)++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 25:0) - (0 ?
+ 25:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 25:0) - (0 ?
+ 25:0) + 1))))))) << (0 ?
+ 25:0))) | (((gctUINT32) ((gctUINT32) (info->secInImageCircularBufEndAddrPlus1 >> 6) & ((gctUINT32) ((((1 ?
+ 25:0) - (0 ?
+ 25:0) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 25:0) - (0 ? 25:0) + 1))))))) << (0 ? 25:0)));
 
      return gcvSTATUS_OK;
 
@@ -37990,7 +38843,17 @@ gcoHARDWAREVX_ProgrammeTPEngine(
  22:8))) | (((gctUINT32) ((gctUINT32) (info->aluOutputPostMultiplier) & ((gctUINT32) ((((1 ?
  22:8) - (0 ?
  22:8) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 22:8) - (0 ? 22:8) + 1))))))) << (0 ? 22:8)));
+ ~0U : (~(~0U << ((1 ? 22:8) - (0 ? 22:8) + 1))))))) << (0 ? 22:8)))
+                              | ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 30:23) - (0 ?
+ 30:23) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 30:23) - (0 ?
+ 30:23) + 1))))))) << (0 ?
+ 30:23))) | (((gctUINT32) ((gctUINT32) (info->aluOutputPostMultiplierBit22to15) & ((gctUINT32) ((((1 ?
+ 30:23) - (0 ?
+ 30:23) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 30:23) - (0 ? 30:23) + 1))))))) << (0 ? 30:23)));
     }
 
     return gcvSTATUS_OK;
@@ -38209,8 +39072,7 @@ gcoHARDWAREVX_WaitNNEvent(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0429) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0429, EventId);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -38299,8 +39161,7 @@ gcoHARDWAREVX_SetRemapAddress(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E4F) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E4F, remapStart);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -38353,8 +39214,7 @@ gcoHARDWAREVX_SetRemapAddress(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E50) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E50, remapEnd);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -38411,8 +39271,7 @@ gcoHARDWAREVX_SetRemapAddress(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x0E4E) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x0E4E, remapStart);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -38459,10 +39318,10 @@ gcoHARDWAREVX_YUV2RGBScale(
 
     stateDelta = stateDelta; /* Keep the compiler happy. */
 
-    gpuCount = Hardware->config->gpuCoreCount;
+    gpuCount = Hardware->config->coreCount;
     if (gpuCount > 1)
     {
-        { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+        { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -38526,8 +39385,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5F90) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5F90, info->inImageBaseY);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -38580,8 +39438,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5F91) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5F91, info->inImageBaseU);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -38634,8 +39491,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5F92) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5F92, info->inImageBaseV);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -38688,8 +39544,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5FA3) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5FA3, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -38762,8 +39617,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5F93) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5F93, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -38836,8 +39690,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5FA4) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5FA4, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -38910,8 +39763,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5F94) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5F94, info->outImageBaseR);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -38964,8 +39816,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5F95) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5F95, info->outImageBaseG);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -39018,8 +39869,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5F96) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5F96, info->outImageBaseB);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -39072,8 +39922,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5F97) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5F97, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -39146,8 +39995,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5F98) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5F98, info->scaleX);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -39200,8 +40048,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5F99) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5F99, info->scaleY);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -39254,8 +40101,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5F9A) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5F9A, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  14:0) - (0 ?
  14:0) + 1) == 32) ?
@@ -39328,8 +40174,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5FA5) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5FA5, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  7:0) - (0 ?
  7:0) + 1) == 32) ?
@@ -39402,8 +40247,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5FA2) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5FA2, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -39476,8 +40320,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5F9D) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5F9D, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  9:0) - (0 ?
  9:0) + 1) == 32) ?
@@ -39562,8 +40405,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5F9E) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5F9E, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  9:0) - (0 ?
  9:0) + 1) == 32) ?
@@ -39636,8 +40478,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5F9F) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5F9F, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  18:0) - (0 ?
  18:0) + 1) == 32) ?
@@ -39698,8 +40539,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5FA0) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5FA0, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  18:0) - (0 ?
  18:0) + 1) == 32) ?
@@ -39760,8 +40600,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5FA1) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5FA1, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  18:0) - (0 ?
  18:0) + 1) == 32) ?
@@ -39822,8 +40661,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5FA6) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5FA6, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -39896,8 +40734,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5FA7) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5FA7, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -39970,8 +40807,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5FA8) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5FA8, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
@@ -40044,8 +40880,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5F9C) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5F9C, info->outRequestCount);
     gcmENDSTATEBATCH_NEW(reserve, memory);
 };
@@ -40098,8 +40933,7 @@ gcoHARDWAREVX_YUV2RGBScale(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x5F9B) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x5F9B, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  0:0) - (0 ?
  0:0) + 1) == 32) ?
@@ -40202,7 +41036,7 @@ gcoHARDWAREVX_YUV2RGBScale(
 
      if (gpuCount > 1)
      {
-         { if (Hardware->config->gpuCoreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+         { if (Hardware->config->coreCount > 1) { *memory++ = ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  31:27) - (0 ?
  31:27) + 1) == 32) ?
  ~0U : (~(~0U << ((1 ?
@@ -40984,7 +41818,8 @@ gcoHARDWAREVX_FlushCache(
     IN gctBOOL              InvalidateICache,
     IN gctBOOL              FlushPSSHL1Cache,
     IN gctBOOL              FlushNNL1Cache,
-    IN gctBOOL              FlushTPL1Cache
+    IN gctBOOL              FlushTPL1Cache,
+    IN gctBOOL              FlushSHL1Cache
     )
 {
     gceSTATUS status = gcvSTATUS_OK;
@@ -41052,8 +41887,7 @@ gcoHARDWAREVX_FlushCache(
  15:0))) | (((gctUINT32) ((gctUINT32) (0x022C) & ((gctUINT32) ((((1 ?
  15:0) - (0 ?
  15:0) + 1) == 32) ?
- ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));    gcmSKIPSECUREUSER();
-};
+ ~0U : (~(~0U << ((1 ? 15:0) - (0 ? 15:0) + 1))))))) << (0 ? 15:0)));};
     gcmSETCTRLSTATE_NEW(stateDelta, reserve, memory, 0x022C, ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
  4:4) - (0 ?
  4:4) + 1) == 32) ?
@@ -41091,6 +41925,25 @@ gcoHARDWAREVX_FlushCache(
             gcmONERROR(gcoHARDWARE_McfeSubmitJob(Hardware, gcvNULL));
         }
     }
+
+    if (FlushSHL1Cache)
+    {
+        gcmONERROR(gcoHARDWARE_LoadCtrlState(
+            Hardware,
+            0x0380C,
+                ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1))))))) << (0 ?
+ 5:5))) | (((gctUINT32) (0x1 & ((gctUINT32) ((((1 ?
+ 5:5) - (0 ?
+ 5:5) + 1) == 32) ?
+ ~0U : (~(~0U << ((1 ? 5:5) - (0 ? 5:5) + 1))))))) << (0 ? 5:5)))
+            ));
+    }
+
 
 OnError:
     /* Return the status */

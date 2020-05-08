@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -22,7 +22,7 @@
 
 #if (gcdENABLE_3D)
 
-#define _GC_OBJ_ZONE            gcvZONE_BUFFER
+#define _GC_OBJ_ZONE            gcdZONE_BUFFER
 
 #define gcdMAX_TEMPCMD_BUFFER_SIZE      0x20000
 
@@ -135,6 +135,10 @@ struct _gcoBUFFER
         gctUINT32               hasMCFE                     : 1;
 
     }hwFeature;
+
+#if gcdCAPTURE_ONLY_MODE
+    gctPOINTER                  contextLogical[gcdCONTEXT_BUFFER_COUNT];
+#endif
 };
 
 static gctUINT32 _PatchItemSize[] =
@@ -184,18 +188,6 @@ _FreeCommandBuffer(
             /* Reset the buffer pointer. */
             CommandBuffer->logical = 0;
         }
-
-#if gcdSECURE_USER
-        if (CommandBuffer->hintArray != 0)
-        {
-            gcmOS_SAFE_FREE_SHARED_MEMORY(
-                gcvNULL,
-                gcmUINT64_TO_PTR(CommandBuffer->hintArray)
-                );
-
-            CommandBuffer->hintArray = CommandBuffer->hintArrayTail = 0;
-        }
-#endif
     }
 }
 
@@ -347,6 +339,12 @@ _ConstructCommandBuffer(
         iface.u.LockVideoMemory.node = handle;
         iface.u.LockVideoMemory.cacheable = gcvFALSE;
 
+#if gcdCAPTURE_ONLY_MODE
+        gcmONERROR(gcoOS_Allocate(gcvNULL, Bytes, &iface.u.LockVideoMemory.captureLogical));
+
+        iface.u.LockVideoMemory.queryCapSize = gcvFALSE;
+#endif
+
         status = gcoOS_DeviceControl(
             gcvNULL,
             IOCTL_GCHAL_INTERFACE,
@@ -368,30 +366,6 @@ _ConstructCommandBuffer(
 
         /* Initialize command buffer. */
         commandBuffer->free = commandBuffer->bytes;
-
-#if gcdSECURE_USER
-        /* Determine the size of the state array. */
-        commandBuffer->hintArraySize = Bytes;
-
-        /* Allocate the state array. */
-        status = gcoOS_AllocateSharedMemory(
-            gcvNULL,
-            (gctSIZE_T)commandBuffer->hintArraySize,
-            &pointer
-            );
-
-        if (status == gcvSTATUS_OUT_OF_MEMORY)
-        {
-            goto retry;
-        }
-
-        gcmONERROR(status);
-
-        commandBuffer->hintArray = gcmPTR_TO_UINT64(pointer);
-
-        /* Initialize the state array tail pointer. */
-        commandBuffer->hintArrayTail = commandBuffer->hintArray;
-#endif
 
         /* The command buffer is successfully allocated. */
         break;
@@ -421,7 +395,10 @@ retry:
 
 OnError:
     /* Roll back. */
-    _DestroyCommandBuffer(Hardware, Info, commandBuffer);
+    if (commandBuffer)
+    {
+        _DestroyCommandBuffer(Hardware, Info, commandBuffer);
+    }
 
     /* Return the status. */
     gcmFOOTER();
@@ -571,7 +548,7 @@ _GetCommandBuffer(
             Buffer->commandBufferTail = temp;
 
             Buffer->count += 1;
-            gcmTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_BUFFER,
+            gcmTRACE_ZONE(gcvLEVEL_INFO, _GC_OBJ_ZONE,
                           "Using %lu command buffers.",
                           Buffer->count);
 
@@ -584,6 +561,10 @@ _GetCommandBuffer(
                 ));
         }
 
+        if (commandBuffer == gcvNULL)
+        {
+            gcmONERROR(gcvSTATUS_INVALID_ARGUMENT);
+        }
         /* Wait for buffer to become available. */
         gcmONERROR(gcoOS_WaitSignal(gcvNULL, commandBuffer->signal, gcvINFINITE));
     }
@@ -678,11 +659,6 @@ _FinishCommandBufferRange(
 
     /* The exit pipe becomes the entry pipe for the next command buffer. */
     CommandBuffer->entryPipe = CommandBuffer->exitPipe;
-
-#if gcdSECURE_USER
-    /* Reset the state array tail. */
-    CommandBuffer->hintArrayTail = CommandBuffer->hintArray;
-#endif
 
     /* Reset usage flags. */
     CommandBuffer->using2D   = gcvFALSE;
@@ -1448,8 +1424,10 @@ gcoBUFFER_Construct(
 
 OnError:
     /* Roll back. */
-    gcmVERIFY_OK(gcoBUFFER_Destroy(buffer));
-
+    if (buffer)
+    {
+        gcmVERIFY_OK(gcoBUFFER_Destroy(buffer));
+    }
     /* Return the status. */
     gcmFOOTER();
     return status;
@@ -2115,7 +2093,7 @@ gcoBUFFER_Reserve(
 
     if (Buffer->threadDefault)
     {
-        gcmTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_BUFFER,
+        gcmTRACE_ZONE(gcvLEVEL_VERBOSE, _GC_OBJ_ZONE,
             "Thread Default command buffer is accumulating commands");
     }
 
@@ -2237,11 +2215,13 @@ gcoBUFFER_Reserve(
         {
             gctUINT64 resumeCommand, resumeCommandSaved;
             resumeCommand = resumeCommandSaved = commandBuffer->lastReserve;
+            /* If need to setquery index from 0 to 4 (or current index) while type is gcvQUERY_XFB_WRITTEN or gcvQUERY_PRIM_GENERATED only for OGL? */
             gcoHARDWARE_SetQuery(Buffer->hardware,
                                  ~0U,
-                                 queryType,
+                                 (gceQueryType)queryType,
                                  gcvQUERYCMD_RESUME,
-                                 (gctPOINTER *)&resumeCommand);
+                                 (gctPOINTER *)&resumeCommand,
+                                 0);
             gcmASSERT((resumeCommand - resumeCommandSaved) == Buffer->queryResumeBytes[queryType]);
             commandBuffer->lastReserve = resumeCommand;
             commandBuffer->lastOffset += (gctUINT32)(resumeCommand - resumeCommandSaved);
@@ -2349,7 +2329,7 @@ gcoBUFFER_Commit(
 
     if (Buffer->threadDefault)
     {
-        gcmTRACE_ZONE(gcvLEVEL_VERBOSE, gcvZONE_BUFFER, "Thread Default command buffer is comitting commands");
+        gcmTRACE_ZONE(gcvLEVEL_VERBOSE, _GC_OBJ_ZONE, "Thread Default command buffer is comitting commands");
     }
 
     gcmONERROR(gcoHAL_GetCurrentCoreIndex(gcvNULL, &currentCoreId));
@@ -2388,11 +2368,15 @@ gcoBUFFER_Commit(
     {
         gcmONERROR(gcoQUEUE_Commit(Queue, gcvFALSE));
     }
-    else
+    else if (commandBuffer != gcvNULL)
     {
         gcsHAL_INTERFACE iface;
         gctUINT32 context = 0;
         gcoCMDBUF *commandBufferMirrors = commandBuffer->mirrors;
+
+#if gcdCAPTURE_ONLY_MODE
+        gctUINT32 i;
+#endif
 
 #if gcdENABLE_3D
         gcoCMDBUF tailCommandBuffer = Buffer->commandBufferTail;
@@ -2421,7 +2405,8 @@ gcoBUFFER_Commit(
                         pauseQueryCommand      = gcmPTR_TO_UINT64((gctUINT8_PTR) gcmUINT64_TO_PTR(tailCommandBuffer->logical)
                                                         + tailCommandBuffer->offset);
 
-                        gcoHARDWARE_SetQuery(gcvNULL, ~0U, (gceQueryType)type, gcvQUERYCMD_PAUSE, (gctPOINTER*)&pauseQueryCommand);
+                        /* If need to setquery index from 0 to 4 (or current index) while type is gcvQUERY_XFB_WRITTEN or gcvQUERY_PRIM_GENERATED only for OGL? */
+                        gcoHARDWARE_SetQuery(gcvNULL, ~0U, (gceQueryType)type, gcvQUERYCMD_PAUSE, (gctPOINTER*)&pauseQueryCommand, 0);
                         if ((pauseQueryCommand - pauseQueryCommandsaved) > 0)
                         {
                             tailCommandBuffer->offset += (gctUINT32)(pauseQueryCommand - pauseQueryCommandsaved);
@@ -2609,8 +2594,8 @@ gcoBUFFER_Commit(
                 /* Convert core index in this hardware to global core index. */
                 gcmONERROR(gcoHARDWARE_QueryCoreIndex(gcvNULL, i, &coreIndex));
 
-                ctx = Contexts ? Contexts[coreIndex] : context;
-                delta = StateDeltas ? StateDeltas[coreIndex] : StateDelta;
+                ctx = Contexts ? Contexts[i] : context;
+                delta = StateDeltas ? StateDeltas[i] : StateDelta;
 
                 if (commandBufferMirrors)
                 {
@@ -2649,6 +2634,14 @@ gcoBUFFER_Commit(
         iface.engine = Buffer->info.engine;
         iface.u.Commit.subCommit = Buffer->subCommitHead;
         iface.u.Commit.shared  = (coreCount > 1);
+        iface.commitMutex = gcvFALSE;
+
+#if gcdCAPTURE_ONLY_MODE
+        for (i = 0; i < gcdCONTEXT_BUFFER_NUM; ++i)
+        {
+            iface.u.Commit.subCommit.commandBuffer.contextLogical[i] = Buffer->contextLogical[i];
+        }
+#endif
 
         if (!Buffer->dropCommandEnabled)
         {
@@ -2668,6 +2661,10 @@ gcoBUFFER_Commit(
 
         /* Recycle the sub-commits. */
         _RecycleSubCommits(Buffer);
+    }
+    else
+    {
+        gcmONERROR(gcvSTATUS_INVALID_DATA);
     }
 
     /* Empty buffer must be the tail. */
@@ -2924,7 +2921,7 @@ gcoBUFFER_Capture(
          */
         if (dropCommandEnabled)
         {
-            gcoHAL_Commit(Buffer->hal, gcvTRUE);
+            status = gcoHAL_Commit(Buffer->hal, gcvTRUE);
         }
         Buffer->captureEnabled = gcvTRUE;
         Buffer->captureBuffer = CaptureBuffer;
@@ -3022,4 +3019,21 @@ gcoBUFFER_CaptureInitState(
     return status;
 }
 
+#if gcdCAPTURE_ONLY_MODE
+gceSTATUS
+gcoBUFFER_SetContextLogical(
+    IN gctPOINTER *ContextLogical,
+    OUT gcoBUFFER Buffer
+    )
+{
+    gctINT i;
+
+    for (i = 0; i < gcdCONTEXT_BUFFER_NUM; ++i)
+    {
+        Buffer->contextLogical[i] = ContextLogical[i];
+    }
+
+    return gcvSTATUS_OK;
+}
+#endif
 #endif  /* gcdENABLE_3D */

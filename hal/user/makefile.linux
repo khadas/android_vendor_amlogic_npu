@@ -1,6 +1,6 @@
 ##############################################################################
 #
-#    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+#    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 #
 #    The material in this file is confidential and contains trade secrets
 #    of Vivante Corporation. This is proprietary information owned by
@@ -66,13 +66,13 @@ endif
 # Define flags for the linker.
 
 ifneq ($(USE_ARMCC),1)
-  LFLAGS += -Wl,--version-script=libGAL.map
+  LDFLAGS += -Wl,--version-script=libGAL.map
 endif
 
 ifeq ($(USE_ARMCC),1)
-  LFLAGS += --shared -L--soname=,$(TARGET_SONAME)
+  LDFLAGS += --shared -L--soname=,$(TARGET_SONAME)
 else
-  LFLAGS += -Wall -Wl,-z,defs -shared -Wl,-soname,$(TARGET_SONAME)
+  LDFLAGS += -Wall -Wl,-z,defs -shared -Wl,-soname,$(TARGET_SONAME)
 endif
 
 ################################################################################
@@ -129,8 +129,7 @@ ifeq ($(VIVANTE_ENABLE_3D),1)
              $(OBJ_DIR)/gc_hal_user_mem.o \
              $(OBJ_DIR)/gc_hal_user_bufobj.o \
              $(OBJ_DIR)/gc_hal_user_statistics.o \
-             $(OBJ_DIR)/gc_hal_user_shader.o \
-             $(OBJ_DIR)/gc_hal_user_resource.o
+             $(OBJ_DIR)/gc_hal_user_shader.o
 
   ifeq ($(USE_OPENCL),1)
     OBJECTS += $(OBJ_DIR)/gc_hal_user_cl.o
@@ -160,7 +159,7 @@ extra_install: all
 	@mkdir -p $(SDK_DIR)/drivers
 	@mkdir -p $(SDK_DIR)/include/HAL
 	@-cp -f $(AQROOT)/hal/inc/gc_hal_enum.h $(SDK_DIR)/include/HAL
-	@-cp -f $(AQROOT)/hal/inc/gc_hal_types.h $(SDK_DIR)/include/HAL
+	@-cp -f $(AQROOT)/hal/inc/shared/gc_hal_types.h $(SDK_DIR)/include/HAL
 	@-cp -f $(AQROOT)/hal/inc/gc_hal_version.h $(SDK_DIR)/include/HAL
 	@-cp -f $(AQROOT)/hal/inc/gc_hal_base.h $(SDK_DIR)/include/HAL
 	@-cp -f $(AQROOT)/hal/inc/gc_hal_raster.h $(SDK_DIR)/include/HAL
@@ -168,22 +167,23 @@ extra_install: all
 	@-cp -f $(AQROOT)/hal/inc/gc_hal_options.h $(SDK_DIR)/include/HAL
 	@-cp -f $(AQROOT)/hal/inc/gc_hal_profiler.h $(SDK_DIR)/include/HAL
 	@-cp -f $(AQROOT)/hal/inc/gc_hal_dump.h $(SDK_DIR)/include/HAL
-	@-cp -f $(AQROOT)/hal/inc/gc_hal_driver.h $(SDK_DIR)/include/HAL
-	@-cp -f $(AQROOT)/hal/inc/gc_hal_rename.h $(SDK_DIR)/include/HAL
+	@-cp -rf $(AQROOT)/hal/inc/shared $(SDK_DIR)/include/HAL
+	@-cp -f $(AQROOT)/hal/inc/shared/gc_hal_driver.h $(SDK_DIR)/include/HAL
 ifeq ($(VIVANTE_ENABLE_3D),1)
 	@-cp -f $(AQROOT)/hal/inc/gc_hal_engine.h $(SDK_DIR)/include/HAL
 	@-cp -f $(AQROOT)/hal/inc/gc_hal_statistics.h $(SDK_DIR)/include/HAL
 endif
-	@-cd $(SDK_DIR)/include/HAL; echo "#include \"HAL/gc_hal.h\"" >aqHal.h; cd -
+	@-cd $(SDK_DIR)/include/HAL; echo "#include \"HAL/gc_hal.h\"" >aqHal.h
 
 ################################################################################
 # Module rules.
 
 ifeq ($(STATIC),1)
 $(TARGET_MODULE): $(OBJECTS)
-	$(AR) -r -c $@ $(OBJECTS)
+	@echo "  ARCHIVE \033[1m$(notdir $@)\033[0m"
+	@$(AR) -r -c $@ $(OBJECTS)
 ifneq ($(USE_ARMCC),1)
-	$(RANLIB) $@
+	@$(RANLIB) $@
 endif
 endif
 
@@ -203,15 +203,17 @@ $(TARGET_MODULE): $(AQROOT)/hal/user/arch/$(OBJ_DIR)/libhalarchuser.a
 
 
 $(TARGET_MODULE): $(OBJECTS)
-	$(CC) $(LFLAGS) -o $@ $(OBJECTS) $(LIBS)
+	@echo "  LINK    \033[1m$(notdir $@)\033[0m"
+	@$(CC) $(LDFLAGS) -o $@ $(OBJECTS) $(LIBS)
 endif
 
 ################################################################################
 # Object rules.
 
 $(OBJ_DIR)/%.o: %.c
+	@echo "  COMPILE $(abspath $<)"
 	@mkdir -p $(OBJ_DIR)
-	$(CC) -c $(CFLAGS) -MMD -o $@ $<
+	@$(CC) -c $(CFLAGS) -MMD -o $@ $<
 
 # object dependencies.
 -include $(OBJECTS:.o=.d)

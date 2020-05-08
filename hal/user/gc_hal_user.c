@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -23,7 +23,7 @@
 #endif
 
 /* Zone used for header/footer. */
-#define _GC_OBJ_ZONE    gcvZONE_HAL
+#define _GC_OBJ_ZONE    gcdZONE_HAL_API
 
 /*******************************************************************************
 ***** Version Signature *******************************************************/
@@ -173,7 +173,6 @@ _FillInOptions(
     gcOptions[gcvOPTION_PREFER_GUARDBAND] = gcvFALSE;
     gcOptions[gcvOPTION_PREFER_TILED_DISPLAY_BUFFER] = gcvFALSE;
     gcOptions[gcvOPTION_PREFER_TPG_TRIVIALMODEL] = gcvFALSE;
-    gcOptions[gcvOPTION_PREFER_RA_DEPTH_WRITE] = gcvTRUE;
     gcOptions[gcvOPTION_PREFER_USC_RECONFIG] = gcvFALSE;
     gcOptions[gcvOPTION_PREFER_DISALBE_HZ] = gcvFALSE;
 
@@ -184,9 +183,20 @@ _FillInOptions(
     gcOptions[gcvOPTION_OCL_ASYNC_BLT] = gcvTRUE;
     gcOptions[gcvOPTION_OCL_IN_THREAD] = gcvTRUE;
     gcOptions[gcvOPTION_COMPRESSION_DEC400] = gcvTRUE;
+    gcOptions[gcvOPTION_NO_Y_INVERT] = gcvFALSE;
     gcOptions[gcvOPTION_OCL_VIR_SHADER] = gcvTRUE;
     gcOptions[gcvOPTION_OCL_USE_MULTI_DEVICES] = gcvFALSE;
 
+
+    envctrl = gcvNULL;
+    gcOptions[gcvOPTION_PREFER_RA_DEPTH_WRITE] = gcvTRUE;
+    if (gcmIS_SUCCESS(gcoOS_GetEnv(gcvNULL, "VIV_DISABLE_RA_DEPTH_WRITE", &envctrl)) && envctrl)
+    {
+        if (gcmIS_SUCCESS(gcoOS_StrCmp(envctrl, "1")))
+        {
+            gcOptions[gcvOPTION_PREFER_RA_DEPTH_WRITE] = gcvFALSE;
+        }
+    }
 
     gcOptions[gcvOPTION_FBO_PREFER_MEM] = gcvFALSE;
     if (gcmIS_SUCCESS(gcoOS_GetEnv(gcvNULL, "VIV_FBO_PREFER_MEM", &envctrl)) && envctrl)
@@ -233,7 +243,7 @@ _FillInOptions(
         }
     }
 
-  envctrl = gcvNULL;
+    envctrl = gcvNULL;
     gcOptions[gcvOPTION_PREFER_RA_DEPTH_WRITE] = gcvTRUE;
     if (gcmIS_SUCCESS(gcoOS_GetEnv(gcvNULL, "VIV_DISABLE_RA_DEPTH_WRITE", &envctrl)) && envctrl)
     {
@@ -296,21 +306,38 @@ _FillInOptions(
         }
     }
 
+    if (gcmIS_SUCCESS(gcoOS_GetEnv(gcvNULL, "VIV_NO_Y_INVERT", &envctrl)) && envctrl)
+    {
+        if (gcmIS_SUCCESS(gcoOS_StrCmp(envctrl, "1")))
+        {
+            gcOptions[gcvOPTION_NO_Y_INVERT] = gcvTRUE;
+        }
+    }
+
     envctrl = gcvNULL;
     gcoOS_GetEnv(gcvNULL,"VIV_OVX_USE_MULTI_DEVICE", &envctrl); /*mulit-device mode validation  in gcoVX_QueryDeviceCount*/
-    if(envctrl == gcvNULL || envctrl[0] == '0')
+    if (envctrl == gcvNULL || envctrl[0] == '0')
     {
-
          gcOptions[gcvOPTION_OVX_USE_MULTI_DEVICES] = gcvFALSE;
-
     }
-    else  if( (gcoOS_StrCmp(envctrl, "1") == gcvSTATUS_OK)
-              || (gcoOS_StrCmp(envctrl, "1:1") == gcvSTATUS_OK)
-              || (gcoOS_StrCmp(envctrl, "1:2") == gcvSTATUS_OK)
-              || (gcoOS_StrCmp(envctrl, "1:4") == gcvSTATUS_OK)
-            )/* VIV_MGPU_AFFINITY is INDEPENENT */
+    else if (envctrl != gcvNULL && envctrl[0] == '1')
     {
          gcOptions[gcvOPTION_OVX_USE_MULTI_DEVICES] = gcvTRUE;
+    }
+
+    envctrl = gcvNULL;
+    gcOptions[gcvOPTION_OVX_ENABLE_NN_DDR_BURST_SIZE_256B] = gcvFALSE;
+    gcOptions[gcvOPTION_OVX_ENABLE_NN_DDR_BURST_SIZE_64B] = gcvFALSE;
+    if (gcmIS_SUCCESS(gcoOS_GetEnv(gcvNULL, "VIV_VX_NN_DDR_BURST_SIZE", &envctrl)) && envctrl)
+    {
+        if (gcmIS_SUCCESS(gcoOS_StrCmp(envctrl, "256")))
+        {
+            gcOptions[gcvOPTION_OVX_ENABLE_NN_DDR_BURST_SIZE_256B] = gcvTRUE;
+        }
+        else if (gcmIS_SUCCESS(gcoOS_StrCmp(envctrl, "64")))
+        {
+            gcOptions[gcvOPTION_OVX_ENABLE_NN_DDR_BURST_SIZE_64B] = gcvTRUE;
+        }
     }
 
 #endif
@@ -483,6 +510,7 @@ gcoHAL_ConstructEx(
                                        &iface, gcmSIZEOF(iface),
                                        &iface, gcmSIZEOF(iface)));
 
+#if !gcdIGNORE_DRIVER_VERSIONS_MISMATCH
         /* Test if versions match. */
         if ((iface.u.Version.major != gcvVERSION_MAJOR)
         ||  (iface.u.Version.minor != gcvVERSION_MINOR)
@@ -490,25 +518,18 @@ gcoHAL_ConstructEx(
         ||  (iface.u.Version.build != gcvVERSION_BUILD)
         )
         {
-            gcmPRINT("HAL user version %d.%d.%d build %u",
-                     gcvVERSION_MAJOR, gcvVERSION_MINOR,
-                     gcvVERSION_PATCH, gcvVERSION_BUILD);
-            gcmPRINT("HAL kernel version %d.%d.%d build %u",
-                     iface.u.Version.major, iface.u.Version.minor,
-                     iface.u.Version.patch, iface.u.Version.build);
+            gcmPRINT("HAL user version %s", gcvVERSION_STRING);
+            gcmPRINT("HAL kernel version %s", gcvVERSION_STRING);
 
             gcmONERROR(gcvSTATUS_VERSION_MISMATCH);
         }
+#endif
 
 #if gcmIS_DEBUG(gcdDEBUG_TRACE)
-    gcmTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HAL,
-                  "HAL user version %d.%d.%d build %u",
-                  gcvVERSION_MAJOR, gcvVERSION_MINOR,
-                  gcvVERSION_PATCH, gcvVERSION_BUILD);
-    gcmTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HAL,
-                  "HAL kernel version %d.%d.%d build %u",
-                  iface.u.Version.major, iface.u.Version.minor,
-                  iface.u.Version.patch, iface.u.Version.build);
+        gcmTRACE_ZONE(gcvLEVEL_INFO, _GC_OBJ_ZONE,
+                      "HAL user version %s", gcvVERSION_STRING);
+        gcmTRACE_ZONE(gcvLEVEL_INFO, _GC_OBJ_ZONE,
+                      "HAL kernel version %s", gcvVERSION_STRING);
 #endif
 
         /* Query chip info */
@@ -522,10 +543,11 @@ gcoHAL_ConstructEx(
 
         for (i = 0; i < hal->chipCount; i++)
         {
-            hal->chipTypes[i] = iface.u.ChipInfo.types[i];
+            hal->hwTypes[i] = iface.u.ChipInfo.types[i];
+            hal->coreIndexs[i] = iface.u.ChipInfo.coreIndexs[i];
             hal->chipIDs[i] = iface.u.ChipInfo.ids[i];
 
-            switch (hal->chipTypes[i])
+            switch (hal->hwTypes[i])
             {
             case gcvHARDWARE_3D:
                 hal->is3DAvailable = gcvTRUE;
@@ -540,6 +562,9 @@ gcoHAL_ConstructEx(
                 hal->hybrid2D = gcvTRUE;
                 break;
 
+            case gcvHARDWARE_VIP:
+                hal->isVIPAvailable = gcvTRUE;
+                break;
             default:
                 break;
             }
@@ -548,6 +573,7 @@ gcoHAL_ConstructEx(
         hal->defaultHwType = hal->separated2D ? gcvHARDWARE_2D
                            : hal->hybrid2D ? gcvHARDWARE_3D2D
                            : hal->is3DAvailable ? gcvHARDWARE_3D
+                           : hal->isVIPAvailable ? gcvHARDWARE_3D
                            : gcvHARDWARE_VG;
 
         hal->isGpuBenchSmoothTriangle = gcvFALSE;
@@ -1125,12 +1151,46 @@ OnError:
 **
 **  gcoHAL_SetFscaleValue
 **
+**  Set Fscale value to current core.
+**
+*/
+gceSTATUS
+gcoHAL_SetFscaleValueEx(
+    IN gctUINT FscaleValue,
+    IN gctUINT ShaderFscaleValue
+    )
+{
+    gceSTATUS status;
+    gcsHAL_INTERFACE iface;
+
+    gcmHEADER_ARG("FscaleValue=0x%x ShaderFscaleValue=0x%x", FscaleValue, ShaderFscaleValue);
+
+    iface.command = gcvHAL_SET_FSCALE_VALUE;
+    iface.u.SetFscaleValue.value = FscaleValue;
+    iface.u.SetFscaleValue.shValue = ShaderFscaleValue;
+
+    status = gcoHAL_Call(gcvNULL, &iface);
+
+    gcmFOOTER();
+    return status;
+}
+
+/*******************************************************************************
+**
+**  gcoHAL_SetFscaleValue
+**
 **  Set the fscale value used when GPU is gcvPOWER_ON.
 **
 **  INPUT:
-**
-**      gctUINT FscalueValue
-**          Fscale value to be set.
+**      gctUINT CoreIndex
+**          Global core index to set the specific core clock.
+**          If the value is 0xFFFFFFFF, all the cores will be set.
+**      gctUINT FscaleValue
+**          Set core clock. Value can be 64, 32, 16, 8, 4, 2, 1.
+**          64 means 64/64 full clock, 1 means 1/64 clock.
+**      gctUINT ShaderFscaleValue
+**          Set shader clock. Value can be 64, 32, 16, 8, 4, 2, 1.
+**          64 means 64/64 full clock, 1 means 1/64 clock.
 **
 **  OUTPUT:
 **
@@ -1138,19 +1198,35 @@ OnError:
 */
 gceSTATUS
 gcoHAL_SetFscaleValue(
-    IN gctUINT FscaleValue
+    IN gcoHAL Hal,
+    IN gctUINT CoreIndex,
+    IN gctUINT FscaleValue,
+    IN gctUINT ShaderFscaleValue
     )
 {
-    gceSTATUS status;
-    gcsHAL_INTERFACE iface;
+    gceSTATUS status = gcvSTATUS_OK;
+    gctINT i = 0;
 
-    gcmHEADER_ARG("FscaleValue=0x%X", FscaleValue);
+    gcmHEADER_ARG("CoreIndex=%x FscaleValue=0x%x ShaderFscaleValue=0x%x", CoreIndex, FscaleValue, ShaderFscaleValue);
 
-    iface.command = gcvHAL_SET_FSCALE_VALUE;
-    iface.u.SetFscaleValue.value = FscaleValue;
+    if (CoreIndex == 0xFFFFFFFF)
+    {
+        /* Set for all the cores. */
+        for (i = 0; i < gcPLS.hal->chipCount; i++)
+        {
+            gcoHAL_SetCoreIndex(gcvNULL, i);
+            gcmONERROR(gcoHAL_SetFscaleValueEx(FscaleValue, ShaderFscaleValue));
+        }
+    }
+    else
+    {
+        /* Set for the specific core. */
+        gcoHAL_SetCoreIndex(gcvNULL, CoreIndex);
 
-    status = gcoHAL_Call(gcvNULL, &iface);
+        gcmONERROR(gcoHAL_SetFscaleValueEx(FscaleValue, ShaderFscaleValue));
+    }
 
+OnError:
     gcmFOOTER();
     return status;
 }
@@ -2464,6 +2540,15 @@ gcoHAL_LockVideoMemory(
         iface.u.LockVideoMemory.node = Node;
         iface.u.LockVideoMemory.cacheable = Cacheable;
 
+#if gcdCAPTURE_ONLY_MODE
+        iface.u.LockVideoMemory.queryCapSize = gcvTRUE;
+
+        gcmONERROR(gcoHAL_Call(gcvNULL, &iface));
+
+        gcmONERROR(gcoOS_Allocate(gcvNULL, iface.u.LockVideoMemory.captureSize, &iface.u.LockVideoMemory.captureLogical));
+
+        iface.u.LockVideoMemory.queryCapSize = gcvFALSE;
+#endif
         /* Call the kernel. */
         gcmONERROR(gcoHAL_Call(gcvNULL, &iface));
     }
@@ -2475,6 +2560,15 @@ gcoHAL_LockVideoMemory(
         iface.u.LockVideoMemory.node = Node;
         iface.u.LockVideoMemory.cacheable = Cacheable;
 
+#if gcdCAPTURE_ONLY_MODE
+        iface.u.LockVideoMemory.queryCapSize = gcvTRUE;
+
+        gcmONERROR(gcoHAL_Call(gcvNULL, &iface));
+
+        gcmONERROR(gcoOS_Allocate(gcvNULL, iface.u.LockVideoMemory.captureSize, &iface.u.LockVideoMemory.captureLogical));
+
+        iface.u.LockVideoMemory.queryCapSize = gcvFALSE;
+#endif
         /* Call the kernel. */
         gcmONERROR(gcoHAL_Call(gcvNULL, &iface));
     }
@@ -2508,10 +2602,11 @@ OnError:
 }
 
 gceSTATUS
-gcoHAL_UnlockVideoMemory(
+gcoHAL_UnlockVideoMemoryEX(
     IN gctUINT32 Node,
     IN gceVIDMEM_TYPE Type,
-    IN gceENGINE engine
+    IN gceENGINE Engine,
+    IN gctBOOL Sync
     )
 {
     gceSTATUS status = gcvSTATUS_OK;
@@ -2519,7 +2614,7 @@ gcoHAL_UnlockVideoMemory(
 
     gcmHEADER_ARG("Node=0x%x", Node);
 
-    if (engine == gcvENGINE_RENDER)
+    if (Engine == gcvENGINE_RENDER)
     {
         iface.engine = gcvENGINE_RENDER;
         iface.command = gcvHAL_UNLOCK_VIDEO_MEMORY;
@@ -2528,10 +2623,20 @@ gcoHAL_UnlockVideoMemory(
 
         gcmONERROR(gcoHAL_Call(gcvNULL, &iface));
 
-        /* Schedule an event for the unlock. Always goto render pipe for now */
-        gcmONERROR(gcoHARDWARE_CallEvent(gcvNULL, &iface));
+        if (Sync)
+        {
+            iface.command = gcvHAL_BOTTOM_HALF_UNLOCK_VIDEO_MEMORY;
+            iface.u.BottomHalfUnlockVideoMemory.node = Node;
+            iface.u.BottomHalfUnlockVideoMemory.type = gcvVIDMEM_TYPE_GENERIC;
+            gcmONERROR(gcoHAL_Call(gcvNULL, &iface));
+        }
+        else
+        {
+            /* Schedule an event for the unlock. Always goto render pipe for now */
+            gcmONERROR(gcoHARDWARE_CallEvent(gcvNULL, &iface));
+        }
     }
-    else if (engine == gcvENGINE_BLT)
+    else if (Engine == gcvENGINE_BLT)
     {
         if (gcoHAL_IsFeatureAvailable(gcvNULL, gcvFEATURE_ASYNC_BLIT) != gcvSTATUS_TRUE)
         {
@@ -2553,11 +2658,27 @@ gcoHAL_UnlockVideoMemory(
         status = gcvSTATUS_INVALID_ARGUMENT;
     }
 
+#if gcdCAPTURE_ONLY_MODE
+    gcmVERIFY_OK(gcmOS_SAFE_FREE(gcvNULL, iface.u.UnlockVideoMemory.captureLogical));
+#endif
+
 OnError:
     /* Return status. */
     gcmFOOTER();
     return status;
 }
+
+gceSTATUS
+gcoHAL_UnlockVideoMemory(
+    IN gctUINT32 Node,
+    IN gceVIDMEM_TYPE Type,
+    IN gceENGINE Engine
+    )
+{
+    return gcoHAL_UnlockVideoMemoryEX(Node, Type, Engine, gcvFALSE);
+}
+
+
 
 gceSTATUS
 gcoHAL_ReleaseVideoMemory(
@@ -2842,6 +2963,31 @@ OnError:
     return status;
 }
 
+gceSTATUS
+gcoHAL_AlignToTile(
+    IN OUT gctUINT32 * Width,
+    IN OUT gctUINT32 * Height,
+    IN  gceSURF_TYPE Type,
+    IN  gceSURF_FORMAT Format
+    )
+{
+    gceSTATUS status;
+
+    status = gcoHARDWARE_AlignToTileCompatible(
+        gcvNULL,
+        Type & 0xFF,
+        Type & ~0xFF,
+        Format,
+        Width,
+        Height,
+        1,
+        gcvNULL,
+        gcvNULL,
+        gcvNULL
+        );
+
+    return status;
+}
 
 /*******************************************************************************
  **

@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2018 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -30,9 +30,16 @@
 extern "C" {
 #endif
 
+typedef struct _vsi_nn_batcnnorm_lcl_data
+{
+    vsi_nn_tensor_t *reshaped_input;
+    vsi_nn_tensor_t *reshaped_output;
+} vsi_nn_batcnnorm_lcl_data;
+
 typedef struct _vsi_nn_batch_norm_param
 {
     float  eps;
+    vsi_nn_batcnnorm_lcl_data *local;
 } vsi_nn_batch_norm_param;
 
 #ifdef __cplusplus

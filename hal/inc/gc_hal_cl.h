@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -97,6 +97,25 @@ typedef struct _gcoCL_DEVICE_INFO
 
 typedef gcoCL_DEVICE_INFO *  gcoCL_DEVICE_INFO_PTR;
 
+/*******************************************************************************
+**
+**  gcoCL_SetHardwareType
+**
+**  Set hardware type in CL. If the specific type is not available,
+**  it will query the first available type and set it.
+**
+**  INPUT:
+**
+**      The hardware type to be set.
+**
+**  OUTPUT:
+**
+**      Nothing
+*/
+gceSTATUS
+gcoCL_SetHardwareType(
+    IN gceHARDWARE_TYPE Type
+    );
 
 /*******************************************************************************
 **
@@ -726,12 +745,12 @@ gcoCL_SetSignal(
 **
 **  INPUT:
 **
-**      gcsPROGRAM_STATE ProgramState
-**          Program state.
+**      gcsPROGRAM_STATE *ProgramState
+**          Program state pointer.
 */
 gceSTATUS
 gcoCL_LoadKernel(
-    IN gcsPROGRAM_STATE ProgramState
+    IN gcsPROGRAM_STATE *ProgramState
     );
 
 gceSTATUS
@@ -743,7 +762,8 @@ gcoCL_InvokeKernel(
     IN size_t       LocalWorkSize[3],
     IN gctUINT      ValueOrder,
     IN gctBOOL      BarrierUsed,
-    IN gctUINT32    MemoryAccessFlag
+    IN gctUINT32    MemoryAccessFlag,
+    IN gctBOOL      bDual16
     );
 
 gceSTATUS

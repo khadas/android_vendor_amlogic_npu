@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -66,7 +66,7 @@ static gctUINT32 _debugLevel = gcvLEVEL_ERROR;
 _debugZones config value
 Please Reference define in gc_hal_base.h
 */
-static gctUINT32 _debugZones = gcvZONE_NONE;
+static gctUINT32 _debugZones = gcdZONE_NONE;
 
 /******************************************************************************\
 ********************************* Debug Switches *******************************
@@ -459,6 +459,12 @@ extern volatile unsigned g_nQnxInIsrs;
         gcmkARGUMENTS_END(__arguments__); \
     } \
     atomic_sub(&g_nQnxInIsrs, 1); \
+}
+
+#elif defined(__VXWORKS__)
+#define gcmDEBUGPRINT(Message) \
+{ \
+    printf(Message); \
 }
 
 #else
@@ -1074,7 +1080,6 @@ _DumpDataBuffer(
     gctSIZE_T length = 0;
     gctBOOL needCopy = gcvTRUE;
     gctCONST_STRING dumpTag;
-    gctBOOL skip = gcvFALSE;
     char buffer[256];
     const gctSIZE_T maxLength = gcmSIZEOF(_dumpStorage);
 
@@ -1123,12 +1128,6 @@ _DumpDataBuffer(
         gctSIZE_T count, tailByteCount;
 
         length = maxLength < (Size - offset) ? maxLength : (Size - offset);
-
-        if (skip)
-        {
-            length = 128 < length ? 128 : length;
-        }
-
         count = length / 4;
         tailByteCount = length % 4;
 
@@ -1235,20 +1234,6 @@ _DumpDataBuffer(
         {
             gckOS_UnmapUserPointer(Os, Data, length, data);
         }
-
-        if (skip && Size > 128 * 2)
-        {
-            length = (Size & ~(128 - 1)) - 128;
-            gcmkDUMP_STRING(Os, "  ...skip...\n");
-
-            gcmkSPRINTF(buffer, gcmSIZEOF(buffer) - 1,
-                        "  0x%08X:\n",
-                        (gctUINT32)(Address + length));
-            gcmkDUMP_STRING(Os, buffer);
-
-            skip = gcvFALSE;
-        }
-
         /* advance to next batch. */
         Data    = (gctUINT8_PTR)Data + length;
         offset += length;

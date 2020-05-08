@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -38,13 +38,13 @@ gceSTATUS gcQueryShaderCompilerHwCfg(
 **        gcoHAL Hal
 **            Pointer to a gcoHAL object.
 **
-**        gcsPROGRAM_STATE ProgramState
+**        gcsPROGRAM_STATE *ProgramState
 **            Program state.
 */
 gceSTATUS
 gcLoadShaders(
     IN gcoHAL Hal,
-    IN gcsPROGRAM_STATE ProgramState
+    IN gcsPROGRAM_STATE *ProgramState
     );
 
 gceSTATUS

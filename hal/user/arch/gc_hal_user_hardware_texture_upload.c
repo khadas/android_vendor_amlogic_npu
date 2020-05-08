@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -5884,7 +5884,7 @@ _UploadTextureTiled(
     }
 
     gcmTRACE_ZONE(
-        gcvLEVEL_WARNING, gcvZONE_TEXTURE,
+        gcvLEVEL_WARNING, _GC_OBJ_ZONE,
         "Slow path: SourceFormat=%d trgFormat=%d",
         SourceFormat, trgFormat
         );

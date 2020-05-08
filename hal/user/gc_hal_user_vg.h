@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -1128,6 +1128,7 @@ gcoVGHARDWARE_SetRGB2YUVParameters(
     IN gctFLOAT         *offset,
     IN gctBOOL          *cfg
 );
+
 
 /* VG RS feature. */
 gceSTATUS

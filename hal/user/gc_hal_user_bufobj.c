@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -17,7 +17,7 @@
 
 #if gcdNULL_DRIVER < 2
 
-#define _GC_OBJ_ZONE            gcvZONE_BUFOBJ
+#define _GC_OBJ_ZONE            gcdZONE_BUFOBJ
 #define BUFFER_OBJECT_ALIGNMENT 16 /* max alignmet for all buffer object types */
 #define BUFFER_INDEX_ALIGNMENT  16 /* max alignmet for index buffer object types */
 #define BUFFER_OBJECT_SURFTYPE  gcvSURF_VERTEX
@@ -31,8 +31,8 @@ typedef struct _gcoBUFOBJ_INDEX
 {
     gctUINT32       minIndex;
     gctUINT32       maxIndex;
-    gctUINT32        count;
-    gctUINT32        offset;
+    gctUINT32       count;
+    gctSIZE_T       offset;
 
 } gcoBUFOBJ_INDEX, * gcoBUFOBJ_INDEX_PTR;
 
@@ -166,7 +166,7 @@ gcoBUFOBJ_Construct(
                               gcmSIZEOF(struct _gcoBUFOBJ),
                               &pointer));
 
-    bufobj = pointer;
+    bufobj = (gcoBUFOBJ)pointer;
 
     /* Initialize the gcoBUFOBJ object. */
     bufobj->object.type = gcvOBJ_BUFOBJ;
@@ -556,6 +556,7 @@ static gceSTATUS _gpuUpload(
         &physicAddress,
         gcvNULL));
 
+
     srcLocked = gcvTRUE;
 
     srcAddress = physicAddress;
@@ -576,7 +577,7 @@ static gceSTATUS _gpuUpload(
             Bytes);
     }
 
-    gcmONERROR(gcoHARDWARE_3DBlitCopy(gcvNULL, blitEngine, srcAddress, destAddress, (gctUINT32)Bytes));
+    gcmONERROR(gcoHARDWARE_3DBlitCopy(gcvNULL, blitEngine, srcAddress, destAddress, (gctUINT32)Bytes, gcvFALSE));
 
     gcmONERROR(gcsSURF_NODE_GetFence(&srcMemory, blitEngine, gcvFENCE_TYPE_READ));
 
@@ -687,6 +688,7 @@ gcoBUFOBJ_Upload (
     gctBOOL bGPUupload = gcvFALSE;
     gctBOOL bCanGPUupload = gcvFALSE;
     gctBOOL bWaitFence = gcvFALSE;
+    gctSIZE_T extraSize = 0;
 
     gcmHEADER_ARG("BufObj=0x%x Buffer=0x%x Offset=%u Bytes=%lu, Dynamic=%d",
                    BufObj, Buffer, Offset, Bytes, Usage);
@@ -855,9 +857,15 @@ gcoBUFOBJ_Upload (
             break;
         }
 
+        if (!gcoHAL_IsFeatureAvailable(gcvNULL, gcvFEATURE_SH_IMAGE_LD_LAST_PIXEL_FIX) &&
+             gcoHAL_IsFeatureAvailable(gcvNULL, gcvFEATURE_HALTI5))
+        {
+            extraSize = 15;
+        }
+
         gcmONERROR(gcsSURF_NODE_Construct(
             &memory,
-            allocationSize,
+            allocationSize + extraSize,
             alignment,
             BufObj->surfType,
             gcvALLOC_FLAG_NONE,
@@ -1143,13 +1151,14 @@ gceSTATUS
 gcoBUFOBJ_IndexBind (
     IN gcoBUFOBJ Index,
     IN gceINDEX_TYPE Type,
-    IN gctUINT32 Offset,
-    IN gctSIZE_T Count
+    IN gctSIZE_T Offset,
+    IN gctSIZE_T Count,
+    IN gctUINT   RestartElement
     )
 {
+    gctUINT32 startAddress, endAddress;
     gceSTATUS status;
     gctUINT32 address;
-    gctUINT32 endAddress;
     gctUINT32 bufSize;
 
     gcmHEADER_ARG("Index=0x%x Type=%d Offset=%u", Index, Type, Offset);
@@ -1163,14 +1172,14 @@ gcoBUFOBJ_IndexBind (
 
     endAddress = address + bufSize  - 1;
 
-    /* Add offset */
-    address += Offset;
+    /* Add offset which is limited within 4GB range */
+    startAddress = address + (gctUINT32)Offset;
 
 #if gcdENABLE_KERNEL_FENCE
     gcoHARDWARE_SetHWSlot(gcvNULL, gcvENGINE_RENDER, gcvHWSLOT_INDEX, Index->memory.u.normal.node, 0);
 #endif
     /* Program index */
-    gcmONERROR(gcoHARDWARE_BindIndex(gcvNULL, address, endAddress, Type, (Count * 3)));
+    gcmONERROR(gcoHARDWARE_BindIndex(gcvNULL, startAddress, endAddress, Type, (Count * 3), RestartElement));
 
 OnError:
     /* Return the status. */
@@ -1212,7 +1221,7 @@ gceSTATUS
 gcoBUFOBJ_IndexGetRange(
     IN gcoBUFOBJ Index,
     IN gceINDEX_TYPE Type,
-    IN gctUINT32 Offset,
+    IN gctSIZE_T Offset,
     IN gctUINT32 Count,
     OUT gctUINT32 * MinimumIndex,
     OUT gctUINT32 * MaximumIndex
@@ -1247,7 +1256,7 @@ gcoBUFOBJ_IndexGetRange(
     if ((indexNode->maxIndex == 0) || (indexNode->minIndex == ~0U) || (indexNode->count != Count) || (indexNode->offset != Offset))
     {
         /* Lock the bufobj buffer. */
-        gcmONERROR(gcoHARDWARE_Lock(&Index->memory, gcvNULL, (gctPOINTER)&data));
+        gcmONERROR(gcoHARDWARE_Lock(&Index->memory, gcvNULL, (gctPOINTER *)&data));
 
         /* Index is locked */
         indexLocked = gcvTRUE;
@@ -1661,8 +1670,9 @@ gceSTATUS
 gcoBUFOBJ_IndexBind (
     IN gcoBUFOBJ Index,
     IN gceINDEX_TYPE Type,
-    IN gctUINT32 Offset,
-    IN gctSIZE_T Count
+    IN gctSIZE_T Offset,
+    IN gctSIZE_T Count,
+    IN gctUINT   RestartElement
     )
 {
     return gcvSTATUS_OK;
@@ -1672,7 +1682,7 @@ gceSTATUS
 gcoBUFOBJ_IndexGetRange(
     IN gcoBUFOBJ Index,
     IN gceINDEX_TYPE Type,
-    IN gctUINT32 Offset,
+    IN gctSIZE_T Offset,
     IN gctUINT32 Count,
     OUT gctUINT32 * MinimumIndex,
     OUT gctUINT32 * MaximumIndex
@@ -1705,7 +1715,8 @@ gcoBUFOBJ_CPUCacheOperation_Range(
 
 gceSTATUS
 gcoBUFOBJ_SetCPUWrite(
-    gcoBUFOBJ BufObj
+    gcoBUFOBJ BufObj,
+    gctBOOL Value
     )
 {
     return gcvSTATUS_OK;

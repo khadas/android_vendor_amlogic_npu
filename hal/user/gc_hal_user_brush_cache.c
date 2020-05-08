@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -15,5 +15,5 @@
 #include "gc_hal_user_brush.h"
 
 /* Zone used for header/footer. */
-#define _GC_OBJ_ZONE    gcvZONE_2D
+#define _GC_OBJ_ZONE    gcdZONE_2D
 

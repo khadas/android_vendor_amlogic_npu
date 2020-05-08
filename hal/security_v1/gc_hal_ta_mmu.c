@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -53,7 +53,7 @@
 *****************************************************************************/
 
 
-#include "gc_hal_types.h"
+#include "shared/gc_hal_types.h"
 #include "gc_hal_base.h"
 #include "gc_hal_security_interface.h"
 #include "gc_hal_ta.h"
@@ -222,9 +222,9 @@ _AllocateStlb(
     gcmkONERROR(gctaOS_GetPhysicalAddress(Os, stlb->logical, &stlb->physBase));
 
 #if gcdUSE_MMU_EXCEPTION
-    _FillPageTable(stlb->logical, stlb->size / 4, gcdMMU_STLB_EXCEPTION);
+    _FillPageTable(stlb->logical, (gctUINT32)stlb->size / 4, gcdMMU_STLB_EXCEPTION);
 #else
-    gctaOS_ZeroMemory(stlb->logical, stlb->size);
+    gctaOS_ZeroMemory(stlb->logical, (gctUINT32)stlb->size);
 #endif
 
     *Stlb = stlb;
@@ -272,15 +272,15 @@ gctaMMU_Construct(
         ));
 
 #if gcdUSE_MMU_EXCEPTION
-    _FillPageTable(mmu->mtlbLogical, mmu->mtlbBytes / 4, gcdMMU_STLB_EXCEPTION);
+    _FillPageTable(mmu->mtlbLogical, (gctUINT32)mmu->mtlbBytes / 4, gcdMMU_STLB_EXCEPTION);
 #else
-    gctaOS_ZeroMemory(mmu->mtlbLogical, mmu->mtlbBytes);
+    gctaOS_ZeroMemory(mmu->mtlbLogical, (gctUINT32)mmu->mtlbBytes);
 #endif
 
     /* Allocate a array to store stlbs. */
-    gcmkONERROR(gctaOS_Allocate(mmu->mtlbBytes, &mmu->stlbs));
+    gcmkONERROR(gctaOS_Allocate((gctUINT32)mmu->mtlbBytes, &mmu->stlbs));
 
-    gctaOS_ZeroMemory((gctUINT8_PTR)mmu->stlbs, mmu->mtlbBytes);
+    gctaOS_ZeroMemory((gctUINT8_PTR)mmu->stlbs, (gctUINT32)mmu->mtlbBytes);
 
     /* Allocate security safe page. */
     gcmkONERROR(gctaOS_AllocateSecurityMemory(
@@ -290,7 +290,7 @@ gctaMMU_Construct(
         &mmu->safePagePhysical
         ));
 
-    gctaOS_ZeroMemory((gctUINT8_PTR)mmu->safePageLogical, bytes);
+    gctaOS_ZeroMemory((gctUINT8_PTR)mmu->safePageLogical, (gctUINT32)bytes);
 
     /* Allocate non security safe page. */
     gcmkONERROR(gctaOS_AllocateSecurityMemory(
@@ -300,7 +300,7 @@ gctaMMU_Construct(
         &mmu->nonSecureSafePagePhysical
         ));
 
-    gctaOS_ZeroMemory((gctUINT8_PTR)mmu->nonSecureSafePageLogical, bytes);
+    gctaOS_ZeroMemory((gctUINT8_PTR)mmu->nonSecureSafePageLogical, (gctUINT32)bytes);
 
     /* gcmkONERROR(gctaOS_CreateMutex(TA->os, &mmu->mutex)); */
 

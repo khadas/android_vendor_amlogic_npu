@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -81,10 +81,21 @@ typedef struct _gcsMODULE_PARAMETERS
     gctPHYS_ADDR_T          externalBase;
     gctSIZE_T               externalSize;
 
-    /* SRAM. */
-    gctPHYS_ADDR_T          sRAMBases[gcvCORE_COUNT][gcvSRAM_COUNT];
-    gctUINT32               sRAMSizes[gcvCORE_COUNT][gcvSRAM_COUNT];
-    gctUINT32               sRAMMode;
+    /* Per-core SRAM. */
+    gctPHYS_ADDR_T          sRAMBases[gcvCORE_COUNT][gcvSRAM_INTER_COUNT];
+    gctUINT32               sRAMSizes[gcvCORE_COUNT][gcvSRAM_INTER_COUNT];
+
+    /* Shared SRAM. */
+    gctPHYS_ADDR_T          extSRAMBases[gcvSRAM_EXT_COUNT];
+    gctUINT32               extSRAMSizes[gcvSRAM_EXT_COUNT];
+#if USE_LINUX_PCIE
+    gctUINT32               regOffsets[gcvCORE_COUNT];
+    gctINT32                sRAMBars[gcvSRAM_EXT_COUNT];
+    gctINT32                sRAMOffsets[gcvSRAM_EXT_COUNT];
+#endif
+
+    gctBOOL                 sRAMRequested;
+    gctUINT32               sRAMLoopMode;
 
     gctPHYS_ADDR_T          baseAddress;
     gctSIZE_T               physSize;
@@ -107,6 +118,14 @@ typedef struct _gcsMODULE_PARAMETERS
     /* device type, 0 for char device, 1 for misc device. */
     gctUINT                 deviceType;
     gctUINT                 showArgs;
+
+    /* mmu page table pool, 0 mean auto, 1 means virsual*/
+    gctUINT                 mmuPageTablePool;
+
+    gctUINT                 mmuDynamicMap;
+    gctUINT                 allMapInOne;
+
+    gctUINT                 isrPoll;
 }
 gcsMODULE_PARAMETERS;
 
@@ -282,6 +301,12 @@ struct _gcsPLATFORM
 
     const char *name;
     gcsPLATFORM_OPERATIONS* ops;
+
+    /* TODO: Remove AXI-SRAM size from feature database. */
+    gckDEVICE dev;
+
+    /* PLATFORM specific flags */
+    gctUINT32  flagBits;
 
     void*                   priv;
 };

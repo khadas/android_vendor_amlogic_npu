@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -646,11 +646,8 @@ gcoHEAP_Allocate(
 #endif
 
     /* Determine number of bytes required for a node. */
-    gcmONERROR(gcmCHECK_ADD_OVERFLOW(Bytes, gcmSIZEOF(gcsNODE)));
-    gcmONERROR(gcmALIGN_CHECK_OVERFLOW(Bytes + gcmSIZEOF(gcsNODE), 8));
     bytes = gcmALIGN(Bytes + gcmSIZEOF(gcsNODE), 8);
 #if gcdDEBUG_HEAP_SIGNATURE
-    gcmONERROR(gcmCHECK_ADD_OVERFLOW(Bytes, 8));
     bytes += 8; /* Add room for signature. */
 #endif
 
@@ -670,14 +667,12 @@ gcoHEAP_Allocate(
             /* Increase allocation size. */
             Heap->allocationSize = (bytes << 1) + gcmSIZEOF(gcsHEAP) + gcmSIZEOF(gcsNODE);
         }
-        else if (bytes < (gcvMAXSIZE_T - gcmSIZEOF(gcsHEAP) - gcmSIZEOF(gcsNODE)))
-        {
-            Heap->allocationSize = bytes + gcmSIZEOF(gcsHEAP) + gcmSIZEOF(gcsNODE);
-        }
         else
         {
             /* Unable to increase allocation size due to overflow. */
-            gcmONERROR(gcvSTATUS_DATA_TOO_LARGE);
+            gcmASSERT(bytes + gcmSIZEOF(gcsHEAP) + gcmSIZEOF(gcsNODE) < Heap->allocationSize);
+            status = gcvSTATUS_DATA_TOO_LARGE;
+            goto OnError;
         }
     }
     else if (Heap->heap != gcvNULL)
@@ -1129,8 +1124,4 @@ gcoHEAP_ProfileEnd(
     return gcvSTATUS_OK;
 }
 #endif /* VIVANTE_PROFILER_SYSTEM_MEMORY */
-
-/*******************************************************************************
-***** Test Code ****************************************************************
-*******************************************************************************/
 

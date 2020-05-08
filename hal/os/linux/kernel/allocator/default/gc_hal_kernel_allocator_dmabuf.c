@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -244,10 +244,10 @@ _DmabufAttach(
         npages += (sg_dma_len(s) + PAGE_SIZE - 1) / PAGE_SIZE;
     }
 
-    /* Allocate page arrary. */
+    /* Allocate page array. */
     gcmkONERROR(gckOS_Allocate(os, npages * gcmSIZEOF(*pagearray), (gctPOINTER *)&pagearray));
 
-    /* Fill page arrary. */
+    /* Fill page array. */
     for_each_sg(sgt->sgl, s, sgt->orig_nents, i)
     {
         for (j = 0; j < (sg_dma_len(s) + PAGE_SIZE - 1) / PAGE_SIZE; j++)
@@ -277,8 +277,7 @@ _DmabufAttach(
 
     Mdl->priv = buf_desc;
 
-    /* Always treat it as a non-contigous buffer. */
-    Mdl->contiguous = gcvFALSE;
+    Mdl->contiguous = (sgt->nents == 1) ? gcvTRUE : gcvFALSE;
 
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
@@ -356,11 +355,16 @@ _DmabufMapUser(
     gcsDMABUF *buf_desc = Mdl->priv;
     gctINT8_PTR userLogical = gcvNULL;
     gceSTATUS status = gcvSTATUS_OK;
+    struct file *fd = buf_desc->dmabuf->file;
+    unsigned long flag = 0;
 
-    userLogical = (gctINT8_PTR)vm_mmap(buf_desc->dmabuf->file,
+    flag |= (fd->f_mode & FMODE_READ ? PROT_READ : 0);
+    flag |= (fd->f_mode & FMODE_WRITE ? PROT_WRITE : 0);
+
+    userLogical = (gctINT8_PTR)vm_mmap(fd,
                     0L,
                     Mdl->numPages << PAGE_SHIFT,
-                    PROT_READ | PROT_WRITE,
+                    flag,
                     MAP_SHARED | MAP_NORESERVE,
                     0);
 

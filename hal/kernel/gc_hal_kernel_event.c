@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -730,7 +730,6 @@ gckEVENT_GetEvent(
     gctINT i, id;
     gceSTATUS status;
     gctBOOL acquired = gcvFALSE;
-    gctINT32 free;
 
     gcmkHEADER_ARG("Event=0x%x Source=%d", Event, Source);
 
@@ -765,18 +764,15 @@ gckEVENT_GetEvent(
                 Event->queues[id].source = Source;
 
                 /* Decrease the number of free events. */
-                free = --Event->freeQueueCount;
-
-                /* Make compiler happy. */
-                free = free;
+                --Event->freeQueueCount;
 
 #if gcdDYNAMIC_SPEED
-                if (free <= gcdDYNAMIC_EVENT_THRESHOLD)
+                if (Event->freeQueueCount <= gcdDYNAMIC_EVENT_THRESHOLD)
                 {
                     gcmkONERROR(gckOS_BroadcastHurry(
                         Event->os,
                         Event->kernel->hardware,
-                        gcdDYNAMIC_EVENT_THRESHOLD - free));
+                        gcdDYNAMIC_EVENT_THRESHOLD - Event->freeQueueCount));
                 }
 #endif
 
@@ -1458,7 +1454,7 @@ gckEVENT_Submit(
                 gcmkONERROR(gckCOMMAND_ExecuteMultiChannel(command, 0, 0, executeBytes));
             }
 
-#if gcdNULL_DRIVER
+#if gcdNULL_DRIVER || gcdCAPTURE_ONLY_MODE
             /* Notify immediately on infinite hardware. */
             gcmkONERROR(gckEVENT_Interrupt(Event, 1 << id));
 
@@ -1719,10 +1715,6 @@ gckEVENT_Notify(
 #if gcmIS_DEBUG(gcdDEBUG_TRACE)
     gctINT eventNumber = 0;
 #endif
-#if gcdSECURE_USER
-    gcskSECURE_CACHE_PTR cache;
-    gcuVIDMEM_NODE_PTR node;
-#endif
     gckVIDMEM_NODE nodeObject;
 
     gcmkHEADER_ARG("Event=0x%x IDs=0x%x", Event, IDs);
@@ -1927,10 +1919,6 @@ gckEVENT_Notify(
 #ifndef __QNXNTO__
             gctPOINTER logical;
 #endif
-#if gcdSECURE_USER
-            gctSIZE_T bytes;
-#endif
-
             /* Grab next record. */
             recordNext = record->next;
 
@@ -1941,14 +1929,6 @@ gckEVENT_Notify(
              */
             drv_thread_specific_key_assign(record->processID, 0);
 #endif
-
-#if gcdSECURE_USER
-            /* Get the cache that belongs to this process. */
-            gcmkONERROR(gckKERNEL_GetProcessDBCache(Event->kernel,
-                        record->processID,
-                        &cache));
-#endif
-
             gcmkTRACE_ZONE_N(
                 gcvLEVEL_INFO, gcvZONE_EVENT,
                 gcmSIZEOF(record->info.command),
@@ -1994,23 +1974,6 @@ gckEVENT_Notify(
 
                 nodeObject = gcmUINT64_TO_PTR(record->info.u.UnlockVideoMemory.node);
 
-#if gcdSECURE_USER
-                node = nodeObject->node;
-
-                /* Save node information before it disappears. */
-                node = event->event.u.UnlockVideoMemory.node;
-                if (node->VidMem.parent->object.type == gcvOBJ_VIDMEM)
-                {
-                    logical = gcvNULL;
-                    bytes   = 0;
-                }
-                else
-                {
-                    logical = node->Virtual.logical;
-                    bytes   = node->Virtual.bytes;
-                }
-#endif
-
                 /* Unlock, sync'ed. */
                 status = gckVIDMEM_NODE_Unlock(
                     Event->kernel,
@@ -2018,17 +1981,6 @@ gckEVENT_Notify(
                     record->processID,
                     gcvNULL
                     );
-
-#if gcdSECURE_USER
-                if (gcmIS_SUCCESS(status) && (logical != gcvNULL))
-                {
-                    gcmkVERIFY_OK(gckKERNEL_FlushTranslationCache(
-                        Event->kernel,
-                        cache,
-                        logical,
-                        bytes));
-                }
-#endif
 
                 /* Deref node. */
                 status = gckVIDMEM_NODE_Dereference(Event->kernel, nodeObject);
@@ -2410,14 +2362,22 @@ gckEVENT_Dump(
 
     if (Event->kernel->recovery == 0)
     {
-        gckOS_ReadRegisterEx(
-            Event->os,
-            Event->kernel->core,
-            0x10,
-            &intrAcknowledge
-            );
+        gceSTATUS status;
 
-        gcmkPRINT("  INTR_ACKNOWLEDGE=0x%x", intrAcknowledge);
+        status = gckOS_ReadRegisterEx(
+                    Event->os,
+                    Event->kernel->core,
+                    0x10,
+                    &intrAcknowledge
+                    );
+        if (gcmIS_ERROR(status))
+        {
+            gcmkPRINT("  READ INTR_ACKNOWLEDGE ERROR!");
+        }
+        else
+        {
+            gcmkPRINT("  INTR_ACKNOWLEDGE=0x%x", intrAcknowledge);
+        }
     }
 #endif
 

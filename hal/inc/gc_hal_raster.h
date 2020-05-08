@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2005 - 2019 by Vivante Corp.  All rights reserved.
+*    Copyright (c) 2005 - 2020 by Vivante Corp.  All rights reserved.
 *
 *    The material in this file is confidential and contains trade secrets
 *    of Vivante Corporation. This is proprietary information owned by
@@ -15,7 +15,7 @@
 #define __gc_hal_raster_h_
 
 #include "gc_hal_enum.h"
-#include "gc_hal_types.h"
+#include "shared/gc_hal_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -297,6 +297,24 @@ gco2D_SetColorSourceEx(
     IN gctUINT32 TransparencyColor
     );
 
+/* Same as gco2D_SetColorSourceEx, but with better 64bit SW-path support.
+** Please do NOT export the API now.
+*/
+gceSTATUS
+gco2D_SetColorSource64(
+    IN gco2D Engine,
+    IN gctUINT32 Address,
+    IN gctPOINTER Logical,
+    IN gctUINT32 Stride,
+    IN gceSURF_FORMAT Format,
+    IN gceSURF_ROTATION Rotation,
+    IN gctUINT32 SurfaceWidth,
+    IN gctUINT32 SurfaceHeight,
+    IN gctBOOL CoordRelative,
+    IN gceSURF_TRANSPARENCY Transparency,
+    IN gctUINT32 TransparencyColor
+    );
+
 /* Configure color source. */
 gceSTATUS
 gco2D_SetColorSourceAdvanced(
@@ -347,6 +365,23 @@ gco2D_SetMaskedSourceEx(
     IN gctUINT32 SurfaceHeight
     );
 
+/* Same as gco2D_SetMaskedSourceEx, but with better 64bit SW-path support.
+** Please do NOT export the API now.
+*/
+gceSTATUS
+gco2D_SetMaskedSource64(
+    IN gco2D Engine,
+    IN gctUINT32 Address,
+    IN gctPOINTER Logical,
+    IN gctUINT32 Stride,
+    IN gceSURF_FORMAT Format,
+    IN gctBOOL CoordRelative,
+    IN gceSURF_MONOPACK MaskPack,
+    IN gceSURF_ROTATION Rotation,
+    IN gctUINT32 SurfaceWidth,
+    IN gctUINT32 SurfaceHeight
+    );
+
 /* Setup the source rectangle. */
 gceSTATUS
 gco2D_SetSource(
@@ -376,6 +411,20 @@ gceSTATUS
 gco2D_SetTargetEx(
     IN gco2D Engine,
     IN gctUINT32 Address,
+    IN gctUINT32 Stride,
+    IN gceSURF_ROTATION Rotation,
+    IN gctUINT32 SurfaceWidth,
+    IN gctUINT32 SurfaceHeight
+    );
+
+/* Same as gco2D_SetTargetEx, but with better 64bit SW-path support.
+** Please do NOT export the API now.
+*/
+gceSTATUS
+gco2D_SetTarget64(
+    IN gco2D Engine,
+    IN gctUINT32 Address,
+    IN gctPOINTER Logical,
     IN gctUINT32 Stride,
     IN gceSURF_ROTATION Rotation,
     IN gctUINT32 SurfaceWidth,
@@ -1006,6 +1055,20 @@ gco2D_NatureRotateTranslation(
     IN OUT gcsRECT_PTR DstRect,
     OUT gceSURF_ROTATION * SrcRotation,
     OUT gceSURF_ROTATION * DstRotation
+    );
+
+/* Set source endian mode. */
+gceSTATUS
+gco2D_SetSourceEndianMode(
+    IN gco2D Engine,
+    IN gceENDIAN_MODE eEndianMode
+    );
+
+/* Set target endian mode. */
+gceSTATUS
+gco2D_SetTargetEndianMode(
+    IN gco2D Engine,
+    IN gceENDIAN_MODE eEndianMode
     );
 
 #ifdef __cplusplus

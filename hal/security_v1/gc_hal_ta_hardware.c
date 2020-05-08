@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -53,7 +53,7 @@
 *****************************************************************************/
 
 
-#include "gc_hal_types.h"
+#include "shared/gc_hal_types.h"
 #include "gc_hal_base.h"
 #include "gc_hal_security_interface.h"
 #include "gc_hal_ta.h"
@@ -770,6 +770,7 @@ gctaHARDWARE_PrepareFunctions(
     gctUINT32 mmuBytes;
     gctUINT32 endBytes = 8;
     gctUINT8_PTR logical;
+    gctPHYS_ADDR_T physical;
 
     gcmkHEADER();
 
@@ -798,8 +799,10 @@ gctaHARDWARE_PrepareFunctions(
     gcmkONERROR(gctaOS_GetPhysicalAddress(
         Hardware->ta->os,
         Hardware->functionLogical,
-        (gctPHYS_ADDR_T *)&Hardware->functionAddress
+        &physical
         ));
+
+    gcmkSAFECASTPHYSADDRT(Hardware->functionAddress, physical);
 
     function = &Hardware->functions[0];
 

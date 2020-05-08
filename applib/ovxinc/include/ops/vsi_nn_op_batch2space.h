@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2018 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -40,10 +40,9 @@ typedef struct _vsi_nn_batch2space_param
     /* local data must be the first. */
     vsi_nn_batch2space_lcl_data_t local;
 
-    uint32_t block_size; //only for old code
-    uint32_t *block_size_2;
-    uint32_t block_size_2_num;
-    uint32_t crop[4]; // [top, bottom, left, right]
+    int32_t *block_size;
+    uint32_t block_size_num;
+    int32_t crop[4]; // [left, right, top, bottom]
 } vsi_nn_batch2space_param;
 
 #ifdef __cplusplus

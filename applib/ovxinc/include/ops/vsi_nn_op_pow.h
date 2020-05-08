@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2018 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -36,6 +36,8 @@ extern "C" {
 typedef struct _vsi_nn_pow_lcl_data
 {
     vx_tensor   local_tensor[_VSI_NN_POW_LOCAL_TENSOR_NUM];
+    uint32_t hash_idx;
+    vsi_bool execute_on_sw;
 } vsi_nn_pow_lcl_data;
 
 typedef struct _vsi_nn_pow_param

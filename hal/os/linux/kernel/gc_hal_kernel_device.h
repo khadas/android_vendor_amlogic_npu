@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -86,6 +86,12 @@ typedef struct _gckGALDEVICE
     gctPOINTER          externalLogical;
     gckVIDMEM           externalVidMem;
 
+    /* Shared external SRAMs. */
+    gctPHYS_ADDR_T      extSRAMBases[gcvSRAM_EXT_COUNT];
+    gctSIZE_T           extSRAMSizes[gcvSRAM_EXT_COUNT];
+    gctPHYS_ADDR        extSRAMPhysical[gcvSRAM_EXT_COUNT];
+    gckVIDMEM           extSRAMVidMem[gcvSRAM_EXT_COUNT];
+
     gctPHYS_ADDR_T      contiguousBase;
     gctSIZE_T           contiguousSize;
     gctPHYS_ADDR        contiguousPhysical;
@@ -100,6 +106,8 @@ typedef struct _gckGALDEVICE
     /* IRQ management. */
     gctINT              irqLines[gcdMAX_GPU_COUNT];
     gctBOOL             isrInitializeds[gcdMAX_GPU_COUNT];
+    struct task_struct  *isrThread[gcdMAX_GPU_COUNT];
+    gctBOOL             killIsrThread;
 
     /* Register memory. */
     gctPOINTER          registerBases[gcdMAX_GPU_COUNT];
@@ -150,13 +158,9 @@ typedef struct _gcsHAL_PRIVATE_DATA
      * closes it.
      */
     gctUINT32           pidOpen;
+    gctBOOL             isLocked;
 }
 gcsHAL_PRIVATE_DATA, * gcsHAL_PRIVATE_DATA_PTR;
-
-gceSTATUS
-gckGALDEVICE_QueryFrequency(
-    IN gckGALDEVICE Device
-    );
 
 gceSTATUS
 gckGALDEVICE_Start(

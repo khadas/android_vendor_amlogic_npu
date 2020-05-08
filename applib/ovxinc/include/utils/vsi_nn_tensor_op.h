@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*    Copyright (c) 2019 Vivante Corporation
+*    Copyright (c) 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -34,6 +34,13 @@ vsi_nn_tensor_t* vsi_nn_Concat
     vsi_nn_tensor_t** tensors,
     uint32_t tensor_num,
     uint32_t axis
+    );
+
+vsi_nn_tensor_t* vsi_nn_ConvertTensorDtype
+    (
+    vsi_nn_graph_t* graph,
+    vsi_nn_tensor_t* tensor,
+    const vsi_nn_dtype_t* dst_dtype
     );
 
 #endif

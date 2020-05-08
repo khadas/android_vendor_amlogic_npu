@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -74,7 +74,11 @@
 #  include <linux/modversions.h>
 #endif
 #include <asm/io.h>
-#include <asm/uaccess.h>
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,7,0)
+    #include <linux/uaccess.h>
+#else
+    #include <asm/uaccess.h>
+#endif
 
 #if ENABLE_GPU_CLOCK_BY_DRIVER && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)
 #include <linux/clk.h>
@@ -82,7 +86,7 @@
 
 #define NTSTRSAFE_NO_CCH_FUNCTIONS
 #include "gc_hal.h"
-#include "gc_hal_driver.h"
+#include "shared/gc_hal_driver.h"
 #include "gc_hal_kernel.h"
 #include "gc_hal_kernel_platform.h"
 #include "gc_hal_kernel_device.h"
@@ -161,8 +165,7 @@
 
 #endif
 
-
-int get_nna_status(struct platform_device *dev);
+gceSTATUS get_nna_status(struct platform_device *dev);
 
 extern struct device *galcore_device;
 
@@ -170,31 +173,6 @@ extern struct device *galcore_device;
 ********************************** Structures **********************************
 \******************************************************************************/
 typedef struct _gcsIOMMU * gckIOMMU;
-
-#if gcdSECURE_USER
-typedef struct _gcsUSER_MAPPING * gcsUSER_MAPPING_PTR;
-typedef struct _gcsUSER_MAPPING
-{
-    /* Pointer to next mapping structure. */
-    gcsUSER_MAPPING_PTR         next;
-
-    /* Physical address of this mapping. */
-    gctUINT32                   physical;
-
-    /* Logical address of this mapping. */
-    gctPOINTER                  logical;
-
-    /* Number of bytes of this mapping. */
-    gctSIZE_T                   bytes;
-
-    /* Starting address of this mapping. */
-    gctINT8_PTR                 start;
-
-    /* Ending address of this mapping. */
-    gctINT8_PTR                 end;
-}
-gcsUSER_MAPPING;
-#endif
 
 typedef struct _gcsINTEGER_DB * gcsINTEGER_DB_PTR;
 typedef struct _gcsINTEGER_DB
@@ -223,14 +201,10 @@ struct _gckOS
     /* Signal management. */
 
     /* Lock. */
-    struct mutex                signalMutex;
+    spinlock_t                  signalLock;
 
     /* signal id database. */
     gcsINTEGER_DB               signalDB;
-
-#if gcdSECURE_USER
-    gcsUSER_MAPPING_PTR         userMap;
-#endif
 
     /* workqueue for os timer. */
     struct workqueue_struct *   workqueue;

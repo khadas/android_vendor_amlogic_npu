@@ -2,7 +2,7 @@
 *
 *    The MIT License (MIT)
 *
-*    Copyright (c) 2014 - 2019 Vivante Corporation
+*    Copyright (c) 2014 - 2020 Vivante Corporation
 *
 *    Permission is hereby granted, free of charge, to any person obtaining a
 *    copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 *
 *    The GPL License (GPL)
 *
-*    Copyright (C) 2014 - 2019 Vivante Corporation
+*    Copyright (C) 2014 - 2020 Vivante Corporation
 *
 *    This program is free software; you can redistribute it and/or
 *    modify it under the terms of the GNU General Public License
@@ -56,12 +56,11 @@
 #ifndef __gc_hal_h_
 #define __gc_hal_h_
 
-#include "gc_hal_rename.h"
-#include "gc_hal_types.h"
+#include "shared/gc_hal_types.h"
 #include "gc_hal_enum.h"
 #include "gc_hal_base.h"
 #include "gc_hal_profiler.h"
-#include "gc_hal_driver.h"
+#include "shared/gc_hal_driver.h"
 #if gcdENABLE_3D
 #include "gc_hal_statistics.h"
 #endif
@@ -90,12 +89,6 @@ extern "C" {
 (\
     (gcmALIGN((n) & ~0ULL, (align) & ~0ULL) ^ gcmALIGN(n, align)) ?    \
          (n) : gcmALIGN(n, align)                                      \
-)
-
-#define gcmALIGN_CHECK_OVERFLOW(n, align)                              \
-(\
-    (gcmALIGN((n) & ~0ULL, (align) & ~0ULL) ^ gcmALIGN(n, align)) ?    \
-         gcvSTATUS_RESLUT_OVERFLOW : gcvSTATUS_OK                      \
 )
 
 #define gcmALIGN_BASE(n, align) \
@@ -164,71 +157,7 @@ extern "C" {
 #define gcmGET_POST_ROTATION(rotate) \
     ((rotate) & (gcvSURF_POST_FLIP_X | gcvSURF_POST_FLIP_Y))
 
-/******************************************************************************\
-******************************** gcsOBJECT Object *******************************
-\******************************************************************************/
-
-/* Type of objects. */
-typedef enum _gceOBJECT_TYPE
-{
-    gcvOBJ_UNKNOWN              = 0,
-    gcvOBJ_2D                   = gcmCC('2','D',' ',' '),
-    gcvOBJ_3D                   = gcmCC('3','D',' ',' '),
-    gcvOBJ_ATTRIBUTE            = gcmCC('A','T','T','R'),
-    gcvOBJ_BRUSHCACHE           = gcmCC('B','R','U','$'),
-    gcvOBJ_BRUSHNODE            = gcmCC('B','R','U','n'),
-    gcvOBJ_BRUSH                = gcmCC('B','R','U','o'),
-    gcvOBJ_BUFFER               = gcmCC('B','U','F','R'),
-    gcvOBJ_COMMAND              = gcmCC('C','M','D',' '),
-    gcvOBJ_COMMANDBUFFER        = gcmCC('C','M','D','B'),
-    gcvOBJ_CONTEXT              = gcmCC('C','T','X','T'),
-    gcvOBJ_DEVICE               = gcmCC('D','E','V',' '),
-    gcvOBJ_DUMP                 = gcmCC('D','U','M','P'),
-    gcvOBJ_EVENT                = gcmCC('E','V','N','T'),
-    gcvOBJ_FUNCTION             = gcmCC('F','U','N','C'),
-    gcvOBJ_HAL                  = gcmCC('H','A','L',' '),
-    gcvOBJ_HARDWARE             = gcmCC('H','A','R','D'),
-    gcvOBJ_HEAP                 = gcmCC('H','E','A','P'),
-    gcvOBJ_INDEX                = gcmCC('I','N','D','X'),
-    gcvOBJ_INTERRUPT            = gcmCC('I','N','T','R'),
-    gcvOBJ_KERNEL               = gcmCC('K','E','R','N'),
-    gcvOBJ_KERNEL_FUNCTION      = gcmCC('K','F','C','N'),
-    gcvOBJ_MEMORYBUFFER         = gcmCC('M','E','M','B'),
-    gcvOBJ_MMU                  = gcmCC('M','M','U',' '),
-    gcvOBJ_OS                   = gcmCC('O','S',' ',' '),
-    gcvOBJ_OUTPUT               = gcmCC('O','U','T','P'),
-    gcvOBJ_PAINT                = gcmCC('P','N','T',' '),
-    gcvOBJ_PATH                 = gcmCC('P','A','T','H'),
-    gcvOBJ_QUEUE                = gcmCC('Q','U','E',' '),
-    gcvOBJ_SAMPLER              = gcmCC('S','A','M','P'),
-    gcvOBJ_SHADER               = gcmCC('S','H','D','R'),
-    gcvOBJ_VIR_SHADER           = gcmCC('V','S','D','R'),
-    gcvOBJ_STREAM               = gcmCC('S','T','R','M'),
-    gcvOBJ_SURF                 = gcmCC('S','U','R','F'),
-    gcvOBJ_TEXTURE              = gcmCC('T','X','T','R'),
-    gcvOBJ_UNIFORM              = gcmCC('U','N','I','F'),
-    gcvOBJ_VARIABLE             = gcmCC('V','A','R','I'),
-    gcvOBJ_VERTEX               = gcmCC('V','R','T','X'),
-    gcvOBJ_VIDMEM               = gcmCC('V','M','E','M'),
-    gcvOBJ_VG                   = gcmCC('V','G',' ',' '),
-    gcvOBJ_BUFOBJ               = gcmCC('B','U','F','O'),
-    gcvOBJ_UNIFORM_BLOCK        = gcmCC('U','B','L','K'),
-    gcvOBJ_CL                   = gcmCC('C','L',' ',' '),
-    gcvOBJ_STORAGE_BLOCK        = gcmCC('S','B','L','K'),
-    gcvOBJ_IO_BLOCK             = gcmCC('I','O','B','K'),
-}
-gceOBJECT_TYPE;
-
-/* gcsOBJECT object defintinon. */
-typedef struct _gcsOBJECT
-{
-    /* Type of an object. */
-    gceOBJECT_TYPE              type;
-}
-gcsOBJECT;
-
 typedef struct _gckHARDWARE *       gckHARDWARE;
-
 
 #define gcdMAX_GPU_COUNT               gcvCORE_COUNT
 
@@ -237,6 +166,10 @@ typedef struct _gckHARDWARE *       gckHARDWARE;
 #define gcdMAX_DRAW_BUFFERS            16
 
 #define gcdMAX_3DGPU_COUNT             8
+
+#define gcdMAX_MAJOR_CORE_COUNT        8
+
+#define gcdMAX_VERTEX_STREAM_COUNT     4
 /*******************************************************************************
 **
 **  gcmVERIFY_OBJECT
@@ -415,6 +348,19 @@ gckOS_MapPagesEx(
     IN gceVIDMEM_TYPE Type
     );
 
+/* Map 1M pages. */
+gceSTATUS
+gckOS_Map1MPages(
+    IN gckOS Os,
+    IN gceCORE Core,
+    IN gctPHYS_ADDR Physical,
+    IN gctSIZE_T PageCount,
+    IN gctUINT32 Address,
+    IN gctPOINTER PageTable,
+    IN gctBOOL Writable,
+    IN gceVIDMEM_TYPE Type
+    );
+
 gceSTATUS
 gckOS_UnmapPages(
     IN gckOS Os,
@@ -568,6 +514,20 @@ gckOS_WriteRegisterEx_NoDump(
     IN gctUINT32 Data
     );
 
+#ifdef __QNXNTO__
+static gcmINLINE gceSTATUS
+gckOS_WriteMemory(
+    IN gckOS Os,
+    IN gctPOINTER Address,
+    IN gctUINT32 Data
+    )
+{
+    /* Write memory. */
+    *(gctUINT32 *)Address = Data;
+    return gcvSTATUS_OK;
+}
+
+#else
 /* Write data to a 32-bit memory location. */
 gceSTATUS
 gckOS_WriteMemory(
@@ -575,6 +535,7 @@ gckOS_WriteMemory(
     IN gctPOINTER Address,
     IN gctUINT32 Data
     );
+#endif
 
 /* Map physical memory into the process space. */
 gceSTATUS
@@ -1327,35 +1288,6 @@ gckOS_SetDebugFile(
     IN gctCONST_STRING FileName
     );
 
-/*******************************************************************************
-** Broadcast interface.
-*/
-
-typedef enum _gceBROADCAST
-{
-    /* GPU might be idle. */
-    gcvBROADCAST_GPU_IDLE,
-
-    /* A commit is going to happen. */
-    gcvBROADCAST_GPU_COMMIT,
-
-    /* GPU seems to be stuck. */
-    gcvBROADCAST_GPU_STUCK,
-
-    /* First process gets attached. */
-    gcvBROADCAST_FIRST_PROCESS,
-
-    /* Last process gets detached. */
-    gcvBROADCAST_LAST_PROCESS,
-
-    /* AXI bus error. */
-    gcvBROADCAST_AXI_BUS_ERROR,
-
-    /* Out of memory. */
-    gcvBROADCAST_OUT_OF_MEMORY,
-}
-gceBROADCAST;
-
 gceSTATUS
 gckOS_Broadcast(
     IN gckOS Os,
@@ -1567,7 +1499,6 @@ gckHEAP_ProfileEnd(
     IN gctCONST_STRING Title
     );
 
-
 typedef struct _gckVIDMEM *         gckVIDMEM;
 typedef struct _gckKERNEL *         gckKERNEL;
 typedef struct _gckDB *             gckDB;
@@ -1580,42 +1511,6 @@ typedef struct _gcsDEVICE *         gckDEVICE;
 \******************************************************************************/
 
 struct _gcsHAL_INTERFACE;
-
-/* Notifications. */
-typedef enum _gceNOTIFY
-{
-    gcvNOTIFY_INTERRUPT,
-    gcvNOTIFY_COMMAND_QUEUE,
-}
-gceNOTIFY;
-
-/* Flush flags. */
-typedef enum _gceKERNEL_FLUSH
-{
-    gcvFLUSH_COLOR              = 0x01,
-    gcvFLUSH_DEPTH              = 0x02,
-    gcvFLUSH_TEXTURE            = 0x04,
-    gcvFLUSH_2D                 = 0x08,
-    gcvFLUSH_L2                 = 0x10,
-    gcvFLUSH_TILE_STATUS        = 0x20,
-    gcvFLUSH_ICACHE             = 0x40,
-    gcvFLUSH_TXDESC             = 0x80,
-    gcvFLUSH_FENCE              = 0x100,
-    gcvFLUSH_VERTEX             = 0x200,
-    gcvFLUSH_TFBHEADER          = 0x400,
-    gcvFLUSH_ALL                = gcvFLUSH_COLOR
-                                | gcvFLUSH_DEPTH
-                                | gcvFLUSH_TEXTURE
-                                | gcvFLUSH_2D
-                                | gcvFLUSH_L2
-                                | gcvFLUSH_TILE_STATUS
-                                | gcvFLUSH_ICACHE
-                                | gcvFLUSH_TXDESC
-                                | gcvFLUSH_FENCE
-                                | gcvFLUSH_VERTEX
-                                | gcvFLUSH_TFBHEADER
-}
-gceKERNEL_FLUSH;
 
 /* Construct a new gckKERNEL object. */
 gceSTATUS
@@ -1672,21 +1567,22 @@ gckKERNEL_MapVideoMemory(
     IN gckKERNEL Kernel,
     IN gctBOOL InUserSpace,
     IN gcePOOL Pool,
+    IN gctPHYS_ADDR Physical,
     IN gctUINT32 Offset,
     IN gctUINT32 Bytes,
     OUT gctPOINTER * Logical
     );
 
-#ifdef __QNXNTO__
 /* Unmap dedicated video memory. */
 gceSTATUS
 gckKERNEL_UnmapVideoMemory(
     IN gckKERNEL Kernel,
+    IN gcePOOL Pool,
+    IN gctPHYS_ADDR Physical,
     IN gctPOINTER Logical,
     IN gctUINT32 Pid,
-    IN gctUINT32 Bytes
+    IN gctSIZE_T Bytes
     );
-#endif
 
 /* Map memory. */
 gceSTATUS
@@ -1705,6 +1601,12 @@ gckKERNEL_UnmapMemory(
     IN gctSIZE_T Bytes,
     IN gctPOINTER Logical,
     IN gctUINT32 ProcessID
+    );
+/* Destroy reserved mem when destroy process*/
+gceSTATUS
+gckKERNEL_DestroyProcessReservedUserMap(
+    IN gckKERNEL Kernel,
+    IN gctUINT32 Pid
     );
 
 /* Notification of events. */
@@ -1969,23 +1871,31 @@ gckHARDWARE_ReadInterrupt(
     OUT gctUINT32_PTR IDs
     );
 
+/*
+* State timer helper.
+*/
+gceSTATUS
+gckHARDWARE_StartTimerReset(
+    IN gckHARDWARE Hardware
+    );
+
 /* Power management. */
 gceSTATUS
-gckHARDWARE_SetPowerManagementState(
+gckHARDWARE_SetPowerState(
     IN gckHARDWARE Hardware,
     IN gceCHIPPOWERSTATE State
     );
 
 gceSTATUS
-gckHARDWARE_QueryPowerManagementState(
+gckHARDWARE_QueryPowerState(
     IN gckHARDWARE Hardware,
     OUT gceCHIPPOWERSTATE* State
     );
 
 gceSTATUS
-gckHARDWARE_SetPowerManagement(
+gckHARDWARE_EnablePowerManagement(
     IN gckHARDWARE Hardware,
-    IN gctBOOL PowerManagement
+    IN gctBOOL Enable
     );
 
 gceSTATUS
@@ -1998,7 +1908,8 @@ gckHARDWARE_SetGpuProfiler(
 gceSTATUS
 gckHARDWARE_SetFscaleValue(
     IN gckHARDWARE Hardware,
-    IN gctUINT32   FscaleValue
+    IN gctUINT32   FscaleValue,
+    IN gctUINT32   ShaderFscaleValue
     );
 
 gceSTATUS
@@ -2014,20 +1925,6 @@ gckHARDWARE_SetMinFscaleValue(
     IN gckHARDWARE Hardware,
     IN gctUINT MinFscaleValue
     );
-#endif
-
-#if gcdPOWEROFF_TIMEOUT
-gceSTATUS
-gckHARDWARE_SetPowerOffTimeout(
-    IN gckHARDWARE  Hardware,
-    IN gctUINT32    Timeout
-);
-
-gceSTATUS
-gckHARDWARE_QueryPowerOffTimeout(
-    IN gckHARDWARE  Hardware,
-    OUT gctUINT32*  Timeout
-);
 #endif
 
 gceSTATUS
@@ -2150,6 +2047,7 @@ gceSTATUS
 gckMMU_AllocatePages(
     IN gckMMU Mmu,
     IN gctSIZE_T PageCount,
+    IN gcePAGE_TYPE PageType,
     OUT gctPOINTER * PageTable,
     OUT gctUINT32 * Address
     );
@@ -2159,6 +2057,7 @@ gckMMU_AllocatePagesEx(
     IN gckMMU Mmu,
     IN gctSIZE_T PageCount,
     IN gceVIDMEM_TYPE Type,
+    IN gcePAGE_TYPE PageType,
     IN gctBOOL Secure,
     OUT gctPOINTER * PageTable,
     OUT gctUINT32 * Address
@@ -2169,6 +2068,7 @@ gceSTATUS
 gckMMU_FreePages(
     IN gckMMU Mmu,
     IN gctBOOL Secure,
+    IN gcePAGE_TYPE PageType,
     IN gctUINT32 Address,
     IN gctPOINTER PageTable,
     IN gctSIZE_T PageCount
@@ -2179,6 +2079,7 @@ gceSTATUS
 gckMMU_SetPage(
    IN gckMMU Mmu,
    IN gctPHYS_ADDR_T PageAddress,
+   IN gcePAGE_TYPE PageType,
    IN gctBOOL Writable,
    IN gctUINT32 *PageEntry
    );
@@ -2192,6 +2093,7 @@ gckMMU_Flush(
 gceSTATUS
 gckMMU_DumpPageTableEntry(
     IN gckMMU Mmu,
+    IN gceAREA_TYPE AreaType,
     IN gctUINT32 Address
     );
 
@@ -2205,10 +2107,17 @@ gckMMU_FillFlatMapping(
 gceSTATUS
 gckMMU_IsFlatMapped(
     IN gckMMU Mmu,
-    OUT gctUINT64 Physical,
+    IN gctUINT64 Physical,
+    IN gctUINT32 Address,
     OUT gctBOOL *In
     );
 
+gceSTATUS
+gckMMU_GetAreaType(
+    IN gckMMU Mmu,
+    IN gctUINT32 GpuAddress,
+    OUT gceAREA_TYPE *AreaType
+    );
 
 gceSTATUS
 gckHARDWARE_QueryContextProfile(
