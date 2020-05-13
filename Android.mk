@@ -13,9 +13,11 @@ LOCAL_PATH := $(call my-dir)
 
 ifeq ($(TARGET_ARCH), arm64)
 LIB_PATH=libraryso/lib64
+NNSDK_PATH=nnsdk/lib/lib64
 Target=lib64
 else
 LIB_PATH=libraryso/lib32
+NNSDK_PATH=nnsdk/lib/lib32
 Target=lib
 endif
 
@@ -218,6 +220,21 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
     $(LIB_PATH)/libnnrt.so
 LOCAL_MODULE         := libnnrt
+LOCAL_MODULE_SUFFIX  := .so
+LOCAL_MODULE_TAGS    := optional
+LOCAL_MODULE_CLASS   := SHARED_LIBRARIES
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
+LOCAL_PROPRIETARY_MODULE := true
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/$(Target)
+else
+LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)
+endif
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := \
+    $(NNSDK_PATH)/libnnsdk.so
+LOCAL_MODULE         := libnnsdk
 LOCAL_MODULE_SUFFIX  := .so
 LOCAL_MODULE_TAGS    := optional
 LOCAL_MODULE_CLASS   := SHARED_LIBRARIES
