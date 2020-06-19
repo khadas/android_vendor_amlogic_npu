@@ -57,6 +57,8 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/delay.h>
+#include <linux/pm_runtime.h>
+#include <linux/pm_domain.h>
 
 #include "gc_hal_kernel_linux.h"
 #include "gc_hal_kernel_platform.h"
@@ -65,8 +67,10 @@
 #include <dt-bindings/clock/g12a-clkc.h>
 #else
 #include <dt-bindings/clock/amlogic,g12a-clkc.h>
+#include <linux/amlogic/power_domain.h>
 #endif
 
+#define NN_PD_0X99 16
 /*======== power version 0 hardware reg begin ===========*/
 #define AO_RTI_BASE           0xff800000
 #define AO_RTI_GEN_PWR_SLEEP0 (AO_RTI_BASE + (0x3a<<2))
@@ -101,28 +105,28 @@ gceSTATUS _InitDtsRegValue(IN gcsPLATFORM *Platform)
     if (res)
     {
         HHI_NANOQ_MEM_PD_REG0 = (unsigned long)res->start;
-        printk("reg resource 2, start: %lx,end: %lx\n",(unsigned long)res->start,(unsigned long)res->end);
+/*        printk("reg resource 2, start: %lx,end: %lx\n",(unsigned long)res->start,(unsigned long)res->end);*/
     }
 
     res = platform_get_resource(pdev, IORESOURCE_MEM, 3);
     if (res)
     {
         HHI_NANOQ_MEM_PD_REG1 = (unsigned long)res->start;
-        printk("reg resource 3, start: %lx,end: %lx\n",(unsigned long)res->start,(unsigned long)res->end);
+/*        printk("reg resource 3, start: %lx,end: %lx\n",(unsigned long)res->start,(unsigned long)res->end);*/
     }
 
     res = platform_get_resource(pdev, IORESOURCE_MEM, 4);
     if (res)
     {
         RESET_LEVEL2 = (unsigned long)res->start;
-        printk("reg resource 4, start: %lx,end: %lx\n",(unsigned long)res->start,(unsigned long)res->end);
+/*        printk("reg resource 4, start: %lx,end: %lx\n",(unsigned long)res->start,(unsigned long)res->end);*/
     }
 
     res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "NN_CLK");
     if (res)
     {
         NN_clk = (unsigned long)res->start;
-        printk("reg resource NN_CLK, start: %lx,end: %lx\n",(unsigned long)res->start,(unsigned long)res->end);
+/*        printk("reg resource NN_CLK, start: %lx,end: %lx\n",(unsigned long)res->start,(unsigned long)res->end);*/
     }
 
     ret = of_property_read_u32(pdev->dev.of_node,"nn_power_version",&nn_power_version);
@@ -136,8 +140,6 @@ gceSTATUS _AdjustParam(IN gcsPLATFORM *Platform,OUT gcsMODULE_PARAMETERS *Args)
     struct platform_device *pdev = Platform->device;
     int irqLine = platform_get_irq_byname(pdev, "galcore");
 
-    if (irqLine >= 0)
-        printk("galcore irq number is %d.\n", irqLine);
     if (irqLine < 0) {
         printk("get galcore irq resource error\n");
         irqLine = platform_get_irq(pdev, 0);
@@ -152,7 +154,7 @@ gceSTATUS _AdjustParam(IN gcsPLATFORM *Platform,OUT gcsMODULE_PARAMETERS *Args)
     if (res)
     {
         Args->registerBases[0] = (gctPHYS_ADDR_T)res->start;
-        Args->registerSizes[0] = (gctSIZE_T)(res->end - res->start+1);
+        Args->registerSizes[0] = 0x20000;
     }
     else
     {
@@ -230,8 +232,8 @@ void delay(uint32_t time)
         for (i = 0;i<time;i++);
     }
 }
-/********To Do: add dynamic set clock function*********/
-#if 0
+
+/* dynamic set clock function */
 static void set_clock(struct platform_device *pdev)
 {
     struct clk *npu_axi_clk = NULL;
@@ -261,100 +263,54 @@ static void set_clock(struct platform_device *pdev)
     clk_set_rate(npu_core_clk, nanoqFreq);
     return;
 }
+
+/* Getpower: enable the nna power for platform */
+void Getpower_88(struct platform_device *pdev)
+{
+    uint32_t readReg = 0;
+    _RegRead(AO_RTI_GEN_PWR_SLEEP0,&readReg);
+    readReg = (readReg & 0xfffcffff);
+    _RegWrite(AO_RTI_GEN_PWR_SLEEP0, readReg);
+
+    _RegWrite(HHI_NANOQ_MEM_PD_REG0, 0x0);
+    _RegWrite(HHI_NANOQ_MEM_PD_REG1, 0x0);
+
+    _RegRead(RESET_LEVEL2,&readReg);
+    readReg = (readReg & 0xffffefff);
+    _RegWrite(RESET_LEVEL2, readReg);
+
+    _RegRead(AO_RTI_GEN_PWR_ISO0,&readReg);
+    readReg = (readReg & 0xfffcffff);
+    _RegWrite(AO_RTI_GEN_PWR_ISO0, readReg);
+
+    _RegRead(RESET_LEVEL2,&readReg);
+    readReg = (readReg | (0x1<<12));
+    _RegWrite(RESET_LEVEL2, readReg);
+
+    set_clock(pdev);
+}
+void Getpower_99(struct platform_device *pdev)
+{
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(4, 10, 0))
+    power_domain_switch(NN_PD_0X99,0);
 #endif
 
-void Getpower_88(void)
+    set_clock(pdev);
+}
+void Getpower_a1(struct platform_device *pdev)
 {
-    uint32_t readReg = 0;
-    _RegRead(AO_RTI_GEN_PWR_SLEEP0,&readReg);
-    readReg = (readReg & 0xfffcffff);
-    _RegWrite(AO_RTI_GEN_PWR_SLEEP0, readReg);
-
-    _RegWrite(HHI_NANOQ_MEM_PD_REG0, 0x0);
-    _RegWrite(HHI_NANOQ_MEM_PD_REG1, 0x0);
-
-    _RegRead(RESET_LEVEL2,&readReg);
-    readReg = (readReg & 0xffffefff);
-    _RegWrite(RESET_LEVEL2, readReg);
-
-    _RegRead(AO_RTI_GEN_PWR_ISO0,&readReg);
-    readReg = (readReg & 0xfffcffff);
-    _RegWrite(AO_RTI_GEN_PWR_ISO0, readReg);
-
-    _RegRead(RESET_LEVEL2,&readReg);
-    readReg = (readReg | (0x1<<12));
-    _RegWrite(RESET_LEVEL2, readReg);
-
-    _RegWrite(NN_clk, 0x7000700);
+    /*C1 added power domain, it will get domain power when prob*/
+    set_clock(pdev);
+    return;
+}
+void Getpower_be(struct platform_device *pdev)
+{
+    /*C2 added power domain, it will get domain power when prob*/
+    set_clock(pdev);
+    return;
 }
 
-void Getpower_99(void)
-{
-    uint32_t readReg = 0;
-    _RegRead(AO_RTI_GEN_PWR_SLEEP0,&readReg);
-    readReg = (readReg & 0xfffeffff);
-    _RegWrite(AO_RTI_GEN_PWR_SLEEP0, readReg);
-
-    _RegWrite(HHI_NANOQ_MEM_PD_REG0, 0x0);
-    _RegWrite(HHI_NANOQ_MEM_PD_REG1, 0x0);
-
-    _RegRead(RESET_LEVEL2,&readReg);
-    readReg = (readReg & 0xffffefff);
-    _RegWrite(RESET_LEVEL2, readReg);
-
-    _RegRead(AO_RTI_GEN_PWR_ISO0,&readReg);
-    readReg = (readReg & 0xfffeffff);
-    _RegWrite(AO_RTI_GEN_PWR_ISO0, readReg);
-
-    _RegRead(RESET_LEVEL2,&readReg);
-    readReg = (readReg | (0x1<<12));
-    _RegWrite(RESET_LEVEL2, readReg);
-
-    _RegWrite(NN_clk, 0x7000700);
-}
-void Getpower_a1(void)
-{
-    uint32_t readReg = 0;
-    _RegRead(RESET_LEVEL2,&readReg);
-    readReg = (readReg & (~(1<<3)));
-    _RegWrite(RESET_LEVEL2, readReg);
-
-    _RegRead(P_PWRCTRL_PWR_OFF1,&readReg);
-    readReg = (readReg & (~(1<<3)));
-    _RegWrite(P_PWRCTRL_PWR_OFF1, readReg);
-
-    _RegWrite(HHI_NANOQ_MEM_PD_REG0, 0x0);
-    _RegWrite(HHI_NANOQ_MEM_PD_REG1, 0x0);
-
-    _RegRead(P_PWRCTRL_ISO_EN1,&readReg);
-    readReg = (readReg & (~(1<<3)));
-    _RegWrite(P_PWRCTRL_ISO_EN1, readReg);
-
-    _RegRead(RESET_LEVEL2,&readReg);
-    readReg = (readReg | (1<<3));
-    _RegWrite(RESET_LEVEL2, readReg);
-
-    _RegWrite(NN_clk, 0x3000300);
-}
-gceSTATUS _GetPower(IN gcsPLATFORM *Platform)
-{
-    _InitDtsRegValue(Platform);
-    switch (nn_power_version)
-    {
-        case 1:
-            Getpower_a1();
-            break;
-        case 2:
-            Getpower_88();
-            break;
-        case 3:
-            Getpower_99();
-            break;
-        default:
-            printk("not find power_version\n");
-    }
-    return gcvSTATUS_OK;
-}
+/* Downpower: disable nna power for platform */
 
 void Downpower_88(void)
 {
@@ -372,43 +328,184 @@ void Downpower_88(void)
 }
 void Downpower_99(void)
 {
-    unsigned int readReg=0;
-
-    _RegRead(RESET_LEVEL2,&readReg);
-    readReg = (readReg & (~(0x1<<12)));
-    _RegWrite(RESET_LEVEL2, readReg);
-
-    _RegRead(AO_RTI_GEN_PWR_ISO0,&readReg);
-    readReg = (readReg | 0x10000);
-    _RegWrite(AO_RTI_GEN_PWR_ISO0, readReg);
-
-    _RegWrite(HHI_NANOQ_MEM_PD_REG0, 0xffffffff);
-    _RegWrite(HHI_NANOQ_MEM_PD_REG1, 0xffffffff);
-
-    _RegRead(AO_RTI_GEN_PWR_SLEEP0,&readReg);
-    readReg = (readReg | 0x10000);
-    _RegWrite(AO_RTI_GEN_PWR_SLEEP0, readReg);
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(4, 10, 0))
+    power_domain_switch(NN_PD_0X99,1);
+#endif
 }
 void Downpower_a1(void)
 {
-    uint32_t readReg=0;
-    _RegRead(P_PWRCTRL_ISO_EN1,&readReg);
-    readReg = (readReg | (1<<3));
-    _RegWrite(P_PWRCTRL_ISO_EN1, readReg);
-
-    _RegWrite(HHI_NANOQ_MEM_PD_REG0, 0xffffffff);
-    _RegWrite(HHI_NANOQ_MEM_PD_REG1, 0xffffffff);
-
-    _RegRead(P_PWRCTRL_PWR_OFF1,&readReg);
-    readReg = (readReg | (1<<3));
-    _RegWrite(P_PWRCTRL_PWR_OFF1, readReg);
+    /*C1 added power domain, it will down domain power when rmmod */
+    return;
 }
-void Downpower_99_mem(void)
+void Downpower_be(void)
+{
+    /*C2 added power domain, it will down domain power when rmmod */
+    return;
+}
+
+/* Runtime power manage */
+void Runtime_getpower_88(struct platform_device *pdev)
+{
+    Getpower_88(pdev);
+}
+void Runtime_downpower_88(void)
+{
+    Downpower_88();
+}
+void Runtime_getpower_99(struct platform_device *pdev)
+{
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(4, 10, 0))
+    power_domain_switch(NN_PD_0X99,0);
+#endif
+    set_clock(pdev);
+}
+void Runtime_downpower_99(void)
+{
+    Downpower_99();
+}
+void Runtime_getpower_a1(struct platform_device *pdev)
+{
+    int ret;
+    pm_runtime_enable(&pdev->dev);
+    ret = pm_runtime_get_sync(&pdev->dev);
+    if (ret < 0) printk("===runtime getpower error===\n");
+    set_clock(pdev);
+}
+void Runtime_downpower_a1(struct platform_device *pdev)
+{
+    pm_runtime_put_sync(&pdev->dev);
+    pm_runtime_disable(&pdev->dev);
+}
+
+void Runtime_getpower_be(struct platform_device *pdev)
+{
+    int ret;
+
+    pm_runtime_enable(&pdev->dev);
+    ret = pm_runtime_get_sync(&pdev->dev);
+    if (ret < 0) printk("===runtime getpower error===\n");
+    set_clock(pdev);
+}
+void Runtime_downpower_be(struct platform_device *pdev)
 {
 
-    _RegWrite(HHI_NANOQ_MEM_PD_REG0, 0xffffffff);
-    _RegWrite(HHI_NANOQ_MEM_PD_REG1, 0xffffffff);
+    pm_runtime_put_sync(&pdev->dev);
+    pm_runtime_disable(&pdev->dev);
 }
+gceSTATUS _GetPower(IN gcsPLATFORM *Platform)
+{
+    struct platform_device *pdev = Platform->device;
+    _InitDtsRegValue(Platform);
+    switch (nn_power_version)
+    {
+        case 1:
+            nanoqFreq=666*1024*1024;
+            Getpower_a1(pdev);
+            break;
+        case 2:
+            Getpower_88(pdev);
+            break;
+        case 3:
+            Getpower_99(pdev);
+            break;
+        case 4:
+            nanoqFreq=666*1024*1024;
+            Getpower_be(pdev);
+            break;
+        default:
+            printk("not find power_version\n");
+    }
+    return gcvSTATUS_OK;
+}
+
+gceSTATUS  _SetPower(IN gcsPLATFORM * Platform,IN gceCORE GPU,IN gctBOOL Enable)
+{
+    struct platform_device *pdev = Platform->device;
+    if (Enable == 0)
+    {
+        switch (nn_power_version)
+        {
+            case 1:
+                Runtime_downpower_a1(pdev);
+                break;
+            case 2:
+                Runtime_downpower_88();
+                break;
+            case 3:
+                Runtime_downpower_99();
+                break;
+            case 4:
+                Runtime_downpower_be(pdev);
+                break;
+            default:
+                printk("not find power_version\n");
+                break;
+        }
+    }
+    else
+    {
+        switch (nn_power_version)
+        {
+            case 1:
+                Runtime_getpower_a1(pdev);
+                break;
+            case 2:
+                Runtime_getpower_88(pdev);
+                break;
+            case 3:
+                Runtime_getpower_99(pdev);
+                break;
+            case 4:
+                Runtime_getpower_be(pdev);
+                break;
+            default:
+                printk("not find power_version\n");
+                break;
+        }
+    }
+    return gcvSTATUS_OK;
+}
+
+gceSTATUS _Reset(IN gcsPLATFORM * Platform, IN gceCORE GPU)
+{
+    struct platform_device *pdev = Platform->device;
+    switch (nn_power_version)
+    {
+        case 1:
+            Runtime_downpower_a1(pdev);
+            mdelay(10);
+            Runtime_getpower_a1(pdev);
+            break;
+        case 2:
+            Downpower_88();
+            mdelay(10);
+            Getpower_88(pdev);
+            break;
+        case 3:
+            Downpower_99();
+            mdelay(10);
+            Getpower_99(pdev);
+            break;
+        case 4:
+            Runtime_downpower_be(pdev);
+            mdelay(10);
+            Runtime_getpower_be(pdev);
+            break;
+        default:
+            printk("not find power_version\n");
+            break;
+    }
+    mdelay(2);
+    printk("====>>>>npu hardware reset end!\n");
+    hardwareResetNum++;
+    if (hardwareResetNum > 10000)
+    {
+        printk("hardwareResetNum is too large over 10000,just set zero\n");
+        hardwareResetNum = 0;
+    }
+    return gcvSTATUS_OK;
+}
+
 gceSTATUS _DownPower(IN gcsPLATFORM *Platform)
 {
     switch (nn_power_version)
@@ -422,84 +519,16 @@ gceSTATUS _DownPower(IN gcsPLATFORM *Platform)
         case 3:
             Downpower_99();
             break;
-        default:
-            printk("not find power_version\n");
-    }
-    return gcvSTATUS_OK;
-}
-
-gceSTATUS _Reset(IN gcsPLATFORM * Platform, IN gceCORE GPU)
-{
-    switch (nn_power_version)
-    {
-        case 1:
-            Downpower_a1();
-            mdelay(10);
-            Getpower_a1();
-            break;
-        case 2:
-            Downpower_88();
-            mdelay(10);
-            Getpower_88();
-            break;
-        case 3:
-            Downpower_99();
-            mdelay(10);
-            Getpower_99();
+        case 4:
+            Downpower_be();
             break;
         default:
             printk("not find power_version\n");
-    }
-    mdelay(2);
-    printk("====>>>>npu hardware reset end!\n");
-    hardwareResetNum++;
-    if (hardwareResetNum > 10000)
-    {
-        printk("hardwareResetNum is too large over 10000,just set zero\n");
-        hardwareResetNum = 0;
+            break;
     }
     return gcvSTATUS_OK;
 }
 
-
-gceSTATUS  _SetPower(IN gcsPLATFORM * Platform,IN gceCORE GPU,IN gctBOOL Enable)
-{
-    if (Enable == 0)
-    {
-        switch (nn_power_version)
-        {
-            case 1:
-                Downpower_a1();
-                break;
-            case 2:
-                Downpower_88();
-                break;
-            case 3:
-                Downpower_99_mem();
-                break;
-            default:
-                printk("not find power_version\n");
-        }
-    }
-    else
-    {
-        switch (nn_power_version)
-        {
-            case 1:
-                Getpower_a1();
-                break;
-            case 2:
-                Getpower_88();
-                break;
-            case 3:
-                Getpower_99();
-                break;
-            default:
-                printk("not find power_version\n");
-        }
-    }
-    return gcvSTATUS_OK;
-}
 static gcsPLATFORM_OPERATIONS default_ops =
 {
     .adjustParam   = _AdjustParam,
