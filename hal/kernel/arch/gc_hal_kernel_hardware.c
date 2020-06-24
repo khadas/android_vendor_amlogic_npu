@@ -1649,6 +1649,8 @@ _QueryFeatureDatabase(
 
     case gcvFEATURE_USC_EVICT_CTRL_FIFO_FLOP_RESET_FIX:
         available = database->USC_EVICT_CTRL_FIFO_FLOP_RESET_FIX;
+        break;
+
         /*FALLTHRU*/
     default:
         gcmkFATAL("Invalid feature has been requested.");
@@ -3343,7 +3345,7 @@ gckHARDWARE_InitializeHardware(
         if (funcVaild)
         {
             gckFUNCTION_Execute(&Hardware->functions[i]);
-            gckFUNCTION_Release(&Hardware->functions[i]);
+            gckFUNCTION_Execute(&Hardware->functions[gcvFUNCTION_EXECUTION_FLUSH]);
         }
     }
 
@@ -13469,7 +13471,7 @@ gckHARDWARE_ExecuteFunctions(
 {
     gceSTATUS status;
     gctUINT32 idle;
-    gctUINT32 timer = 0, delay = 1;
+    gctUINT32 i, timer = 0, delay = 1;
     gctUINT32 address;
     gckHARDWARE hardware = (gckHARDWARE)Execution->hardware;
 
@@ -13477,68 +13479,83 @@ gckHARDWARE_ExecuteFunctions(
     return gcvSTATUS_OK;
 #endif
 
-    address = Execution->address;
+#if gcdDUMP_IN_KERNEL
+    gcmkDUMP(hardware->os, "#[function: %s]", Execution->funcName);
+#endif
 
-    /* Execute prepared command sequence. */
-    if (hardware->mcFE)
+    for (i  = 0; i < Execution->funcCmdCount; i++)
     {
-        gcmkONERROR(gckMCFE_Execute(hardware, gcvFALSE, 0, address, Execution->bytes));
-    }
-    else
-    {
-        gcmkONERROR(gckWLFE_Execute(hardware, address, Execution->bytes));
-    }
+        address = Execution->funcCmd[i].address;
+
+        /* Execute prepared command sequence. */
+        if (hardware->mcFE)
+        {
+            gcmkONERROR(gckMCFE_Execute(hardware, gcvFALSE, 0, address, Execution->funcCmd[i].bytes));
+        }
+        else
+        {
+            gcmkONERROR(gckWLFE_Execute(hardware, address, Execution->funcCmd[i].bytes));
+        }
 
 #if gcdLINK_QUEUE_SIZE
-    {
-        gcuQUEUEDATA data;
-
-        gcmkVERIFY_OK(gckOS_GetProcessID(&data.linkData.pid));
-
-        data.linkData.start    = address;
-        data.linkData.end      = address + Execution->bytes;
-        data.linkData.linkLow  = 0;
-        data.linkData.linkHigh = 0;
-
-        gckQUEUE_Enqueue(&hardware->linkQueue, &data);
-    }
-#endif
-
-    gckFUNCTION_Dump(Execution);
-
-    /* Wait until GPU idle. */
-    do
-    {
-        gckOS_Delay(hardware->os, delay);
-
-        gcmkONERROR(gckOS_ReadRegisterEx(
-            hardware->os,
-            hardware->core,
-            0x00004,
-            &idle));
-
-        timer += delay;
-        delay *= 2;
-
-#if gcdGPU_TIMEOUT
-        if (timer >= hardware->kernel->timeOut)
         {
-            gckHARDWARE_DumpGPUState(hardware);
+            gcuQUEUEDATA data;
 
-            if (hardware->kernel->command)
-            {
-                gckCOMMAND_DumpExecutingBuffer(hardware->kernel->command);
-            }
+            gcmkVERIFY_OK(gckOS_GetProcessID(&data.linkData.pid));
 
-            /* Even if hardware is not reset correctly, let software
-            ** continue to avoid software stuck. Software will timeout again
-            ** and try to recover GPU in next timeout.
-            */
-            gcmkONERROR(gcvSTATUS_DEVICE);
+            data.linkData.start    = address;
+            data.linkData.end      = address + Execution->funcCmd[i].bytes;
+            data.linkData.linkLow  = 0;
+            data.linkData.linkHigh = 0;
+
+            gckQUEUE_Enqueue(&hardware->linkQueue, &data);
         }
 #endif
+
+#if gcdDUMP_IN_KERNEL
+        gcmkDUMP_BUFFER(
+            hardware->os,
+            gcvDUMP_BUFFER_KERNEL_COMMAND,
+            Execution->funcCmd[i].logical,
+            Execution->funcCmd[i].address,
+            Execution->funcCmd[i].bytes
+            );
+#endif
+
+        /* Wait until GPU idle. */
+        do
+        {
+            gckOS_Delay(hardware->os, delay);
+
+            gcmkONERROR(gckOS_ReadRegisterEx(
+                hardware->os,
+                hardware->core,
+                0x00004,
+                &idle));
+
+            timer += delay;
+            delay *= 2;
+
+#if gcdGPU_TIMEOUT
+            if (timer >= hardware->kernel->timeOut)
+            {
+                gckHARDWARE_DumpGPUState(hardware);
+
+                if (hardware->kernel->command)
+                {
+                    gckCOMMAND_DumpExecutingBuffer(hardware->kernel->command);
+                }
+
+                /* Even if hardware is not reset correctly, let software
+                ** continue to avoid software stuck. Software will timeout again
+                ** and try to recover GPU in next timeout.
+                */
+                gcmkONERROR(gcvSTATUS_DEVICE);
+            }
+#endif
+        }
+        while (!_IsGPUIdle(idle));
     }
-    while (!_IsGPUIdle(idle));
 
     return gcvSTATUS_OK;
 

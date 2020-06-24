@@ -32,6 +32,7 @@ galcore-objs += kernel/arch/gc_hal_kernel_hardware.o
 galcore-objs += kernel/arch/gc_hal_kernel_hardware_async_fe.o
 galcore-objs += kernel/arch/gc_hal_kernel_hardware_mc_fe.o
 galcore-objs += kernel/arch/gc_hal_kernel_hardware_func.o
+galcore-objs += kernel/arch/gc_hal_kernel_hardware_func_flop_reset.o
 galcore-objs += kernel/arch/gc_hal_kernel_hardware_waitlink_fe.o
 galcore-objs += kernel/arch/gc_hal_kernel_recorder.o
 galcore-objs += security_v1/gc_hal_ta.o
