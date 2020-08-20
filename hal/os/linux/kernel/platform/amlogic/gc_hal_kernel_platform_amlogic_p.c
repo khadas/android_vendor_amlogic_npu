@@ -448,15 +448,19 @@ gceSTATUS  _SetPower(IN gcsPLATFORM * Platform,IN gceCORE GPU,IN gctBOOL Enable)
         {
             case 1:
                 Runtime_getpower_a1(pdev);
+                mdelay(1);
                 break;
             case 2:
                 Runtime_getpower_88(pdev);
+                mdelay(1);
                 break;
             case 3:
                 Runtime_getpower_99(pdev);
+                mdelay(1);
                 break;
             case 4:
                 Runtime_getpower_be(pdev);
+                mdelay(1);
                 break;
             default:
                 printk("not find power_version\n");
