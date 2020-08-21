@@ -20,7 +20,7 @@ extern "C" {
 #define INPUT_MAX_NUM               16
 #define OUTPUT_MAX_NUM              32
 #define INPUT_CNANNEL               3
-#define MAX_DETECT_NUM              15
+#define MAX_DETECT_NUM              230
 #define SUPPORT_NET_NUM             60
 #define ADDRESS_MAX_NUM             16
 
@@ -249,14 +249,14 @@ typedef struct __nn_text_detect
 }text_det_out_t;
 /*=================================================
 output of aml_module_t type:CARPLATE_RECOG
-the output for car license number
-num: the number of character for car license
+the output for car license confidence
+confidence: the confidence of character for car license
 val: the index number for license value;
 10(0-9)+26(A-Z)+32(chinese character)
 =================================================*/
 typedef struct __nn_car_recognize
 {
-	int num;
+	float confidence;
 	unsigned char val[32];
 }car_license_out_t;
 //////////////////////////////////////////////////////
@@ -267,6 +267,33 @@ typedef struct __nn_person_detect
     detBox pBox[MAX_DETECT_NUM];
 }person_detect_out_t;
 
+typedef struct __nn_yoloface_v2
+{
+    unsigned int  detNum;
+    detBox *pBox;
+}yoloface_v2_out_t;
+
+typedef struct __nn_yolov2
+{
+    unsigned int  detNum;
+    detBox *pBox;
+}yolov2_out_t;
+
+typedef struct __nn_yolov3
+{
+    unsigned int  detNum;
+    detBox *pBox;
+}yolov3_out_t;
+
+typedef struct __nn_facenet
+{
+    unsigned char faceVector[128];
+}facenet_out_t;
+
+typedef struct __nn_face_recognize_uint
+{
+    unsigned char faceVector[512];
+}face_recognize_uint_out_t;
 /////////////////////common type//////////////////////
 /*=====================================================
 the common type for sdk api
@@ -353,7 +380,12 @@ typedef enum {
     TEXT_DETECTION      = 15,   ///< text region detect
     IMAGE_SR            = 16,   ///< image SR
     IMAGE_SEGMENTATION  = 17,   ///< image segment, based on icnet
-    PERSON_DETECT       = 18,
+    PERSON_DETECT       = 18,   ///< person detect
+    YOLOFACE_V2         = 19,
+    YOLO_V2             = 20,
+    YOLO_V3             = 21,
+    FACE_NET            = 22,
+    FACE_RECOG_U        = 23,
     CUSTOM_NETWORK      = 99,   ///< custom network, for user development
     MODEL_MAX           = 100    ///< max model number
 } aml_module_t;
@@ -363,6 +395,18 @@ typedef enum {
     AML_OUTDATA_RAW          = 1,
 	AML_OUTDATA_DMA          = 2
 } aml_output_format_t;
+typedef enum {
+	AML_PROFILE_NONE         = 0,
+    AML_PROFILE_PERFORMANCE  = 1,
+    AML_PROFILE_BANDWIDTH    = 2,
+	AML_PROFILE_MEMORY       = 3
+} aml_profile_type_t;
+
+typedef enum {
+    AML_PERFORMANCE_MODE         = 1,
+    AML_POWER_SAVE_MODE          = 2,
+	AML_MINIMUM_POWER_MODE       = 3
+} aml_policy_type_t;
 
 typedef  struct __amlnn_module_out_data_t
 {
@@ -466,11 +510,12 @@ typedef enum {
 
 
 /*=============================================================
-                     NNSDK main api
+                     NNSDK main api 
 ==============================================================*/
 void* aml_module_create(aml_config* config);                   /*==========create aml network module======*/
 int aml_module_input_set(void* context,nn_input *pInput);      /*==========set network input==============*/
 void* aml_module_output_get(void* context,aml_output_config_t outconfig); /*=======run and get output====*/
+void* aml_module_output_get_simple(void* context); /*=======run and get output simply,for custom network====*/
 int aml_module_destroy(void* context);      /*=====destroy network environment,free the alloced buffer====*/
 
 /*============================================================
@@ -486,6 +531,8 @@ void aml_util_freeTensorInfo(tensor_info* tinfo);     /*====free the tensor_info
 /*===========flush tensor cache memory=======================*/
 int  aml_util_flushTensorHandle(void* context,aml_flush_type_t type);
 void process_top5(float *buf,unsigned int num,img_classify_out_t* clsout);
+int  aml_util_setProfile(aml_profile_type_t type,const char *savepath); /*===set profile type===*/
+int  aml_util_setPowerPolicy(aml_policy_type_t type); /*===set power policy===*/
 #ifdef __cplusplus
 } //extern "C"
 #endif

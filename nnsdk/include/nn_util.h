@@ -16,7 +16,7 @@ typedef struct{
     float x, y;
 } landmark;
 typedef struct{
-    float x, y, w, h;
+    float x, y, w, h, prob_obj;
 } box;
 typedef struct{
     int index;
@@ -36,7 +36,11 @@ float box_intersection(box a, box b);
 float overlap(float x1, float w1, float x2, float w2);
 float logistic_activate(float x);
 float sigmod(float x);
-
+unsigned char *transpose(const unsigned char * src,int width,int height);
+int init_fb(void);
+void *camera_thread_func(void *arg);
+int sysfs_control_read(const char* name,char *out);
+int sysfs_control_write(const char* pname,char *value);
 #ifdef __cplusplus
 } //extern "C"
 #endif

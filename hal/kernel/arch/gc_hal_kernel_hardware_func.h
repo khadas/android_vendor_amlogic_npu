@@ -62,11 +62,19 @@ extern "C" {
 
 #define gcdFLOP_RESET           1
 #define gcdFLOP_RESET_PPU       1
-#define gcdFLOP_RESET_NN        0
-#define gcdFLOP_RESET_TP        0
+#define gcdFLOP_RESET_NN        1
+#define gcdFLOP_RESET_TP        1
+
+/*
+ * The following macros are for old FLOP
+ * reset path.
+ * Use gcdFLOP_RESET=1 for the new path.
+ * The related code will be removed as long
+ * as the new path is stable.
+ */
 #define gcdINITIALIZE_PPU       1
 #define gcdINITIALIZE_PPU_C     0
-#define gcdRESET_USC1           1
+#define gcdRESET_USC1           0
 #define gcdRESET_USC_C          0
 #define gcdRESET_USC2           1
 
@@ -133,6 +141,9 @@ typedef struct _gcsFUNCTION_COMMAND
     /* CPU address of the function. */
     gctPOINTER                  logical;
 
+    /* Physical address of this command. */
+    gctPHYS_ADDR_T              physical;
+
     /* Actually bytes of the function. */
     gctUINT32                   bytes;
 
@@ -141,6 +152,9 @@ typedef struct _gcsFUNCTION_COMMAND
 
     /* Logical of END in this function. */
     gctUINT8_PTR                endLogical;
+
+    /* Physical of End in this function. */
+    gctPHYS_ADDR_T              endPhysical;
 
     /* Function private data */
     gctUINT32                   dataCount;

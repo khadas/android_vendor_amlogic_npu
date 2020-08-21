@@ -11,13 +11,19 @@
 ##############################################################################
 LOCAL_PATH := $(call my-dir)
 
+ifeq ($(PLATFORM_VERSION), 10)
+PLATFORM_PATH=so_q
+else
+PLATFORM_PATH=so_p
+endif
+
 ifeq ($(TARGET_ARCH), arm64)
-LIB_PATH=libraryso/lib64
-NNSDK_PATH=nnsdk/lib/lib64
+LIB_PATH=libraryso/lib64/$(PLATFORM_PATH)
+NNSDK_PATH=nnsdk/lib/lib64/$(PLATFORM_PATH)
 Target=lib64
 else
-LIB_PATH=libraryso/lib32
-NNSDK_PATH=nnsdk/lib/lib32
+LIB_PATH=libraryso/lib32/$(PLATFORM_PATH)
+NNSDK_PATH=nnsdk/lib/lib32/$(PLATFORM_PATH)
 Target=lib
 endif
 
