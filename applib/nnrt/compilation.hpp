@@ -26,9 +26,9 @@
 
 #include <mutex>
 #include "vsi_nn_pub.h"
-#include "interpreter.hpp"
-#include "prepared_model.hpp"
-#include "shared_context.hpp"
+#include "nnrt/interpreter.hpp"
+#include "nnrt/prepared_model.hpp"
+#include "nnrt/shared_context.hpp"
 
 namespace nnrt
 {
@@ -55,21 +55,23 @@ class Compilation
         Interpreter* getInterpreter() { return interpreter_; };
 
         PreparedModelPtr prepareModel(int* err_ptr,
-            std::vector<ExecutionIOPtr> &inputs);
-    private:
-    Compilation(const Compilation&) = default;
-    Compilation(Compilation&& ) = default;
-    Compilation& operator=(const Compilation&) = default;
+                                      std::vector<ExecutionIOPtr>& inputs,
+                                      SharedContextPtr& ovx_context);
 
-    private:
+       private:
+        Compilation(const Compilation&) = default;
+        Compilation(Compilation&&) = default;
+        Compilation& operator=(const Compilation&) = default;
+
+       private:
         void cachePreparedModel(PreparedModelPtr& model);
 
         Model* model_;
         Interpreter* interpreter_;  //!< default interpreter_ set as NNapi interperter
         uint32_t prepared_model_cache_size_;
         std::map<std::string, PreparedModelPtr> prepared_models_;
-        SharedContextPtr context_;
         std::mutex cache_mutex_;
+        SharedContextPtr context_;
 };
 
 using CompilerUniquePtr = std::unique_ptr<Compilation>;

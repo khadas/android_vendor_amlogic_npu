@@ -29,7 +29,7 @@
 
 #define NNRT_MAJOR_VERSION 1
 #define NNRT_MINOR_VERSION 1
-#define NNRT_PATCH_VERSION 7
+#define NNRT_PATCH_VERSION 11
 #define _STR(A) #A
 #define STR(A) _STR(A)
 #ifdef GIT_STRING

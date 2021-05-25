@@ -50,18 +50,9 @@ extern "C"{
 /*------------------------------------
                 Types
   -----------------------------------*/
-typedef enum _vsi_nn_cache_const_tensor_e
-{
-    VSI_NN_CACHE_CONST_TENSOR_DISABLED,
-    VSI_NN_CACHE_CONST_TENSOR_CURRENT_GRAPH,
-    VSI_NN_CACHE_CONST_TENSOR_PERMANENT,
-
-    VSI_NN_CACHE_CONST_TENSOR_CNT
-} vsi_nn_cache_const_tensor_e;
-
 typedef struct _vsi_nn_node_attr_t
 {
-    int32_t cache_const_tensor_type;
+    int32_t const_tensor_preload_type;
     int32_t reserved[7];
 } vsi_nn_node_attr_t;
 
@@ -161,6 +152,17 @@ OVXLIB_API void vsi_nn_PrintNode
     (
     vsi_nn_node_t * node,
     vsi_nn_node_id_t id
+    );
+
+/**
+ * Update node attribute
+ * Update openvx node attribute based on ovxlib's node attribute
+ *
+ * @param[in] node Node handle.
+ */
+vsi_status vsi_nn_update_node_attr
+    (
+    vsi_nn_node_t *node
     );
 
 #if defined(__cplusplus)

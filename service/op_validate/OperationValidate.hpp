@@ -37,6 +37,10 @@ namespace android {
 namespace nn {
 namespace op_validate {
 using HalPlatform = vsi_driver::HalPlatform;
+using OperationType = vsi_driver::OperationType;
+using OperandType = vsi_driver::OperandType;
+using OperandLifeTime = vsi_driver::OperandLifeTime;
+
 namespace get_buffer {
 const uint8_t* getOperandDataPtr(const HalPlatform::Model& model,
                                  const HalPlatform::Operand& halOperand,
@@ -50,7 +54,7 @@ const uint8_t* getOperandDataPtr(const HalPlatform::Model& model,
     return nullptr;
 }
 
-const uint8_t* getOpeandPtr(const HalPlatform::Model& model,
+const uint8_t* getOperandPtr(const HalPlatform::Model& model,
                             const HalPlatform::Operand& operand,
                             struct vsi_driver::VsiRTInfo& rt) {
     auto& location = operand.location;
@@ -65,7 +69,7 @@ const uint8_t* getOpeandPtr(const HalPlatform::Model& model,
 template <typename T_type>
 T_type getScalarData(const HalPlatform::Model& model, const HalPlatform::Operand& operand) {
     struct vsi_driver::VsiRTInfo rt;
-    auto ptr = getOpeandPtr(model, operand, rt);
+    auto ptr = getOperandPtr(model, operand, rt);
     if (ptr)
         return *reinterpret_cast<T_type*>(const_cast<uint8_t*>(ptr));
     else
@@ -98,6 +102,21 @@ class OperationValidate {
         return isSupport;
     };
 
+    const std::vector<nnrt::OperandType>& InputArgTypes() const { return m_InputArgTypes; }
+    const std::vector<nnrt::OperandType>& OutputArgTypes() const { return m_OutputArgTypes; }
+    const T_Model& ModelForRead() const { return m_Model; }
+    const T_Operation& OperationForRead() const { return m_Operation; }
+
+    bool IsConstantTensor(size_t index) {
+        auto& operand = m_Model.operands[index];
+        return operand.lifetime == OperandLifeTime::CONSTANT_COPY ||
+               operand.lifetime == OperandLifeTime::CONSTANT_REFERENCE;
+    }
+
+    bool IsInput(size_t index) {
+        auto operand = m_Model.operands[index];
+        return operand.lifetime == OperandLifeTime::MODEL_INPUT;
+    }
    protected:
     // Default implementation
     virtual bool SignatureCheck(std::string& reason) { return true; };
@@ -127,8 +146,8 @@ class OperationValidate {
                 reason += "reject op because its input tensor rank == 0\n";
                 return false;
             }
-            if (dims.size() > 6) {
-                reason += "reject op because its input rank > 6\n";
+            if (dims.size() > 4) {
+                reason += "reject op because its input rank > 4\n";
                 return false;
             }
             for (auto dim : dims) {
@@ -145,8 +164,8 @@ class OperationValidate {
                 reason += "reject op because its output tensor rank == 0\n";
                 return false;
             }
-            if (dims.size() > 6) {
-                reason += "reject op because its output rank > 6\n";
+            if (dims.size() > 4) {
+                reason += "reject op because its output rank > 4\n";
                 return false;
             }
             for (auto dim : dims) {
@@ -179,12 +198,6 @@ class OperationValidate {
         return true;
     }
 
-    bool IsConstantTensor(size_t index) {
-        auto& operand = m_Model.operands[index];
-        return operand.lifetime == OperandLifeTime::CONSTANT_COPY ||
-               operand.lifetime == OperandLifeTime::CONSTANT_REFERENCE;
-    }
-
     bool ConstantTensorCheck(std::string& reason) {
         std::vector<OperationType> whiteList = {OperationType::ADD,
                                                 OperationType::SUB,
@@ -207,16 +220,10 @@ class OperationValidate {
         return true;
     }
 
-    const T_Model ModelForRead() const { return m_Model; }
     T_Model ModelForWrite() { return m_Model; }
-
-    const T_Operation OperationForRead() const { return m_Operation; }
     T_Operation OperationForWrite() { return m_Operation; }
 
-    const std::vector<nnrt::OperandType>& InputArgTypes() const { return m_InputArgTypes; }
-    const std::vector<nnrt::OperandType>& OutputArgTypes() const { return m_OutputArgTypes; }
-
-   private:
+   protected:
     nnrt::OperandType MapToNnrtOperandType(OperandType type) {
         switch (type) {
             case OperandType::BOOL:
@@ -251,6 +258,8 @@ class OperationValidate {
                 return nnrt::OperandType::NONE;
         }
     }
+
+    protected:
     T_Model m_Model;
     T_Operation m_Operation;
     std::vector<nnrt::OperandType> m_InputArgTypes;

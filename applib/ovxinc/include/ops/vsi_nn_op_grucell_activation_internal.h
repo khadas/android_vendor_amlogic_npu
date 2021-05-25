@@ -60,6 +60,15 @@ enum {
     GRUCELL_INPUT_CATEGORY_COUNT
 };
 
+typedef int32_t grucell_activation_input_layout_e; enum
+{
+    GRUCELL_ACTIVATION_INPUT_LAYOUT_ALL_NC,
+    GRUCELL_ACTIVATION_INPUT_LAYOUT_INPUT_NC_FC_CN,
+    GRUCELL_ACTIVATION_INPUT_LAYOUT_ALL_CN,
+
+    GRUCELL_ACTIVATION_INPUT_LAYOUT_COUNT
+};
+
 typedef struct _vsi_nn_grucell_activation_internal_local {
     uint32_t placeholder;
 } vsi_nn_grucell_activation_internal_local;
@@ -71,7 +80,7 @@ typedef struct _vsi_nn_grucell_activation_internal_param
     vsi_nn_activation_e candidate_activation;
     int32_t input_category;
     vsi_bool use_cudnn_implementation;
-    vsi_bool input_recurrent_fc_batch_first;
+    grucell_activation_input_layout_e input_layout;
 } vsi_nn_grucell_activation_internal_param;
 
 #endif

@@ -102,6 +102,14 @@ vsi_nn_internal_tensor_t* vsi_nn_rnn_create_nn_fc
     vsi_bool use_virtual_tensor
     );
 
+vsi_nn_internal_tensor_t* vsi_nn_rnn_prepare_weight_for_nn_fc
+    (
+    vsi_nn_node_t * self,
+    vsi_nn_tensor_t * weight,
+    uint32_t kernel_h,
+    uint32_t kernel_w
+    );
+
 vsi_nn_internal_tensor_t* vsi_nn_rnn_create_nn_fc_relu
     (
     vsi_nn_node_t * self,
@@ -213,9 +221,29 @@ vsi_nn_internal_tensor_t** vsi_nn_create_split
 vsi_nn_internal_tensor_t* vsi_nn_rnn_create_reshape
     (
     vsi_nn_node_t* self,
-    vsi_nn_tensor_t* tensor,
+    vsi_nn_tensor_t* input_tensor,
+    vsi_nn_tensor_t* output_tensor,
     uint32_t* size,
     uint32_t dim_num,
+    vsi_bool use_virtual_tensor
+    );
+
+vsi_nn_internal_tensor_t* vsi_nn_rnn_create_permute
+    (
+    vsi_nn_node_t* self,
+    vsi_nn_tensor_t* input_tensor,
+    vsi_nn_tensor_t* output_tensor,
+    uint32_t* perm,
+    uint32_t dim_num,
+    vsi_bool use_virtual_tensor
+    );
+
+vsi_nn_internal_tensor_t* vsi_nn_rnn_create_tensor_copy
+    (
+    vsi_nn_node_t* self,
+    vsi_nn_tensor_t* input_tensor,
+    vsi_nn_tensor_t* output_tensor,
+    vsi_nn_dtype_t* dtype,
     vsi_bool use_virtual_tensor
     );
 

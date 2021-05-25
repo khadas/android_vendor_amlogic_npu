@@ -28,6 +28,7 @@
 #include "VsiDevice.h"
 #include "HalInterfaces.h"
 #include "Utils.h"
+#include "CustomizeOpSupportList.h"
 
 #include <sys/system_properties.h>
 #include <android-base/logging.h>
@@ -52,10 +53,22 @@ class VsiDriver : public VsiDevice {
 #endif
 
 #if ANDROID_SDK_VERSION >= 29
+    Return<void> getSupportedExtensions(V1_2::IDevice::getSupportedExtensions_cb _hidl_cb);
     Return<void> getCapabilities_1_2(V1_2::IDevice::getCapabilities_1_2_cb _hidl_cb) ;
     Return<void> getSupportedOperations_1_2( const V1_2::Model& model,
                                                    V1_2::IDevice::getSupportedOperations_1_2_cb cb) ;
+
+    static uint16_t findExtensionOperation(const HalPlatform::Operation& operation) {
+        int32_t operationType = static_cast<int32_t>(operation.type);
+        const uint8_t kLowBitsType = static_cast<uint8_t>(HalPlatform::Model::ExtensionTypeEncoding::LOW_BITS_TYPE);
+        const uint32_t kTypeWithinExtensionMask = (1 << kLowBitsType) - 1;
+        uint16_t extensionSupportMask = static_cast<int32_t>(operationType) >> kLowBitsType;
+        uint16_t typeWithinExtension = static_cast<int32_t>(operationType) & kTypeWithinExtensionMask;
+        if (extensionSupportMask != 0) return typeWithinExtension;
+        return 0;
+    };
 #endif
+
     static bool isSupportedOperation(const HalPlatform::Operation& operation,
                                      const HalPlatform::Model& model,
                                      std::string& not_support_reason);
@@ -79,7 +92,15 @@ class VsiDriver : public VsiDevice {
             std::string notSupportReason = "";
             for (size_t i = 0; i < count; i++) {
                 const auto& operation = model.operations[i];
-                supported[i] = isSupportedOperation(operation, model, notSupportReason);
+
+#if ANDROID_SDK_VERSION >= 29
+                supported[i] = findExtensionOperation(operation) ||
+                               (!IsOpBlocked(static_cast<int32_t>(operation.type)) &&
+                                isSupportedOperation(operation, model, notSupportReason));
+#else
+                supported[i] = !IsOpBlocked(static_cast<int32_t>(operation.type)) &&
+                               isSupportedOperation(operation, model, notSupportReason);
+#endif
             }
             LOG(INFO) << notSupportReason;
             cb(ErrorStatus::NONE, supported);

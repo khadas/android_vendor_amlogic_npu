@@ -28,7 +28,7 @@
 #include <vector>
 #include <cassert>
 
-#include "types.hpp"
+#include "nnrt/types.hpp"
 
 namespace nnrt {
 namespace layout_inference {

@@ -157,6 +157,18 @@ typedef enum
     VSI_NN_DEPTH2SPACE_CRD
 } vsi_nn_depth2space_mode_e;
 
+typedef enum
+{
+    VSI_NN_GRAPH_PRELOAD_VIPSRAM,
+    VSI_NN_GRAPH_PRELOAD_AXISRAM
+} vsi_nn_graph_attr_preload_type_e;
+
+typedef enum _vsi_nn_node_attr_preload_type_e
+{
+    VSI_NN_NODE_PRELOAD_NONE,
+    VSI_NN_NODE_PRELOAD_VIPSRAM,
+    VSI_NN_NODE_PRELOAD_AXISRAM
+} vsi_nn_node_attr_preload_type_e;
 
 /** Deprecated */
 typedef uint32_t vsi_nn_size_t;

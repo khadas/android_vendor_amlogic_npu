@@ -25,9 +25,9 @@
 #define __OVXLIB_DELEGATE_H__
 
 #include "vsi_nn_pub.h"
-#include "model.hpp"
-#include "op/public.hpp"
-#include "execution_io.hpp"
+#include "nnrt/model.hpp"
+#include "nnrt/op/public.hpp"
+#include "nnrt/execution_io.hpp"
 
 namespace nnrt
 {
@@ -135,31 +135,6 @@ class OvxlibDelegate
             }
             size_pool_.push_back(handler);
             return reinterpret_cast<T*>(size_pool_.back().data());
-        };
-
-        template<typename T>
-        std::vector<T> convertPermute(std::vector<T> &perm)
-        {
-            return convertAxes(perm, perm.size());
-        };
-
-        template<typename T>
-        std::vector<T> convertAxes(std::vector<T> &axes, size_t dim_num)
-        {
-            std::vector<T> new_axes(axes.size());
-            size_t max_size = axes.size() - 1;
-            for (size_t i = 0; i < axes.size(); ++i) {
-                new_axes[i] = convertAxis(axes[max_size - i], dim_num);
-            }
-            return new_axes;
-        };
-
-        int32_t convertAxis(int32_t axis, int32_t dim_num)
-        {
-            if (axis < 0) {
-                axis += dim_num;
-            }
-            return (dim_num - axis - 1);
         };
 
         int32_t reverseMask(int32_t mask, size_t dim_num)
@@ -277,6 +252,7 @@ class OvxlibDelegate
         REGISTER_OP(LINEAR);
         REGISTER_OP(CAST);
         REGISTER_OP(QUANTIZED_16BIT_LSTM);
+        REGISTER_OP(MATRIX_MUL);
 #undef  REGISTER_OP
 
     private:

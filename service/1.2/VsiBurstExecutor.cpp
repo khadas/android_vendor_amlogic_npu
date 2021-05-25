@@ -83,6 +83,8 @@ namespace vsi_driver {
         ErrorStatus result = ErrorStatus::NONE;
         hidl_vec<OutputShape> outputShapes;
         Timing timing = kNoTiming;
+
+        LOG(INFO) << "Start execute from burst service" ;
         perpareModel_->executeSynchronously(fullRequest, MeasureTiming::NO,
             [&result, &outputShapes, &timing](ErrorStatus error, const hidl_vec<OutputShape>& shapes,
                                             const Timing& time) {
@@ -90,9 +92,9 @@ namespace vsi_driver {
                 outputShapes = shapes;
                 timing = time;
             });
-        LOG(INFO)<<__FUNCTION__<<" exit";
+
         return std::make_tuple(result, outputShapes, timing);
      }
-};
+}
 }
 }

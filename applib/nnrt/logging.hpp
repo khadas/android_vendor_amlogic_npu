@@ -30,7 +30,7 @@
 #include <stdio.h>
 #include <cstdlib>
 
-#include "utils.hpp"
+#include "nnrt/utils.hpp"
 namespace nnrt {
 namespace logging {
 

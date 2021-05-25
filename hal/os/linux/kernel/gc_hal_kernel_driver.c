@@ -178,10 +178,6 @@ static int powerManagement = 1;
 module_param(powerManagement, int, 0644);
 MODULE_PARM_DESC(powerManagement, "Disable auto power saving if set it to 0, enabled by default");
 
-static int gpuProfiler = 0;
-module_param(gpuProfiler, int, 0644);
-MODULE_PARM_DESC(gpuProfiler, "Enable profiling support, disabled by default");
-
 static ulong baseAddress = 0;
 module_param(baseAddress, ulong, 0644);
 MODULE_PARM_DESC(baseAddress, "Only used for old MMU, set it to 0 if memory which can be accessed by GPU falls into 0 - 2G, otherwise set it to 0x80000000");
@@ -227,9 +223,18 @@ static uint type = 0;
 module_param(type, uint, 0664);
 MODULE_PARM_DESC(type, "0 - Char Driver (Default), 1 - Misc Driver");
 
-static int userClusterMask = 0;
-module_param(userClusterMask, int, 0644);
-MODULE_PARM_DESC(userClusterMask, "User defined cluster enable mask");
+static uint userClusterMasks[gcdMAX_MAJOR_CORE_COUNT] = {[0 ... gcdMAX_MAJOR_CORE_COUNT - 1] = 0};
+module_param_array(userClusterMasks, uint, NULL, 0644);
+MODULE_PARM_DESC(userClusterMasks, "Array of user defined per-core cluster enable mask");
+
+static uint registerAPB = 0x300000;
+module_param(registerAPB, uint, 0644);
+MODULE_PARM_DESC(registerAPB, "The offset of APB register to the register base address.");
+
+static uint enableNN = 0xFF;
+module_param(enableNN, uint, 0644);
+MODULE_PARM_DESC(enableNN, "How many NN cores will be enabled in one VIP, 0xFF means all enabled, 0 means all disabled, 1 means enable 1 NN core...");
+
 
 /* GPU small batch feature. */
 static int smallBatch = 1;
@@ -312,7 +317,6 @@ MODULE_PARM_DESC(sRAMOffsets, "Array of SRAM offset inside bar of shared externa
 static int gpu3DMinClock = 1;
 static int contiguousRequested = 0;
 static ulong bankSize = 0;
-
 
 static gcsMODULE_PARAMETERS moduleParam;
 
@@ -419,6 +423,11 @@ _InitModuleParam(
 #endif
     }
 
+    for (i = 0; i < gcdMAX_MAJOR_CORE_COUNT; i++)
+    {
+        userClusterMasks[i] = p->userClusterMasks[i];
+    }
+
     p->sRAMRequested = sRAMRequested;
     p->sRAMLoopMode = sRAMLoopMode;
 
@@ -435,11 +444,11 @@ _InitModuleParam(
     p->compression = (compression == -1) ? gcvCOMPRESSION_OPTION_DEFAULT
                    : (gceCOMPRESSION_OPTION)compression;
     p->gpu3DMinClock   = gpu3DMinClock; /* not a module param. */
-    p->userClusterMask = userClusterMask;
+    p->enableNN        = enableNN;
+    p->registerAPB     = registerAPB;
     p->smallBatch      = smallBatch;
 
     p->stuckDump   = stuckDump;
-    p->gpuProfiler = gpuProfiler;
 
     p->deviceType  = type;
     p->showArgs    = showArgs;
@@ -542,6 +551,11 @@ _SyncModuleParam(
 #endif
     }
 
+    for (i = 0; i < gcdMAX_MAJOR_CORE_COUNT; i++)
+    {
+        userClusterMasks[i] = p->userClusterMasks[i];
+    }
+
     sRAMRequested = p->sRAMRequested;
     sRAMLoopMode  = p->sRAMLoopMode;
 
@@ -556,11 +570,11 @@ _SyncModuleParam(
     fastClear       = p->fastClear;
     compression     = p->compression;
     gpu3DMinClock   = p->gpu3DMinClock; /* not a module param. */
-    userClusterMask = p->userClusterMask;
+    enableNN        = p->enableNN;
+    registerAPB     = p->registerAPB;
     smallBatch      = p->smallBatch;
 
     stuckDump   = p->stuckDump;
-    gpuProfiler = p->gpuProfiler;
 
     type        = p->deviceType;
     showArgs    = p->showArgs;
@@ -636,10 +650,16 @@ gckOS_DumpParam(
     printk("  physSize          = 0x%08lX\n", physSize);
     printk("  recovery          = %d\n",      recovery);
     printk("  stuckDump         = %d\n",      stuckDump);
-    printk("  gpuProfiler       = %d\n",      gpuProfiler);
-    printk("  userClusterMask   = 0x%x\n",    userClusterMask);
     printk("  GPU smallBatch    = %d\n",      smallBatch);
     printk("  allMapInOne       = %d\n",      allMapInOne);
+    printk("  enableNN          = 0x%x\n",    enableNN);
+
+    printk("  userClusterMasks  = ");
+    for (i = 0; i < gcdMAX_MAJOR_CORE_COUNT; i++)
+    {
+        printk("%x, ", userClusterMasks[i]);
+    }
+    printk("\n");
 
     printk("  irqs              = ");
     for (i = 0; i < gcvCORE_COUNT; i++)

@@ -1203,7 +1203,6 @@ _DumpState(
 **  Idle: Time GPU stays in gcvPOWER_IDLE.
 **  Suspend: Time GPU stays in gcvPOWER_SUSPEND.
 */
-
 static int dumpCore = 0;
 
 static int
@@ -1606,6 +1605,83 @@ static int gc_clk_show(void* m, void* data)
 
     return len;
 }
+
+static gctUINT32 clkScale[2] = {0, 0};
+
+static int _set_clk(const char* buf)
+{
+    gckHARDWARE hardware;
+    gckGALDEVICE device = galDevice;
+    gctINT n, j, k;
+    gctBOOL isSpace = gcvFALSE;
+    char data[20];
+
+    memset(data, 0, 20);
+    n = j = k = 0;
+
+    while (gcvTRUE)
+    {
+        if ((buf[k] >= '0') && (buf[k] <= '9'))
+        {
+            if (isSpace)
+            {
+                data[n++] = ' ';
+                isSpace = gcvFALSE;
+            }
+            data[n++] = buf[k];
+        }
+        else if (buf[k] == ' ')
+        {
+            if (n > 0)
+            {
+                isSpace = gcvTRUE;
+            }
+        }
+        else if (buf[k] == '\n')
+        {
+            break;
+        }
+        else
+        {
+            printk("Error: command format must be this: echo \"0 32 32\" > /sys/kernel/debug/gc/clk\n");
+            return 0;
+        }
+
+        k++;
+
+        if (k >= 20)
+        {
+            break;
+        }
+    }
+
+    sscanf(data, "%d %d %d", &dumpCore, &clkScale[0], &clkScale[1]);
+
+    printk("Change core:%d MC scale:%d SH scale:%d\n", dumpCore, clkScale[0], clkScale[1]);
+
+    if (device->kernels[dumpCore])
+    {
+        hardware = device->kernels[dumpCore]->hardware;
+
+        gckHARDWARE_SetClock(hardware, dumpCore, clkScale[0], clkScale[1]);
+    }
+    else
+    {
+        printk("Error: invalid core\n");
+    }
+
+    return 0;
+}
+
+#ifdef CONFIG_DEBUG_FS
+static int gc_clk_write(const char __user *buf, size_t count, void* data)
+{
+    _set_clk(buf);
+
+    return count;
+}
+#endif
+
 #ifdef CONFIG_DEBUG_FS
 int gc_info_show_debugfs(struct seq_file* m, void* data)
 {
@@ -1664,7 +1740,7 @@ static gcsINFO InfoList[] =
     {"vidmem", gc_vidmem_old_show_debugfs, gc_vidmem_write},
     {"vidmem64x", gc_vidmem_show_debugfs, gc_vidmem_write},
     {"dump_trigger", gc_dump_trigger_show_debugfs, gc_dump_trigger_write},
-    {"clk", gc_clk_show_debugfs},
+    {"clk", gc_clk_show_debugfs, gc_clk_write},
 };
 #else
 static ssize_t info_show(struct device *dev, struct device_attribute* attr, char *buf)
@@ -1746,7 +1822,12 @@ static ssize_t clk_show(struct device *dev, struct device_attribute* attr, char 
 {
     return gc_clk_show((void*)buf, NULL);
 }
-DEVICE_ATTR_RO(clk);
+static ssize_t clk_store(struct device *dev, struct device_attribute* attr, const char *buf, size_t count)
+{
+    _set_clk(buf);
+    return count;
+}
+DEVICE_ATTR_RW(clk);
 
 static struct attribute *Info_attrs[] = {
     &dev_attr_info.attr,
@@ -2711,7 +2792,7 @@ gckGALDEVICE_Construct(
     /* Setup contiguous video memory pool. */
     gcmkONERROR(_SetupContiguousVidMem(device, Args));
 
-#if gcdEXTERNAL_SRAM_DEFAULT_POOL
+#if gcdEXTERNAL_SRAM_USAGE
     /* Setup external SRAM video memory pool. */
     gcmkONERROR(_SetupExternalSRAMVidMem(device));
 #endif
@@ -2721,12 +2802,6 @@ gckGALDEVICE_Construct(
     {
         if (device->irqLines[i] != -1 || gcmBITTEST(isrPolling, i)!= 0)
         {
-            gcmkONERROR(gcTA_Construct(
-                device->taos,
-                (gceCORE)i,
-                &globalTA[i]
-                ));
-
             gcmkONERROR(gckDEVICE_AddCore(
                 device->device,
                 (gceCORE)i,
@@ -2734,6 +2809,15 @@ gckGALDEVICE_Construct(
                 device,
                 &device->kernels[i]
                 ));
+
+            if (device->kernels[i]->hardware->options.secureMode == gcvSECURE_IN_TA)
+            {
+                gcmkONERROR(gcTA_Construct(
+                    device->taos,
+                    (gceCORE)i,
+                    &globalTA[i]
+                    ));
+            }
 
             gcmkONERROR(gckHARDWARE_SetFastClear(
                 device->kernels[i]->hardware,
@@ -2752,11 +2836,6 @@ gckGALDEVICE_Construct(
                 Args->gpu3DMinClock
                 ));
 #endif
-
-            gcmkONERROR(gckHARDWARE_SetGpuProfiler(
-                device->kernels[i]->hardware,
-                Args->gpuProfiler
-                ));
         }
         else
         {
@@ -2822,7 +2901,7 @@ gckGALDEVICE_Construct(
     device->kernels[gcvCORE_VG] = gcvNULL;
 #endif
 
-#if !gcdEXTERNAL_SRAM_DEFAULT_POOL
+#if !gcdEXTERNAL_SRAM_USAGE
     /* Setup external SRAM video memory pool. */
     gcmkONERROR(_SetupExternalSRAMVidMem(device));
 #endif

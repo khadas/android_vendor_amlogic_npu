@@ -112,28 +112,13 @@ struct TNormWithAxis : Operation {
             return;
         }
 
-        // {0, 1, 2, 3}
-        auto requiredPermute = layout_inference::make_shared(inputOperand->ndim());
-        if (DataLayout::NHWC == getDataLayout()) {
-            requiredPermute = std::make_shared<layout_inference::PermuteVector<4>>(
-                std::initializer_list<uint32_t>({0, 3, 1, 2}));
-        }
-
-        auto finalPermute = permuteVector->reverse()->add(requiredPermute);
-        auto permuteOp = nnrt::op::utils::asOp(finalPermute);
-
-        if (permuteOp) {
-            insertPermute(model, permuteOp, finalPermute->asStdVec(), true, inputs()[0]);
-        }
-
         // convert axis to positive number
         if (axis < 0) {
             axis = permuteVector->rank() + axis;
         }
-        // Convert axis to org platform format
-        axis = nnrt::op::utils::axisMapTo(finalPermute, axis);
+        axis = nnrt::op::utils::axisMapTo(permuteVector, axis);
 
-        out_permute_vectors.insert(std::make_pair(outputs()[0], requiredPermute));
+        out_permute_vectors.insert(std::make_pair(outputs()[0], permuteVector));
     }
 
     int32_t axis;

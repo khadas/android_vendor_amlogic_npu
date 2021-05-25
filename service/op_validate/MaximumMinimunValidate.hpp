@@ -36,8 +36,21 @@ class MaximumMinimumValidate : public OperationValidate<T_model, T_Operation> {
     MaximumMinimumValidate(const T_model& model, const T_Operation& operation)
         : OperationValidate<T_model, T_Operation>(model, operation) {}
     bool SignatureCheck(std::string& reason) override {
-        return ::hal::limitation::nnapi::match("MaximumMinimumInput", this->InputArgTypes()) &&
-               ::hal::limitation::nnapi::match("MaximumMinimumOutput", this->OutputArgTypes());
+        auto input_list = ::hal::limitation::nnapi::match("MaximumMinimumInput", this->InputArgTypes());
+        auto output_list = ::hal::limitation::nnapi::match("MaximumMinimumOutput", this->OutputArgTypes());
+        if (input_list && output_list) {
+            auto operation = this->OperationForRead();
+            auto input0 = operation.inputs[input_list->ArgPos("input0")];
+            auto input1 = operation.inputs[input_list->ArgPos("input1")];
+            if (this->IsConstantTensor(input0) && this->IsConstantTensor(input1)) {
+                reason += "Reject Maximum/Minimum, because all input as constant not support.";
+                return false;
+            }
+            return true;
+        } else {
+            reason += "Reject Maximum/Minimum, because input/ouput data type not support.";
+            return false;
+        }
     };
 };
 

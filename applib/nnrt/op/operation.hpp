@@ -1,26 +1,26 @@
 /****************************************************************************
-*
-*    Copyright (c) 2020 Vivante Corporation
-*
-*    Permission is hereby granted, free of charge, to any person obtaining a
-*    copy of this software and associated documentation files (the "Software"),
-*    to deal in the Software without restriction, including without limitation
-*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
-*    and/or sell copies of the Software, and to permit persons to whom the
-*    Software is furnished to do so, subject to the following conditions:
-*
-*    The above copyright notice and this permission notice shall be included in
-*    all copies or substantial portions of the Software.
-*
-*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-*    DEALINGS IN THE SOFTWARE.
-*
-*****************************************************************************/
+ *
+ *    Copyright (c) 2020 Vivante Corporation
+ *
+ *    Permission is hereby granted, free of charge, to any person obtaining a
+ *    copy of this software and associated documentation files (the "Software"),
+ *    to deal in the Software without restriction, including without limitation
+ *    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ *    and/or sell copies of the Software, and to permit persons to whom the
+ *    Software is furnished to do so, subject to the following conditions:
+ *
+ *    The above copyright notice and this permission notice shall be included in
+ *    all copies or substantial portions of the Software.
+ *
+ *    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ *    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ *    DEALINGS IN THE SOFTWARE.
+ *
+ *****************************************************************************/
 #ifndef __OVXLIB_OPERATION_H__
 #define __OVXLIB_OPERATION_H__
 
@@ -29,12 +29,13 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
-#include "nnrt/model.hpp"
+
+#include "ILayoutInference.hpp"
 #include "nnrt/float16.hpp"
 #include "nnrt/logging.hpp"
+#include "nnrt/model.hpp"
 #include "nnrt/permute_vector.hpp"
 #include "operand.hpp"
-#include "ILayoutInference.hpp"
 
 namespace nnrt {
 class Model;
@@ -138,8 +139,6 @@ class Operation : nnrt::layout_inference::ILayoutInference {
     void permuteConstOperands(Model& model,
                               std::vector<uint32_t>& constOperandIds,
                               nnrt::layout_inference::IPermuteVectorPtr permVec);
-
-   protected:
     /**
      * @brief Cache Permute Vector for each Input Tensor
      *
@@ -148,13 +147,13 @@ class Operation : nnrt::layout_inference::ILayoutInference {
         explicit InputTensorPermuteVectorCache(const Operation& op) : op_(op) {}
 
         bool add(Model& model,
-                 const std::unordered_map<uint32_t, nnrt::layout_inference::IPermuteVectorPtr>&
-                     permuteVecs) {
+            const std::unordered_map<uint32_t, nnrt::layout_inference::IPermuteVectorPtr>&
+            permuteVecs) {
             std::for_each(
                 permuteVecs.begin(),
                 permuteVecs.end(),
                 [this](const std::pair<uint32_t, nnrt::layout_inference::IPermuteVectorPtr>&
-                           permuteVec) { cached_permutes_.insert(permuteVec); });
+                    permuteVec) { cached_permutes_.insert(permuteVec); });
 
             return isAllInputTensorSetupWithPermute(model);
         }
@@ -167,6 +166,7 @@ class Operation : nnrt::layout_inference::ILayoutInference {
     };
 
     InputTensorPermuteVectorCache input_permute_cache_;
+   protected:
 
     virtual void handleLayoutInferenceOnInputs(
         Model& model,
@@ -255,7 +255,29 @@ inline std::vector<int32_t> permuteArray(std::vector<int32_t>& array,
     }
     return tmp;
 }
+
+inline int32_t convertAxis(int32_t axis, int32_t dim_num) {
+    if (axis < 0) {
+        axis += dim_num;
+    }
+    return (dim_num - axis - 1);
 }
+
+template <typename T>
+inline std::vector<T> convertAxes(std::vector<T>& axes, size_t dim_num) {
+    std::vector<T> new_axes(axes.size());
+    size_t max_size = axes.size() - 1;
+    for (size_t i = 0; i < axes.size(); ++i) {
+        new_axes[i] = convertAxis(axes[max_size - i], dim_num);
+    }
+    return new_axes;
+}
+
+template <typename T>
+std::vector<T> convertPermute(std::vector<T>& perm) {
+    return convertAxes(perm, perm.size());
+}
+}  // namespace utils
 
 struct ReshapeOperation : Operation {
     ReshapeOperation() : Operation(OperationType::RESHAPE) {}
@@ -314,47 +336,11 @@ struct PadOperation : Operation {
     PadMode padMode{PadMode::CONSTANT};
 };
 
-template <typename DType>
 struct PadV2Operation : Operation {
     PadV2Operation() : Operation(OperationType::PAD_V2) {}
-    virtual void handleLayoutInferenceOnInputs(
-        Model& model,
-        std::unordered_map<uint32_t, nnrt::layout_inference::IPermuteVectorPtr>&
-            next_permute_vectors) override {
-        assert(input_permute_cache_.cached_permutes_.size() == 1);
-        OperandPtr inputOperand = model.operand(inputs()[0]);
-        OperandPtr outputOperand = model.operand(outputs()[0]);
-
-        nnrt::layout_inference::IPermuteVectorPtr permuteVector =
-            input_permute_cache_.cached_permutes_[inputs()[0]];
-
-        if (inputOperand->ndim() != 4) {
-            Operation::handleLayoutInferenceOnInputs(model, next_permute_vectors);
-            auto reversePermVec = permuteVector->reverse();
-            return;
-        }
-
-        // {0, 1, 2, 3}
-        auto requiredPermute = nnrt::layout_inference::make_shared(inputOperand->ndim());
-        if (DataLayout::NHWC == getDataLayout()) {
-            requiredPermute = std::make_shared<nnrt::layout_inference::PermuteVector<4>>(
-                std::initializer_list<uint32_t>({0, 3, 1, 2}));
-            padFront = nnrt::op::utils::permuteArray(padFront, requiredPermute);
-            padBack = nnrt::op::utils::permuteArray(padBack, requiredPermute);
-        }
-
-        auto finalPermute = permuteVector->reverse()->add(requiredPermute);
-        auto permuteOp = nnrt::op::utils::asOp(finalPermute);
-
-        if (permuteOp) {
-            insertPermute(model, permuteOp, finalPermute->asStdVec(), true, inputs()[0]);
-        }
-
-        next_permute_vectors.insert(std::make_pair(outputs()[0], requiredPermute));
-    };
     std::vector<int32_t> padFront;
     std::vector<int32_t> padBack;
-    DType padValue;
+    int32_t padValue;
     PadMode padMode{PadMode::CONSTANT};
 };
 
@@ -511,7 +497,6 @@ struct LshProjectionOperation : Operation {
     LshProjectionOperation() : Operation(OperationType::LSH_PROJECTION) {}
     LshProjectionType type{LshProjectionType::SPARSE};
 };
-
 
 template <nnrt::OperationType kOpType>
 struct ArgXXXOperation : Operation {
@@ -704,7 +689,7 @@ void ArgXXXOperation<kOpType>::handleLayoutInferenceOnInputs(
 }
 
 #undef DECLARE_OPERATION
-}
-}
+}  // namespace op
+}  // namespace nnrt
 
 #endif

@@ -677,6 +677,13 @@ void vsi_nn_get_tensor_provider
     vsi_nn_node_t** node
     );
 
+OVXLIB_API vsi_status vsi_nn_SetGraphPreloadSize
+    (
+    vsi_nn_graph_t* graph,
+    vsi_nn_graph_attr_preload_type_e attr,
+    uint32_t size
+    );
+
 #ifdef __cplusplus
 }
 #endif

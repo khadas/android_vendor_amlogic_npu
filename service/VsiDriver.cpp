@@ -41,40 +41,6 @@
 #if ANDROID_SDK_VERSION >= 29
 #include "public.hpp"
 #endif
-namespace {
-// blacklist content:
-// single line include operation index defined by android nn spec
-// each number should end with ","
-bool IsOpBlockedByBlacklist(int32_t op_type) {
-    char env[128] = {0};
-    __system_property_get("NN_DBG_OP_BLK_LIST", env);
-    if (strlen(env) == 0) return false;
-
-    std::fstream fs(env);
-    if (!fs.good()) {
-        LOG(INFO) << "can not open blacklist file from -> " << env;
-        // Ignore if no whitelist found
-        return false;
-    }
-    std::string op_list_line;  // = fs.getline();
-    std::getline(fs, op_list_line);
-    std::vector<int32_t> op_list;
-
-    const char* splitor = ",";
-
-    auto end = op_list_line.find(splitor);
-    decltype(end) start = -1;
-    while (end != op_list_line.npos && end != start) {
-        auto value = op_list_line.substr(start + 1, end - start - 1);
-        start = op_list_line.find(splitor, end);
-        end = op_list_line.find(splitor, start + 1);
-        op_list.push_back(std::stoi(value));
-    }
-
-    return op_list.end() !=
-           std::find(op_list.begin(), op_list.end(), static_cast<int32_t>(op_type));
-}
-}  // namespace
 
 namespace android {
 namespace nn {
@@ -150,13 +116,15 @@ bool isTensor(const HalPlatform::Operand& operand) {
 bool VsiDriver::isSupportedOperation(const HalPlatform::Operation& operation,
                                      const HalPlatform::Model& model,
                                      std::string& reason) {
-    if (IsOpBlockedByBlacklist(static_cast<int32_t>(operation.type))) {
-        reason += " reject op because it blocked by debug blacklist file\n";
-        return false;
-    }
-#if ANDROID_SDK_VERSION >= 28
     bool isSupport = true;
-#endif
+    auto isConstantTensor = [](auto& operand) -> bool {
+        if (operand.lifetime == OperandLifeTime::CONSTANT_COPY ||
+            operand.lifetime == OperandLifeTime::CONSTANT_REFERENCE)
+            return true;
+        else
+            return false;
+    };
+
 #if ANDROID_SDK_VERSION >= 29
     auto checkSupportedOperand = [](auto& operand) -> bool {
         bool isSupported = true;
@@ -178,27 +146,8 @@ bool VsiDriver::isSupportedOperation(const HalPlatform::Operation& operation,
         return isSupported;
     };
 #endif
-#if ANDROID_SDK_VERSION >= 28
-    auto isConstantTensor = [](auto& operand) -> bool {
-        if (operand.lifetime == OperandLifeTime::CONSTANT_COPY ||
-            operand.lifetime == OperandLifeTime::CONSTANT_REFERENCE)
-            return true;
-        else
-            return false;
-    };
     // each operation check
     switch (operation.type) {
-#endif
-#if ANDROID_SDK_VERSION >= 29
-        // TODO: remove all of the work around
-        case OperationType::CONV_2D: {
-            OperationValidatePtr conv2D = std::make_unique<
-                op_validate::Conv2dValidate<HalPlatform::Model, HalPlatform::Operation>>(
-                model, operation);
-            return conv2D->Validate(reason);
-        }
-#endif
-#if ANDROID_SDK_VERSION >= 28
         case OperationType::ADD:
         case OperationType::SUB:
         case OperationType::MUL:
@@ -226,8 +175,55 @@ bool VsiDriver::isSupportedOperation(const HalPlatform::Operation& operation,
             }
             break;
         }
-#endif
 #if ANDROID_SDK_VERSION >= 29
+        case OperationType::AVERAGE_POOL_2D:{
+            OperationValidatePtr avgPool = std::make_unique<
+                op_validate::AveragePoolValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return avgPool->Validate(reason);
+        }
+        case OperationType::MAX_POOL_2D:{
+            OperationValidatePtr maxPool = std::make_unique<
+                op_validate::MaxPoolValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return maxPool->Validate(reason);
+        }
+        case OperationType::L2_POOL_2D:{
+            OperationValidatePtr l2Pool = std::make_unique<
+                op_validate::L2PoolValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return l2Pool->Validate(reason);
+        }
+        case OperationType::DEPTH_TO_SPACE:{
+            OperationValidatePtr depth2space = std::make_unique<
+                op_validate::Depth2spaceValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return depth2space->Validate(reason);
+        }
+        case OperationType::SPACE_TO_DEPTH:{
+            OperationValidatePtr space2depth = std::make_unique<
+                op_validate::Space2depthValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return space2depth->Validate(reason);
+        }
+        case OperationType::SPACE_TO_BATCH_ND:{
+            OperationValidatePtr space2batch = std::make_unique<
+                op_validate::Space2BatchValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return space2batch->Validate(reason);
+        }
+        case OperationType::BATCH_TO_SPACE_ND:{
+            OperationValidatePtr batch2space = std::make_unique<
+                op_validate::Batch2spaceValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return batch2space->Validate(reason);
+        }
+        case OperationType::CONV_2D: {
+            OperationValidatePtr conv2D = std::make_unique<
+                op_validate::Conv2dValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return conv2D->Validate(reason);
+        }
         case OperationType::RNN: {
             int32_t fuseCode = getScalarData<int32_t>(model, model.operands[operation.inputs[5]]);
             if (fuseCode == static_cast<int32_t>(FusedActivationFunc::RELU) ||
@@ -281,6 +277,10 @@ bool VsiDriver::isSupportedOperation(const HalPlatform::Operation& operation,
             }
 
             auto& perm = model.operands[operation.inputs[1]];
+            if (!isConstantTensor(perm)) {
+                isSupport &= false;
+                reason += "reject TRANSPOSE because permute is not constant operand \n";
+            }
             if (OperandLifeTime::MODEL_INPUT == perm.lifetime) {
                 isSupport &= false;
                 reason += "reject TRANSPOSE because permute not supported as an input \n";
@@ -295,16 +295,6 @@ bool VsiDriver::isSupportedOperation(const HalPlatform::Operation& operation,
                 isSupport &= false;
             }
 
-            break;
-        }
-        case OperationType::FULLY_CONNECTED: {
-            auto& input = model.operands[operation.inputs[0]];
-            auto& weight = model.operands[operation.inputs[1]];
-            if (input.dimensions.size() != 2 ||
-                (weight.dimensions.size() == 2 && input.dimensions[1] != weight.dimensions[1])) {
-                reason += "reject FC because weight tensor require reshape\n";
-                isSupport &= false;
-            }
             break;
         }
         case OperationType::PAD: {
@@ -678,11 +668,40 @@ bool VsiDriver::isSupportedOperation(const HalPlatform::Operation& operation,
                 model, operation);
             return depthwiseConv2d->Validate(reason);
         }
+        case OperationType::SLICE: {
+            OperationValidatePtr slice = std::make_unique<
+                op_validate::SliceValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return slice->Validate(reason);
+        }
+        case OperationType::PAD_V2: {
+            OperationValidatePtr pad_v2 = std::make_unique<
+                op_validate::PadV2Validate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return false;
+            // return pad_v2->Validate(reason);
+        }
+        case OperationType::STRIDED_SLICE: {
+            auto strided_slice = std::make_unique<
+                op_validate::StridedSliceValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                model, operation);
+            return strided_slice->Validate(reason);
+        }
+        case OperationType::SQUEEZE: {
+            auto squeeze = std::make_unique<
+                op_validate::SqueezeValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                    model, operation);
+            return squeeze->Validate(reason);
+        }
+        case OperationType::MEAN: {
+            auto mean = std::make_unique<
+                op_validate::MeanValidate<HalPlatform::Model, HalPlatform::Operation>>(
+                    model, operation);
+            return mean->Validate(reason);
+       }
         case OperationType::BOX_WITH_NMS_LIMIT:
-        case OperationType::PAD_V2:
         case OperationType::QUANTIZED_16BIT_LSTM:
         case OperationType::ROI_POOLING:
-        case OperationType::SLICE:
         case OperationType::TILE:
             isSupport &= false;
             break;
@@ -690,8 +709,8 @@ bool VsiDriver::isSupportedOperation(const HalPlatform::Operation& operation,
 #if ANDROID_SDK_VERSION >= 28
         default:
             isSupport &= true;
-    }
 #endif
+    }
 #if ANDROID_SDK_VERSION >= 29
 
     // Overall check
@@ -774,9 +793,39 @@ bool VsiDriver::isSupportedOperation(const HalPlatform::Operation& operation,
                 isSupport &= false;
             }
     }
-    return isSupport;
+
 #endif
-    return true;
+
+    auto is_scalar = [](const auto& operand)->bool {
+        switch (operand.type) {
+#if ANDROID_SDK_VERSION >= 29
+                case OperandType::BOOL:
+                case OperandType::FLOAT16:
+#endif
+
+#if ANDROID_SDK_VERSION >= 28
+#endif
+
+#if ANDROID_SDK_VERSION >= 27
+                case OperandType::FLOAT32:
+                case OperandType::UINT32:
+#endif
+                {
+                    return true;
+                }
+                default:
+                    return false;
+        }
+    };
+
+    for (size_t i = 0; i < operation.inputs.size(); ++i) {
+        auto& in_operand = model.operands[operation.inputs[i]];
+        if (OperandLifeTime::MODEL_INPUT == in_operand.lifetime && is_scalar(in_operand)) {
+            isSupport = false;
+            reason += ("reject op : Scalar data can not be model input");
+        }
+    }
+    return isSupport;
 }
 
 }  // namespace vsi_driver

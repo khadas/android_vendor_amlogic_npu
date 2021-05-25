@@ -26,10 +26,10 @@
 
 #include <vector>
 #include "vsi_nn_pub.h"
-#include "model.hpp"
-#include "interpreter.hpp"
-#include "shared_context.hpp"
-#include "ovxlib_delegate.hpp"
+#include "nnrt/model.hpp"
+#include "nnrt/interpreter.hpp"
+#include "nnrt/shared_context.hpp"
+#include "nnrt/ovxlib_delegate.hpp"
 
 namespace nnrt
 {

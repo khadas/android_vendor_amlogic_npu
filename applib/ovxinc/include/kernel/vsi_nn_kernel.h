@@ -770,7 +770,11 @@ static inline vsi_bool vsi_nn_kernel_tensor_attr_is_quantized
     ( const vsi_nn_kernel_tensor_attr_t * attr )
 {
     return ( attr && attr->quant > VSI_NN_KERNEL_QUANT_NONE
-            && attr->quant < VSI_NN_KERNEL_QUANT_TYPE_NUM );
+            && attr->quant < VSI_NN_KERNEL_QUANT_TYPE_NUM
+            && attr->dtype != F16
+            && attr->dtype != BF16
+            && attr->dtype != F32
+            && attr->dtype != F64 );
 } /* vsi_nn_kernel_tensor_attr_is_quantized() */
 
 //TODO: Make vsi_nn_kernel_dtype_e to public and move dtype functions to vsi_nn_dtype.h

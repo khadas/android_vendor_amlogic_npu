@@ -76,7 +76,7 @@ INCLUDE += -I$(AQROOT)/hal/kernel/inc
 INCLUDE += -I$(AQROOT)/hal/kernel
 INCLUDE += -I$(AQROOT)/hal/kernel/arch
 
-CFLAGS += $(INCLUDE) -Werror -ansi
+CFLAGS += $(INCLUDE) -Werror -ansi  -Wno-larger-than=
 
 
 ################################################################################

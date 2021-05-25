@@ -25,6 +25,7 @@
 #define _VSI_NN_OP_GRUCELL_OVXLIB_H
 
 #include "vsi_nn_types.h"
+#include "vsi_nn_op_grucell_ovxlib.h"
 
 #define GRUCELL_RZ_GATE_COUNT 2
 
@@ -88,28 +89,9 @@ enum
     GRUCELL_GATE_COUNT
 };
 
-typedef struct _vsi_nn_grucell_ovxlib_lcl_data_t
-{
-    vsi_nn_activation_e gate_activation;
-    vsi_nn_activation_e candidate_activation;
-    vsi_bool multi_batch;
-    vsi_bool force_input_recurrent_on_NN;
-    vsi_nn_tensor_t* weights_update;
-    vsi_nn_tensor_t* weights_reset;
-    vsi_nn_tensor_t* weights_z_r;
-    vsi_nn_tensor_t* weights_c;
-    vsi_nn_tensor_t* weights_input;
-    vsi_nn_tensor_t* weights_recurrent;
-    vsi_nn_tensor_t* bias_z;
-    vsi_nn_tensor_t* bias_r;
-    vsi_nn_tensor_t* bias_z_r;
-    vsi_nn_tensor_t* bias_c;
-} vsi_nn_grucell_ovxlib_lcl_data_t;
-
 typedef struct _vsi_nn_grucell_ovxlib_param
 {
-    vsi_nn_grucell_ovxlib_lcl_data_t* local;
-
+    struct _grucell_ovxlib_local_data_t* local;
     uint32_t num_units;
     vsi_nn_activation_e activation;
     vsi_nn_activation_e recurrent_activation;
@@ -118,5 +100,7 @@ typedef struct _vsi_nn_grucell_ovxlib_param
     uint32_t cudnn_implementation_version;
     vsi_nn_dtype_t internal_dtype[GRUCELL_QUANTIZE_PARAM_COUNT];
 } vsi_nn_grucell_ovxlib_param;
+_compiler_assert(offsetof(vsi_nn_grucell_ovxlib_param, local) == 0, \
+    vsi_nn_vsi_nn_grucell_ovxlib_h );
 
 #endif

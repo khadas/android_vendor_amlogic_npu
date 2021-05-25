@@ -70,4 +70,10 @@
 #include "GroupedConv2DValidate.hpp"
 #include "ChannelShuffleValidate.hpp"
 #include "ReshapeValidate.hpp"
+#include "SpaceOpValidate.hpp"
+#include "SliceValidate.hpp"
+#include "StridedSliceValidate.hpp"
+#include "PadV2Validate.hpp"
+#include "SqueezeValidate.hpp"
+#include "MeanValidate.hpp"
 #endif

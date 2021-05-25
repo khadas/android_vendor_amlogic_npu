@@ -68,6 +68,10 @@ typedef struct _vsi_nn_gru_ovxlib_param
     vsi_bool return_sequences;
     uint32_t linear_before_reset;
     vsi_nn_dtype_t internal_dtype[GRUCELL_QUANTIZE_PARAM_COUNT];
+
+    struct _gru_ovxlib_local_data_t *local;
+    vsi_bool use_cudnn_implementation;
+    uint32_t cudnn_implementation_version;
 } vsi_nn_gru_ovxlib_param;
 
 #endif

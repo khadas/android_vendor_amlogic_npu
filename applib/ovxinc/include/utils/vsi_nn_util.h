@@ -48,6 +48,8 @@ extern "C" {
 #define vsi_nn_safe_free( _PTR ) if( _PTR ){ \
     free( _PTR ); _PTR = NULL; }
 
+#define vsi_safe_release_tensor(_t) if(_t){vsi_nn_ReleaseTensor(&(_t)); _t = NULL;}
+
 #define END_OF_VARIADIC_ARGUMENTS       0xbadcaffe
 #define FOREACH_ARGS(_args, _next, _arg_type) \
     while(((_arg_type)((size_t)END_OF_VARIADIC_ARGUMENTS)) != (_next = va_arg(_args, _arg_type)))
@@ -363,6 +365,11 @@ float vsi_nn_activation
     vsi_nn_activation_e activation
     );
 
+vsi_bool vsi_nn_is_same_type
+    (
+    vsi_nn_tensor_t * src,
+    vsi_nn_tensor_t * dst
+    );
 #ifdef __cplusplus
 }
 #endif

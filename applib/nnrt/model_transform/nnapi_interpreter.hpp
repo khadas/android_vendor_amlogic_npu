@@ -168,7 +168,7 @@ class NnApiInterpreter : public Interpreter
         REGISTER_OP(SQRT);
         REGISTER_OP(RSQRT);
         REGISTER_OP(SELECT);
-        //REGISTER_OP(SLICE);
+        REGISTER_OP(SLICE);
         REGISTER_OP(SPLIT);
         REGISTER_OP(DECONV_2D);
         REGISTER_OP(SIN);

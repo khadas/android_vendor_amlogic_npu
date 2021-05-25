@@ -36,6 +36,10 @@
 #include "Utils.h"
 
 #include "VsiPreparedModel.h"
+
+#if ANDROID_SDK_VERSION >= 29
+#include "VsiLock.h"
+#endif
 using android::sp;
 
 namespace android {

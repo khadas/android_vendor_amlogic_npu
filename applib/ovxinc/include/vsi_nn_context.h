@@ -60,6 +60,9 @@ typedef struct _vsi_nn_hw_config_t
 {
     char target_name[VSI_NN_MAX_TARGET_NAME];
     vsi_nn_hw_evis_t evis;
+#if VX_HARDWARE_CAPS_PARAMS_EXT_SUPPORT
+    uint32_t subGroupSize;
+#endif
 } vsi_nn_hw_config_t;
 
 /**

@@ -22,6 +22,7 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/ovx_inc \
 		    $(LOCAL_PATH)/../applib/ovxinc/include \
 		    $(LOCAL_PATH)/../applib/nnrt \
 		    $(LOCAL_PATH)/../applib/ \
+		    $(LOCAL_PATH)/extension_op/ \
 		    $(LOCAL_PATH)/../applib/nnrt/boost/libs/preprocessor/include \
                     $(LOCAL_PATH)/../../../../frameworks/ml/nn/common/include/ \
                     $(LOCAL_PATH)/../../../../frameworks/ml/nn/runtime/include/    \
@@ -49,7 +50,8 @@ LOCAL_SRC_FILES:= \
     VsiDriver.cpp \
     1.0/VsiDriver1_0.cpp \
     1.0/VsiDevice1_0.cpp \
-    VsiPreparedModel.cpp
+    VsiPreparedModel.cpp \
+    SandBox.cpp
 
 ifeq ($(shell expr $(PLATFORM_SDK_VERSION) ">=" 28),1)
 LOCAL_SRC_FILES += 1.1/VsiDevice1_1.cpp \
@@ -90,7 +92,7 @@ LOCAL_SHARED_LIBRARIES += libfmq \
                           libui \
                           android.hardware.neuralnetworks@1.2
 
-ifeq ($(shell expr $(PLATFORM_VERSION) ">=" R),1)
+ifeq ($(shell expr $(PLATFORM_SDK_VERSION) ">=" 30),1)
 LOCAL_SHARED_LIBRARIES += \
                           android.hardware.neuralnetworks@1.3
 

@@ -105,8 +105,11 @@
 #include "ops/vsi_nn_op_addn.h"
 #include "ops/vsi_nn_op_softmax_internal.h"
 #include "ops/vsi_nn_op_pre_process_yuv420.h"
+#include "ops/vsi_nn_op_pre_process_yuv444.h"
+#include "ops/vsi_nn_op_pre_process_nv12.h"
 #include "ops/vsi_nn_op_extra_ending.h"
 #include "ops/vsi_nn_op_gather.h"
+#include "ops/vsi_nn_op_scatter_nd.h"
 #include "ops/vsi_nn_op_tile.h"
 #include "ops/vsi_nn_op_grouped_conv2d.h"
 #include "ops/vsi_nn_op_topk.h"
@@ -153,6 +156,7 @@
 #include "ops/vsi_nn_op_batchnorm_single.h"
 #include "ops/vsi_nn_op_moments.h"
 #include "ops/vsi_nn_op_squeeze.h"
+#include "ops/vsi_nn_op_expand_broadcast.h"
 /* custom node head define define */
 #include "custom/vsi_nn_custom_node_type.h"
 
@@ -243,8 +247,11 @@ typedef union _vsi_nn_nn_param
     vsi_nn_addn_param               addn;
     vsi_nn_softmax_internal_param   softmax_internal;
     vsi_nn_pre_process_yuv420_param pre_process_yuv420;
+    vsi_nn_pre_process_yuv444_param pre_process_yuv444;
+    vsi_nn_pre_process_nv12_param   pre_process_nv12;
     vsi_nn_extra_ending_param       extra_ending;
     vsi_nn_gather_param             gather;
+    vsi_nn_scatter_nd_param         scatter_nd;
     vsi_nn_tile_param               tile;
     vsi_nn_grouped_conv2d_param     grouped_conv2d;
     vsi_nn_topk_param               topk;
@@ -290,8 +297,9 @@ typedef union _vsi_nn_nn_param
     vsi_nn_grucell_activation_internal_sma_param grucell_activation_internal_sma;
     vsi_nn_linear_param             linear;
     vsi_nn_batchnorm_single_param   batchnorm_single;
-    vsi_nn_moments_param             moments;
+    vsi_nn_moments_param            moments;
     vsi_nn_squeeze_param            squeeze;
+    vsi_nn_expand_broadcast_param   expand_broadcast;
     uint8_t                         client_param[128];
 
     /* custom node data struct define */

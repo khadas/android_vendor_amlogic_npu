@@ -12,6 +12,11 @@
  * The above copyright notice and this permission notice shall be included
  * in all copies or substantial portions of the Materials.
  *
+ * MODIFICATIONS TO THIS FILE MAY MEAN IT NO LONGER ACCURATELY REFLECTS
+ * KHRONOS STANDARDS. THE UNMODIFIED, NORMATIVE VERSIONS OF KHRONOS
+ * SPECIFICATIONS AND HEADER INFORMATION ARE LOCATED AT
+ *    https://www.khronos.org/registry/
+ *
  * THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
@@ -33,8 +38,8 @@
  *       Bruce Merry, February 2013.
  *       Tom Deakin and Simon McIntosh-Smith, July 2013
  *
- *   \version 1.2.7
- *   \date January 2015
+ *   \version 1.2.9
+ *   \date December 2015
  *
  *   Optional extension support
  *
@@ -145,6 +150,10 @@
 #ifndef CL_HPP_
 #define CL_HPP_
 
+// The latest version of the OpenCL C++ bindings can be found on GitHub:
+// -> https://github.com/KhronosGroup/OpenCL-CLHPP
+#pragma message("This version of the OpenCL Host API C++ bindings is deprecated, please use cl2.hpp instead.")
+
 #ifdef _WIN32
 
 #include <malloc.h>
@@ -227,6 +236,25 @@
 
 #include <cstring>
 
+// Compiler specific weak linking
+#ifndef CL_WEAK_ATTRIB_PREFIX
+// C++17: use inline variables/functions
+#if __cplusplus >= 201703L
+#define CL_USE_INLINE
+#endif
+
+#ifdef CL_USE_INLINE
+#define CL_WEAK_ATTRIB_PREFIX inline
+#define CL_WEAK_ATTRIB_SUFFIX
+#elif _WIN32
+#define CL_WEAK_ATTRIB_PREFIX __declspec(selectany)
+#define CL_WEAK_ATTRIB_SUFFIX
+#else // GCC, CLANG, etc.
+#define CL_WEAK_ATTRIB_PREFIX
+#define CL_WEAK_ATTRIB_SUFFIX __attribute__((weak))
+#endif // CL_USE_INLINE
+
+#endif // CL_WEAK_ATTRIB_PREFIX
 
 /*! \namespace cl
  *
@@ -481,7 +509,7 @@ typedef std::string STRING_CLASS;
  *  re-define the string class to match the std::string
  *  interface by defining STRING_CLASS
  */
-class CL_EXT_PREFIX__VERSION_1_1_DEPRECATED string CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED
+class CL_EXT_PREFIX__VERSION_1_1_DEPRECATED string
 {
 private:
     ::size_t size_;
@@ -647,7 +675,7 @@ public:
      *  or "" if empty/unset.
      */
     const char * c_str(void) const { return (str_) ? str_ : "";}
-};
+} CL_EXT_SUFFIX__VERSION_1_1_DEPRECATED;
 typedef cl::string STRING_CLASS;
 #endif // #elif !defined(__USE_DEV_STRING)
 
@@ -1206,22 +1234,44 @@ inline cl_int getInfoHelper(Func f, cl_uint name, VECTOR_CLASS<char *>* param, i
 template <typename Func>
 inline cl_int getInfoHelper(Func f, cl_uint name, STRING_CLASS* param, long)
 {
+#if defined(__NO_STD_VECTOR) || defined(__NO_STD_STRING)
     ::size_t required;
     cl_int err = f(name, 0, NULL, &required);
     if (err != CL_SUCCESS) {
         return err;
     }
 
-    // std::string has a constant data member
-    // a char vector does not
-    VECTOR_CLASS<char> value(required);
-    err = f(name, required, value.data(), NULL);
+    char* value = (char*)alloca(required);
+    err = f(name, required, value, NULL);
     if (err != CL_SUCCESS) {
         return err;
     }
-    if (param) {
-        param->assign(value.begin(), value.end());
+
+    *param = value;
+    return CL_SUCCESS;
+#else
+    ::size_t required;
+    cl_int err = f(name, 0, NULL, &required);
+    if (err != CL_SUCCESS) {
+        return err;
     }
+
+    if (required > 0) {
+        // std::string has a constant data member
+        // a char vector does not
+        VECTOR_CLASS<char> value(required);
+        err = f(name, required, value.data(), NULL);
+        if (err != CL_SUCCESS) {
+            return err;
+        }
+        if (param) {
+            param->assign(value.begin(), value.end() - 1u);
+        }
+    }
+    else if (param) {
+        param->assign("");
+    }
+#endif
     return CL_SUCCESS;
 }
 
@@ -1310,6 +1360,8 @@ inline cl_int getInfoHelper(Func f, cl_uint name, T* param, int, typename T::cl_
     F(cl_device_info, CL_DEVICE_MEM_BASE_ADDR_ALIGN, cl_uint) \
     F(cl_device_info, CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE, cl_uint) \
     F(cl_device_info, CL_DEVICE_SINGLE_FP_CONFIG, cl_device_fp_config) \
+    F(cl_device_info, CL_DEVICE_DOUBLE_FP_CONFIG, cl_device_fp_config) \
+    F(cl_device_info, CL_DEVICE_HALF_FP_CONFIG, cl_device_fp_config) \
     F(cl_device_info, CL_DEVICE_GLOBAL_MEM_CACHE_TYPE, cl_device_mem_cache_type) \
     F(cl_device_info, CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, cl_uint)\
     F(cl_device_info, CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, cl_ulong) \
@@ -1365,9 +1417,9 @@ inline cl_int getInfoHelper(Func f, cl_uint name, T* param, int, typename T::cl_
     \
     F(cl_sampler_info, CL_SAMPLER_REFERENCE_COUNT, cl_uint) \
     F(cl_sampler_info, CL_SAMPLER_CONTEXT, cl::Context) \
-    F(cl_sampler_info, CL_SAMPLER_NORMALIZED_COORDS, cl_addressing_mode) \
-    F(cl_sampler_info, CL_SAMPLER_ADDRESSING_MODE, cl_filter_mode) \
-    F(cl_sampler_info, CL_SAMPLER_FILTER_MODE, cl_bool) \
+    F(cl_sampler_info, CL_SAMPLER_NORMALIZED_COORDS, cl_bool) \
+    F(cl_sampler_info, CL_SAMPLER_ADDRESSING_MODE, cl_addressing_mode) \
+    F(cl_sampler_info, CL_SAMPLER_FILTER_MODE, cl_filter_mode) \
     \
     F(cl_program_info, CL_PROGRAM_REFERENCE_COUNT, cl_uint) \
     F(cl_program_info, CL_PROGRAM_CONTEXT, cl::Context) \
@@ -1407,8 +1459,6 @@ inline cl_int getInfoHelper(Func f, cl_uint name, T* param, int, typename T::cl_
     F(cl_device_info, CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT, cl_uint) \
     F(cl_device_info, CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE, cl_uint) \
     F(cl_device_info, CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF, cl_uint) \
-    F(cl_device_info, CL_DEVICE_DOUBLE_FP_CONFIG, cl_device_fp_config) \
-    F(cl_device_info, CL_DEVICE_HALF_FP_CONFIG, cl_device_fp_config) \
     F(cl_device_info, CL_DEVICE_HOST_UNIFIED_MEMORY, cl_bool) \
     F(cl_device_info, CL_DEVICE_OPENCL_C_VERSION, STRING_CLASS) \
     \
@@ -1424,7 +1474,10 @@ inline cl_int getInfoHelper(Func f, cl_uint name, T* param, int, typename T::cl_
 
 #if defined(CL_VERSION_1_2)
 #define __PARAM_NAME_INFO_1_2(F) \
+    F(cl_image_info, CL_IMAGE_ARRAY_SIZE, ::size_t) \
     F(cl_image_info, CL_IMAGE_BUFFER, cl::Buffer) \
+    F(cl_image_info, CL_IMAGE_NUM_MIP_LEVELS, cl_uint) \
+    F(cl_image_info, CL_IMAGE_NUM_SAMPLES, cl_uint) \
     \
     F(cl_program_info, CL_PROGRAM_NUM_KERNELS, ::size_t) \
     F(cl_program_info, CL_PROGRAM_KERNEL_NAMES, STRING_CLASS) \
@@ -1436,15 +1489,21 @@ inline cl_int getInfoHelper(Func f, cl_uint name, T* param, int, typename T::cl_
     F(cl_kernel_arg_info, CL_KERNEL_ARG_ADDRESS_QUALIFIER, cl_kernel_arg_address_qualifier) \
     F(cl_kernel_arg_info, CL_KERNEL_ARG_ACCESS_QUALIFIER, cl_kernel_arg_access_qualifier) \
     F(cl_kernel_arg_info, CL_KERNEL_ARG_TYPE_NAME, STRING_CLASS) \
+    F(cl_kernel_arg_info, CL_KERNEL_ARG_TYPE_QUALIFIER, cl_kernel_arg_type_qualifier) \
     F(cl_kernel_arg_info, CL_KERNEL_ARG_NAME, STRING_CLASS) \
     \
+    F(cl_device_info, CL_DEVICE_IMAGE_MAX_BUFFER_SIZE, ::size_t) \
+    F(cl_device_info, CL_DEVICE_IMAGE_MAX_ARRAY_SIZE, ::size_t) \
+    F(cl_device_info, CL_DEVICE_LINKER_AVAILABLE, cl_bool) \
+    F(cl_device_info, CL_DEVICE_BUILT_IN_KERNELS, STRING_CLASS) \
+    F(cl_device_info, CL_DEVICE_PRINTF_BUFFER_SIZE, ::size_t) \
+    F(cl_device_info, CL_DEVICE_PREFERRED_INTEROP_USER_SYNC, cl_bool) \
     F(cl_device_info, CL_DEVICE_PARENT_DEVICE, cl_device_id) \
+    F(cl_device_info, CL_DEVICE_PARTITION_MAX_SUB_DEVICES, cl_uint) \
     F(cl_device_info, CL_DEVICE_PARTITION_PROPERTIES, VECTOR_CLASS<cl_device_partition_property>) \
-    F(cl_device_info, CL_DEVICE_PARTITION_TYPE, VECTOR_CLASS<cl_device_partition_property>)  \
-    F(cl_device_info, CL_DEVICE_REFERENCE_COUNT, cl_uint) \
-    F(cl_device_info, CL_DEVICE_PREFERRED_INTEROP_USER_SYNC, ::size_t) \
     F(cl_device_info, CL_DEVICE_PARTITION_AFFINITY_DOMAIN, cl_device_affinity_domain) \
-    F(cl_device_info, CL_DEVICE_BUILT_IN_KERNELS, STRING_CLASS)
+    F(cl_device_info, CL_DEVICE_PARTITION_TYPE, VECTOR_CLASS<cl_device_partition_property>)  \
+    F(cl_device_info, CL_DEVICE_REFERENCE_COUNT, cl_uint)
 #endif // #if defined(CL_VERSION_1_2)
 
 #if defined(USE_CL_DEVICE_FISSION)
@@ -2551,7 +2610,7 @@ public:
                     error = platforms[i].getDevices(type, &devices);
 
 #if defined(__CL_ENABLE_EXCEPTIONS)
-                } catch (Error) {}
+                } catch (Error &) {}
     // Catch if exceptions are enabled as we don't want to exit if first platform has no devices of type
     // We do error checking next anyway, and can throw there if needed
 #endif
@@ -2727,31 +2786,41 @@ public:
         VECTOR_CLASS<ImageFormat>* formats) const
     {
         cl_uint numEntries;
-        cl_int err = ::clGetSupportedImageFormats(
-           object_,
-           flags,
-           type,
-           0,
-           NULL,
-           &numEntries);
-        if (err != CL_SUCCESS) {
-            return detail::errHandler(err, __GET_SUPPORTED_IMAGE_FORMATS_ERR);
+
+        if (!formats) {
+            return CL_SUCCESS;
         }
 
-        ImageFormat* value = (ImageFormat*)
-            alloca(numEntries * sizeof(ImageFormat));
-        err = ::clGetSupportedImageFormats(
+        cl_int err = ::clGetSupportedImageFormats(
             object_,
             flags,
             type,
-            numEntries,
-            (cl_image_format*) value,
-            NULL);
+            0,
+            NULL,
+            &numEntries);
         if (err != CL_SUCCESS) {
             return detail::errHandler(err, __GET_SUPPORTED_IMAGE_FORMATS_ERR);
         }
 
-        formats->assign(&value[0], &value[numEntries]);
+        if (numEntries > 0) {
+            ImageFormat* value = (ImageFormat*)
+                alloca(numEntries * sizeof(ImageFormat));
+            err = ::clGetSupportedImageFormats(
+                object_,
+                flags,
+                type,
+                numEntries,
+                (cl_image_format*)value,
+                NULL);
+            if (err != CL_SUCCESS) {
+                return detail::errHandler(err, __GET_SUPPORTED_IMAGE_FORMATS_ERR);
+            }
+
+            formats->assign(&value[0], &value[numEntries]);
+        }
+        else {
+            formats->clear();
+        }
         return CL_SUCCESS;
     }
 };
@@ -2779,24 +2848,14 @@ inline Device Device::getDefault(cl_int * err)
     return device;
 }
 
+#ifdef CL_HPP_CPP11_ATOMICS_SUPPORTED
+CL_WEAK_ATTRIB_PREFIX std::atomic<int> CL_WEAK_ATTRIB_SUFFIX Context::default_initialized_;
+#else // !CL_HPP_CPP11_ATOMICS_SUPPORTED
+CL_WEAK_ATTRIB_PREFIX volatile int CL_WEAK_ATTRIB_SUFFIX Context::default_initialized_ = __DEFAULT_NOT_INITIALIZED;
+#endif // !CL_HPP_CPP11_ATOMICS_SUPPORTED
 
-#ifdef _WIN32
-#ifdef CL_HPP_CPP11_ATOMICS_SUPPORTED
-__declspec(selectany) std::atomic<int> Context::default_initialized_;
-#else // !CL_HPP_CPP11_ATOMICS_SUPPORTED
-__declspec(selectany) volatile int Context::default_initialized_ = __DEFAULT_NOT_INITIALIZED;
-#endif // !CL_HPP_CPP11_ATOMICS_SUPPORTED
-__declspec(selectany) Context Context::default_;
-__declspec(selectany) volatile cl_int Context::default_error_ = CL_SUCCESS;
-#else // !_WIN32
-#ifdef CL_HPP_CPP11_ATOMICS_SUPPORTED
-__attribute__((weak)) std::atomic<int> Context::default_initialized_;
-#else // !CL_HPP_CPP11_ATOMICS_SUPPORTED
-__attribute__((weak)) volatile int Context::default_initialized_ = __DEFAULT_NOT_INITIALIZED;
-#endif // !CL_HPP_CPP11_ATOMICS_SUPPORTED
-__attribute__((weak)) Context Context::default_;
-__attribute__((weak)) volatile cl_int Context::default_error_ = CL_SUCCESS;
-#endif // !_WIN32
+CL_WEAK_ATTRIB_PREFIX Context CL_WEAK_ATTRIB_SUFFIX Context::default_;
+CL_WEAK_ATTRIB_PREFIX volatile cl_int CL_WEAK_ATTRIB_SUFFIX Context::default_error_ = CL_SUCCESS;
 
 /*! \brief Class interface for cl_event.
  *
@@ -5727,6 +5786,7 @@ public:
 
         return err;
     }
+#if defined(CL_VERSION_1_1)
 
     cl_int enqueueReadBufferRect(
         const Buffer& buffer,
@@ -5777,7 +5837,7 @@ public:
         ::size_t buffer_slice_pitch,
         ::size_t host_row_pitch,
         ::size_t host_slice_pitch,
-        void *ptr,
+        const void *ptr,
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL) const
     {
@@ -5842,6 +5902,7 @@ public:
 
         return err;
     }
+#endif //if defined(CL_VERSION_1_1)
 
 #if defined(CL_VERSION_1_2)
     /**
@@ -5914,7 +5975,7 @@ public:
         const size_t<3>& region,
         ::size_t row_pitch,
         ::size_t slice_pitch,
-        void* ptr,
+        const void* ptr,
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL) const
     {
@@ -6209,7 +6270,7 @@ public:
      */
     cl_int enqueueMarkerWithWaitList(
         const VECTOR_CLASS<Event> *events = 0,
-        Event *event = 0)
+        Event *event = 0) const
     {
         cl_event tmp;
         cl_int err = detail::errHandler(
@@ -6239,7 +6300,7 @@ public:
      */
     cl_int enqueueBarrierWithWaitList(
         const VECTOR_CLASS<Event> *events = 0,
-        Event *event = 0)
+        Event *event = 0) const
     {
         cl_event tmp;
         cl_int err = detail::errHandler(
@@ -6265,7 +6326,7 @@ public:
         cl_mem_migration_flags flags,
         const VECTOR_CLASS<Event>* events = NULL,
         Event* event = NULL
-        )
+        ) const
     {
         cl_event tmp;
 
@@ -6552,23 +6613,14 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *PFN_clEnqueueReleaseD3D10ObjectsKHR)(
     }
 };
 
-#ifdef _WIN32
 #ifdef CL_HPP_CPP11_ATOMICS_SUPPORTED
-__declspec(selectany) std::atomic<int> CommandQueue::default_initialized_;
+CL_WEAK_ATTRIB_PREFIX std::atomic<int> CL_WEAK_ATTRIB_SUFFIX CommandQueue::default_initialized_;
 #else // !CL_HPP_CPP11_ATOMICS_SUPPORTED
-__declspec(selectany) volatile int CommandQueue::default_initialized_ = __DEFAULT_NOT_INITIALIZED;
+CL_WEAK_ATTRIB_PREFIX volatile int CL_WEAK_ATTRIB_SUFFIX CommandQueue::default_initialized_ = __DEFAULT_NOT_INITIALIZED;
 #endif // !CL_HPP_CPP11_ATOMICS_SUPPORTED
-__declspec(selectany) CommandQueue CommandQueue::default_;
-__declspec(selectany) volatile cl_int CommandQueue::default_error_ = CL_SUCCESS;
-#else // !_WIN32
-#ifdef CL_HPP_CPP11_ATOMICS_SUPPORTED
-__attribute__((weak)) std::atomic<int> CommandQueue::default_initialized_;
-#else // !CL_HPP_CPP11_ATOMICS_SUPPORTED
-__attribute__((weak)) volatile int CommandQueue::default_initialized_ = __DEFAULT_NOT_INITIALIZED;
-#endif // !CL_HPP_CPP11_ATOMICS_SUPPORTED
-__attribute__((weak)) CommandQueue CommandQueue::default_;
-__attribute__((weak)) volatile cl_int CommandQueue::default_error_ = CL_SUCCESS;
-#endif // !_WIN32
+
+CL_WEAK_ATTRIB_PREFIX CommandQueue CL_WEAK_ATTRIB_SUFFIX CommandQueue::default_;
+CL_WEAK_ATTRIB_PREFIX volatile cl_int CL_WEAK_ATTRIB_SUFFIX CommandQueue::default_error_ = CL_SUCCESS;
 
 template< typename IteratorType >
 Buffer::Buffer(
@@ -6934,7 +6986,7 @@ inline cl_int enqueueWriteBufferRect(
     ::size_t buffer_slice_pitch,
     ::size_t host_row_pitch,
     ::size_t host_slice_pitch,
-    void *ptr,
+    const void *ptr,
     const VECTOR_CLASS<Event>* events = NULL,
     Event* event = NULL)
 {
@@ -7032,7 +7084,7 @@ inline cl_int enqueueWriteImage(
     const size_t<3>& region,
     ::size_t row_pitch,
     ::size_t slice_pitch,
-    void* ptr,
+    const void* ptr,
     const VECTOR_CLASS<Event>* events = NULL,
     Event* event = NULL)
 {
@@ -7704,7 +7756,7 @@ template<
     typename T29,
     typename T30>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -7926,7 +7978,7 @@ template<
     typename T28,
     typename T29>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -8144,7 +8196,7 @@ template<
     typename T27,
     typename T28>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -8358,7 +8410,7 @@ template<
     typename T26,
     typename T27>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -8568,7 +8620,7 @@ template<
     typename T25,
     typename T26>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -8774,7 +8826,7 @@ template<
     typename T24,
     typename T25>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -8976,7 +9028,7 @@ template<
     typename T23,
     typename T24>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -9174,7 +9226,7 @@ template<
     typename T22,
     typename T23>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -9368,7 +9420,7 @@ template<
     typename T21,
     typename T22>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -9558,7 +9610,7 @@ template<
     typename T20,
     typename T21>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -9744,7 +9796,7 @@ template<
     typename T19,
     typename T20>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -9926,7 +9978,7 @@ template<
     typename T18,
     typename T19>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -10104,7 +10156,7 @@ template<
     typename T17,
     typename T18>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -10278,7 +10330,7 @@ template<
     typename T16,
     typename T17>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -10448,7 +10500,7 @@ template<
     typename T15,
     typename T16>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -10614,7 +10666,7 @@ template<
     typename T14,
     typename T15>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -10776,7 +10828,7 @@ template<
     typename T13,
     typename T14>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -10934,7 +10986,7 @@ template<
     typename T12,
     typename T13>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -11088,7 +11140,7 @@ template<
     typename T11,
     typename T12>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -11238,7 +11290,7 @@ template<
     typename T10,
     typename T11>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -11384,7 +11436,7 @@ template<
     typename T9,
     typename T10>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -11526,7 +11578,7 @@ template<
     typename T8,
     typename T9>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -11664,7 +11716,7 @@ template<
     typename T7,
     typename T8>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -11798,7 +11850,7 @@ template<
     typename T6,
     typename T7>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -11928,7 +11980,7 @@ template<
     typename T5,
     typename T6>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -12054,7 +12106,7 @@ template<
     typename T4,
     typename T5>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -12176,7 +12228,7 @@ template<
     typename T3,
     typename T4>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -12294,7 +12346,7 @@ template<
     typename T2,
     typename T3>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     T3,
@@ -12408,7 +12460,7 @@ template<
     typename T1,
     typename T2>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     T2,
     NullType,
@@ -12518,7 +12570,7 @@ template<
     typename T0,
     typename T1>
 struct functionImplementation_
-<   T0,
+<    T0,
     T1,
     NullType,
     NullType,
@@ -12624,7 +12676,7 @@ struct functionImplementation_
 template<
     typename T0>
 struct functionImplementation_
-<   T0,
+<    T0,
     NullType,
     NullType,
     NullType,

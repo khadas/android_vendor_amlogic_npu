@@ -45,4 +45,20 @@
 */
 #define VX_ACTIVATION_EXT_SUPPORT 1
 
+/*
+ VX_HARDWARE_CAPS_PARAMS_EXT_SUPPORT is used to query more hardware parameter such as shader sub-group size.
+ [value]
+ 0: not support
+ 1: support
+*/
+#define VX_HARDWARE_CAPS_PARAMS_EXT_SUPPORT 1
+
+/*
+ VX_USER_LOOKUP_TABLE_SUPPORT is used to declare that openvx can support user lookuptable.
+ [value]
+ 0: not support
+ 1: support
+*/
+#define VX_USER_LOOKUP_TABLE_SUPPORT 1
+
 #endif /* __VX_KHR_COMPATIBLE_H__ */

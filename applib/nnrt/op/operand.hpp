@@ -139,7 +139,6 @@ class Operand : public BaseOperand {
         perm_vector_ = permVector;
     }
 
-   private:
     void cloneQuantParams(Operand* operand);
 
    private:

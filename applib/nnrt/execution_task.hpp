@@ -26,9 +26,9 @@
 
 #include <queue>
 #include <mutex>
-#include "prepared_model.hpp"
-#include "execution.hpp"
-#include "event.hpp"
+#include "nnrt/prepared_model.hpp"
+#include "nnrt/execution.hpp"
+#include "nnrt/event.hpp"
 
 namespace nnrt
 {

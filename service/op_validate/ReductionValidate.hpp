@@ -44,6 +44,11 @@ bool ReduceOpRule(T_model model, T_Operation operation, std::string& reason) {
         get_buffer::getOperandDataPtr(model, axesOperand, axesMemInfo));
     const int32_t* axesEnd = axes + axesMemInfo.buffer_size;
     std::set<int32_t> uniqueAxes;
+
+    if (0 == axesMemInfo.buffer_size) {
+        reason += "reject Reduce because we don't support dynamic input for axes\n";
+        return false;
+    }
     while (axes < axesEnd) {
         uniqueAxes.insert((*axes + inputRank) % inputRank);
         ++axes;
