@@ -149,6 +149,7 @@ class OvxlibDelegate
             return new_mask;
         };
 
+        void enable_cache(bool status) { enable_cache_ = status; };
 #define REGISTER_OP(NAME)   \
         int addNode_##NAME(nnrt::Model* model, nnrt::op::OperationPtr operation, uint32_t)
         REGISTER_OP(ADD);
@@ -253,6 +254,9 @@ class OvxlibDelegate
         REGISTER_OP(CAST);
         REGISTER_OP(QUANTIZED_16BIT_LSTM);
         REGISTER_OP(MATRIX_MUL);
+        REGISTER_OP(NBG);
+        REGISTER_OP(HARD_SWISH);
+        REGISTER_OP(ELU);
 #undef  REGISTER_OP
 
     private:
@@ -264,6 +268,7 @@ class OvxlibDelegate
         vsi_nn_graph_t* graph_{nullptr};
         std::vector<std::vector<int8_t>> size_pool_;
         std::vector<ExecutionIOPtr> inputs_;
+        bool enable_cache_{true};
 };
 
 inline std::map<uint32_t, vsi_nn_tensor_id_t> OvxlibDelegate::getTensorMapping()const{

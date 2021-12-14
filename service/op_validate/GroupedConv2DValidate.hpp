@@ -49,14 +49,14 @@ class GroupedConv2DValidate : public OperationValidate<T_model, T_Operation> {
                 reason += "reject GROUPED_CONV_2D because input and kernel share a same tensor\n";
                 return false;
             }
-            auto& groupNumberOperand = model.operands[operation.inputs[groupNumberIndex]];
-            auto& layoutOperand = model.operands[operation.inputs[layoutIndex]];
+            auto& groupNumberOperand = vsi_driver::GetHalOperand(model, operation.inputs[groupNumberIndex]);
+            auto& layoutOperand = vsi_driver::GetHalOperand(model, operation.inputs[layoutIndex]);
             uint32_t groupNumber = get_buffer::getScalarData<uint32_t>(model, groupNumberOperand);
             bool layout = get_buffer::getScalarData<bool>(model, layoutOperand);
             uint32_t inputChannel = 0;
             uint32_t outputChannel = 0;
-            auto inputOperand = model.operands[operation.inputs[inputIndex]];
-            auto outputOperand = model.operands[operation.outputs[0]];
+            auto inputOperand = vsi_driver::GetHalOperand(model, operation.inputs[inputIndex]);
+            auto outputOperand = vsi_driver::GetHalOperand(model, operation.outputs[0]);
             if (layout) {
                 // NCHW
                 inputChannel = inputOperand.dimensions[1];
@@ -74,7 +74,7 @@ class GroupedConv2DValidate : public OperationValidate<T_model, T_Operation> {
                     std::to_string(outputChannel) + "\n";
                 return false;
             }
-            auto kernelOperand = model.operands[operation.inputs[kernelIndex]];
+            auto kernelOperand = vsi_driver::GetHalOperand(model, operation.inputs[kernelIndex]);
             if (kernelOperand.lifetime != OperandLifeTime::CONSTANT_COPY) {
                 reason += "reject GROUPED_CONV2D because kernel is not constant \n";
                 return false;

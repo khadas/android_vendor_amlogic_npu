@@ -52,6 +52,9 @@ MAKE_SPEC(cast)
     OVERRIDE_SPEC(cast, asymm_u8)
     .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM));
 
+    OVERRIDE_SPEC(cast, asymm_int8)
+    .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED));
+
 #undef ARG_NAMES
 #undef ARGC
 #undef OP_SPEC_NAME

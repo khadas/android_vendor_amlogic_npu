@@ -54,6 +54,10 @@ OVERRIDE_SPEC(base, asymm_u8)
     .input0_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
     .input1_(nnrt::OperandType::TENSOR_QUANT8_ASYMM));
 
+OVERRIDE_SPEC(base, asymm_int8)
+    .input0_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
+    .input1_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED));
+
 #undef ARG_NAMES
 #undef ARGC
 #undef OP_SPEC_NAME
@@ -83,6 +87,10 @@ OVERRIDE_SPEC(base, int32)
 
 OVERRIDE_SPEC(base, asymm_u8)
     .input0_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
+    .output_(nnrt::OperandType::TENSOR_BOOL8));
+
+OVERRIDE_SPEC(base, asymm_int8)
+    .input0_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
     .output_(nnrt::OperandType::TENSOR_BOOL8));
 
 #undef ARG_NAMES

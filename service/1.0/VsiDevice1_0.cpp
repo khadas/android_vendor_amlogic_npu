@@ -36,7 +36,7 @@ namespace nn {
 namespace vsi_driver {
         Return<ErrorStatus> VsiDevice::prepareModel(const V1_0::Model& model,
                                                 const sp<V1_0::IPreparedModelCallback>& callback) {
-        return prepareModelBase(model, ExecutionPreference::SUSTAINED_SPEED, callback);
+        return prepareModelBase(model, ExecutionPreference::SUSTAINED_SPEED, callback, kInvalidCacheHandle_);
     }
 }  // namespace ovx_driver
 }  // namespace nn

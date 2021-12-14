@@ -24,7 +24,7 @@
 #ifndef ANDROID_ML_NN_VSI_RTINFO_H
 #define ANDROID_ML_NN_VSI_RTINFO_H
 
-#include "nnrt/file_map_memory.hpp"
+#include <nnrt/file_map_memory.hpp>
 #include "Utils.h"
 #include "HalInterfaces.h"
 

@@ -48,19 +48,8 @@ enum vx_context_attribute_internal_type_e
 
 enum vx_graph_attribute_internal_type_e
 {
-    /*! \brief Queries a graph for its device index (read-write. Use a <tt>\ref vx_uint32</tt> parameter. */
     VX_GRAPH_DEVICE_INDEX_VIV                     =  VX_ATTRIBUTE_BASE(VX_ID_VIVANTE, VX_TYPE_GRAPH) + 0x0,
-    /*! \brief Queries a graph for its weight data pre-loading size in vip sram (read-write. Use a <tt>\ref vx_uint32</tt> parameter. */
-    VX_GRAPH_VIP_SRAM_PRE_LOAD                    =  VX_ATTRIBUTE_BASE(VX_ID_VIVANTE, VX_TYPE_GRAPH) + 0x1,
-    /*! \brief Queries a graph for its weight data pre-loading size in axi sram (read-write. Use a <tt>\ref vx_uint32</tt> parameter. */
-    VX_GRAPH_AXI_SRAM_PRE_LOAD                    =  VX_ATTRIBUTE_BASE(VX_ID_VIVANTE, VX_TYPE_GRAPH) + 0x2,
 };
-
-/*! \brief Size Alignment of User Memory
- * \0x40   64Byte Align
- * \0x1000 4k Align
- */
-#define VX_WRAP_USER_MEMORY_SIZE_ALIGNMENT (0x40)
 
 /*! \brief OpenVX Version Compatibility set*/
 #define VX_KHR_COMPATIBILITY (0x1)
@@ -204,9 +193,9 @@ enum vx_nn_activation_function_e
     VX_NN_ACTIVATION_RELU1 = VX_ENUM_BASE(VX_ID_VIVANTE, VX_ENUM_NN_ACTIVATION_FUNCTION_TYPE) + 0x2,
     VX_NN_ACTIVATION_RSQRT = VX_ENUM_BASE(VX_ID_VIVANTE, VX_ENUM_NN_ACTIVATION_FUNCTION_TYPE) + 0x3,
     VX_NN_ACTIVATION_LEAKYRELU_MAX_POOLING = VX_ENUM_BASE(VX_ID_VIVANTE, VX_ENUM_NN_ACTIVATION_FUNCTION_TYPE) + 0x4,
-    VX_NN_ACTIVATION_SWISH = VX_ENUM_BASE(VX_ID_VIVANTE, VX_ENUM_NN_ACTIVATION_FUNCTION_TYPE) + 0x5,
-    VX_NN_ACTIVATION_HSWISH = VX_ENUM_BASE(VX_ID_VIVANTE, VX_ENUM_NN_ACTIVATION_FUNCTION_TYPE) + 0x6,
-    VX_NN_ACTIVATION_NONE = VX_ENUM_BASE(VX_ID_VIVANTE, VX_ENUM_NN_ACTIVATION_FUNCTION_TYPE) + 0x7,
+    VX_NN_ACTIVATION_NONE = VX_ENUM_BASE(VX_ID_VIVANTE, VX_ENUM_NN_ACTIVATION_FUNCTION_TYPE) + 0x5,
+    VX_NN_ACTIVATION_SWISH = VX_ENUM_BASE(VX_ID_VIVANTE, VX_ENUM_NN_ACTIVATION_FUNCTION_TYPE) + 0x6,
+    VX_NN_ACTIVATION_HSWISH = VX_ENUM_BASE(VX_ID_VIVANTE, VX_ENUM_NN_ACTIVATION_FUNCTION_TYPE) + 0x7,
 };
 
 /*! \brief  The Convolutional network type
@@ -258,12 +247,13 @@ enum vx_quantized_format_e
 {
     /*! \brief Non-quantized data. */
     VX_QUANT_NONE                   = 0x0,
-    /*! \brief A quantization data type which specifies the fixed point position for whole tensor. */
+    /*! \brief A quantization data type which specifies the fixed point position. */
     VX_QUANT_DYNAMIC_FIXED_POINT    = 0x1,
-    /*! \brief A quantization data type which has scale value and zero point to match with TF and Android NN API for whole tensor. */
+    /*! \brief A quantization data type which has scale value and zero point to match with TF and Android NN API */
     VX_QUANT_AFFINE_SCALE           = 0x2,
-    /*! \brief A quantization data type which has scale value and zero point to match with TF and Android NN API for per channel of tensor. */
+
     VX_QUANT_AFFINE_SCALE_PER_CHANNEL = 0x3,
+
 };
 
 /*! \brief The rank mode of tensor memory.
@@ -312,6 +302,20 @@ enum vx_tensor_lifetime_type_e
     TENSOR DATA FUNCTIONS
 =============================================================================*/
 
+/*! \brief The multi dimensional view data structure.
+* \details Used to split tensors into several views. Or concatenate several view into one tensor.
+* \see vxCreateTensorFromView
+* \ingroup group_tensor
+*/
+typedef struct _vx_tensor_view_t * vx_tensor_view;
+
+/*! \brief The addressing of a tensor view patch structure is used by the Host only
+* to address elements in a tensor view patch.
+* \see <tt>\ref vxCopyTensorPatch</tt>
+* \ingroup group_tensor
+*/
+typedef struct _vx_tensor_addressing_t  * vx_tensor_addressing;
+
 /*! \brief Create  an opaque reference to a tensor view object.
  * \details Not guaranteed to exist until the <tt>vx_graph</tt> containing it has been verified.
  * \param [in] context The reference to the implementation context.
@@ -357,6 +361,26 @@ VX_API_ENTRY vx_tensor_addressing VX_API_CALL vxCreateTensorAddressing(vx_contex
 * \ingroup group_tensor
 */
 VX_API_ENTRY vx_status VX_API_CALL vxReleaseTensorAddressing(vx_tensor_addressing *tensor_addr);
+
+/* vxCopyTensorPatchForNN11 is for back compatibility with spec 1.1, which is used in nn*/
+VX_API_ENTRY vx_status VX_API_CALL vxCopyTensorPatchForNN11(
+    vx_tensor tensor,
+    vx_tensor_view view,
+    vx_tensor_addressing user_addr,
+    void *user_ptr,
+    vx_enum usage,
+    vx_enum user_mem_type
+    );
+
+/* vxCreateTensorForNN11 is for back compatibility with spec 1.1, which is used in nn*/
+VX_API_ENTRY vx_tensor VX_API_CALL
+vxCreateTensorForNN11(
+    vx_context context,
+    vx_uint32 num_of_dims,
+    vx_uint32 *sizes,
+    vx_enum data_format,
+    vx_int8 fixed_point_pos
+    );
 
 /*! \brief Creates an array of tensors
  * \param [in] context      The reference to the overall Context.
@@ -438,18 +462,11 @@ VX_API_ENTRY vx_tensor VX_API_CALL vxCreateTensor2(vx_context context, const vx_
  */
 VX_API_ENTRY vx_tensor VX_API_CALL vxCreateVirtualTensor2(vx_graph graph, const vx_tensor_create_params_t* tensor_create_params, vx_size size_of_create_params);
 
-/*! \brief Swap tensor handle between two tensors which are created from handle.
- * \details These tensors must have the same attributes expect for tensor hanlde.
- * for better performance, must make sure the memory referenced by the tensor handle is flushed by using <tt>\ref vxFlushHandle</tt>.
- * \param [in] tensor0 The tensor whose handle will be changed to tensor1's.
- * \param [in] tensor1 The tensor whose handle will be changed to tensor0's.
- * \return A <tt>\ref vx_status_e</tt> enumeration.
- * \retval VX_SUCCESS No errors.
- * \retval VX_ERROR_INVALID_REFERENCE tensor is not a valid <tt>\ref vx_tensor</tt> reference.
- * reference.
- * \retval VX_ERROR_INVALID_REFERENCE The tensor0 and tensor1's attributes are not the same.
- * \ingroup group_tensor
- *\version 0.5
+/*! \brief Swaps the tensor created from handle.
+ *\details This function swap tensors logical and physical address.
+ *\these tensors must have the same proterties expect memory related content.
+ *\Attention: APP should make sure the cache and memory cohensive for the first call vxSwapTensor
+ *\version 0.4
  */
 VX_API_ENTRY vx_status VX_API_CALL vxSwapTensor(vx_tensor tensor0, vx_tensor tensor1);
 
@@ -473,10 +490,10 @@ VX_API_ENTRY vx_tensor VX_API_CALL vxCreateTensorFromHandle2(
         vx_context context, const vx_tensor_create_params_t* tensor_create_params, vx_size size_of_create_params, const vx_tensor_addressing addrs,
         void * const ptr, vx_enum import_type);
 
-/*! \brief Flush the memory referenced by reference's handle when it is ready.
-* \param [in] ref The reference(image or tensor) which created from handle.
-* \return A <tt>\ref vx_status_e</tt> enumeration.;
-* \retval VX_ERROR_INVALID_REFERENCE tensor is not a valid <tt>\ref vx_tensor</tt> <tt>\ref vx_image</tt>reference created from Handle.
+/*
+*\ vxo_flushHandle used to support vxo_createTensorFromHandle/vxo_createImageFromHandle
+*\once app change the content of tensor/image, app can call vxo_flushHandle to make the cache cohenrence and will get better performance;
+*\ Or driver will handle it default, but worst perforamnce.
 */
 VX_API_ENTRY vx_status VX_API_CALL vxFlushHandle(vx_reference ref);
 
@@ -635,7 +652,7 @@ typedef struct _vx_nn_convolution_params_ext2_t
  * \param [in] graph The handle to the graph.
  * \param [in] inputs The input tensor data. 3 lower dimensions represent a single input, all following dimensions represent number of batches, possibly nested.
  * The dimension order is [width, height, #IFM, #batches].\n
- * \param [in] weights [*static] Weights are 4d tensor with dimensions [kernel_x, kernel_y, #IFM, #OFM]. see <tt>\ref vxCreateTensor2</tt> and <tt>\ref vxCreateVirtualTensor2</tt> \n Weights data type must match the data type of the inputs.  (Kernel parameter #1)
+ * \param [in] weights [*static] Weights are 4d tensor with dimensions [kernel_x, kernel_y, #IFM, #OFM]. see <tt>\ref vxCreateTensor</tt> and <tt>\ref vxCreateVirtualTensor</tt> \n Weights data type must match the data type of the inputs.  (Kernel parameter #1)
  * \param [in] biases [*static] Optional, ignored if NULL. The biases, which may be shared (one per ofm) or unshared (one per ofm * output location). The possible layouts are
  * either [#OFM] or [width, height, #OFM]. Biases data type must match the data type of the inputs.
  * \param [in] convolution_params [static] Pointer to parameters of type <tt>\ref vx_nn_convolution_params_t</tt>.
@@ -670,11 +687,11 @@ VX_API_ENTRY vx_node VX_API_CALL vxConvolutionLayer(vx_graph graph, vx_tensor in
 * rounding is done according to <tt>\ref vx_convolutional_network_rounding_type_e</tt>.
 * \param [in] graph The handle to the graph.
 * \param [in] inputs The input tensor data. There two possible input layouts:
-* 1. [#IFM, #batches]. See <tt>\ref vxCreateTensor2</tt> and <tt>\ref vxCreateVirtualTensor2</tt>.
-* 2. [width, height, #IFM, #batches]. See <tt>\ref vxCreateTensor2</tt> and <tt>\ref vxCreateVirtualTensor2</tt>\n
+* 1. [#IFM, #batches]. See <tt>\ref vxCreateTensor</tt> and <tt>\ref vxCreateVirtualTensor</tt>.
+* 2. [width, height, #IFM, #batches]. See <tt>\ref vxCreateTensor</tt> and <tt>\ref vxCreateVirtualTensor</tt>\n
 * In both cases number of batches are optional and may be multidimensional.
 * The second option is a special case to deal with convolution layer followed by fully connected.
-* The dimension order is [#IFM, #batches]. See <tt>\ref vxCreateTensor2</tt> and <tt>\ref vxCreateVirtualTensor2</tt>. Note that batch may be multidimensional.
+* The dimension order is [#IFM, #batches]. See <tt>\ref vxCreateTensor</tt> and <tt>\ref vxCreateVirtualTensor</tt>. Note that batch may be multidimensional.
 * \param [in] weights [*static] Number of dimensions equals dim(single input)+1. Single input dims are [width, height, #IFM], with height and #IFM being optional.\n
 * \param [in] biases [*static]The biases, which may be shared (one per ofm) or unshared (one per ofm * output location).
 * \param [in] pad [static] Number of elements added at each side in the input.
@@ -682,7 +699,7 @@ VX_API_ENTRY vx_node VX_API_CALL vxConvolutionLayer(vx_graph graph, vx_tensor in
 * \param [in] overflow_policy [static] A <tt> VX_TYPE_ENUM</tt> of the <tt> vx_convert_policy_e</tt> enumeration.
 * \param [in] rounding_policy [static] A <tt> VX_TYPE_ENUM</tt> of the <tt> vx_round_policy_e</tt> enumeration.
 * \param [in] down_scale_size_rounding [static] Rounding method for calculating output dimensions. See <tt>\ref vx_convolutional_network_rounding_type_e</tt>
-* \param [out] outputs The output tensor data. Output dimension layout is [#OFM,#batches]. See <tt>\ref vxCreateTensor2</tt> and <tt>\ref vxCreateVirtualTensor2</tt>, where #batches may be multidimensional.
+* \param [out] outputs The output tensor data. Output dimension layout is [#OFM,#batches]. See <tt>\ref vxCreateTensor</tt> and <tt>\ref vxCreateVirtualTensor</tt>, where #batches may be multidimensional.
 * \return <tt> vx_node</tt>.
 * \retval 0 Node could not be created.
 * \retval * Node handle.
@@ -690,12 +707,84 @@ VX_API_ENTRY vx_node VX_API_CALL vxConvolutionLayer(vx_graph graph, vx_tensor in
 */
 VX_API_ENTRY vx_node VX_API_CALL vxFullyConnectedLayer(vx_graph graph, vx_tensor inputs, vx_tensor weights, vx_tensor biases, vx_enum overflow_policy, vx_enum rounding_policy, vx_tensor outputs);
 
+
+/*! \brief [Graph] Creates a Convolutional Network Pooling Layer Node.
+ * \details Pooling is done on the first 2 dimensions or the <tt>\ref vx_tensor</tt>. Therefore, we use here the term x for the first dimension and y for the second.\n
+ * Pooling operation is a function operation over a rectangle size and then a nearest neighbour down scale.
+ * Here we use pool_size_x and pool_size_y to specify the rectangle size on which the operation
+ * is performed. \n
+ * before the operation is done (average or maximum value). the data is padded in the first 2D with zeros.
+ * The down scale is done by picking the results according to a skip jump. The skip in the x and y dimension is determined by the output size dimensions.
+* \param [in] graph The handle to the graph.
+* \param [in] inputs The input tensor data. 3 lower dimensions represent a single input, 4th dimension for batch of inputs is optional.Dimension layout is [width, height, #IFM, #batches].
+* See <tt>\ref vxCreateTensor</tt> and <tt>\ref vxCreateVirtualTensor</tt>
+* \param [in] pool_type [static] Either max pooling or average pooling (see <tt>\ref vx_convolutional_network_pooling_type_e</tt>).
+* \param [in] pool_size_x [static] Size of the pooling region in the x dimension
+* \param [in] pool_size_y [static] Size of the pooling region in the y dimension.
+* \param [in] pool_pad_x [static] Padding size in the x dimension.
+* \param [in] pool_pad_y [static] Padding size in the y dimension.
+* \param [in] rounding [static] The rounding method for calculating output dimensions. See <tt>\ref vx_convolutional_network_rounding_type_e</tt>
+* \param [out] outputs The output tensor data. Output will have the same number of dimensions as input.
+* \return <tt> vx_node</tt>.
+* \retval 0 Node could not be created.
+* \retval * Node handle.
+* \ingroup group_cnn
+*/
+VX_API_ENTRY vx_node VX_API_CALL vxPoolingLayer(vx_graph graph, vx_tensor inputs, vx_enum pooling_type,
+        vx_size pooling_size_x,
+        vx_size pooling_size_y,
+        vx_size pooling_padding_x,
+        vx_size pooling_padding_y,
+        vx_enum rounding,
+        vx_tensor outputs);
+
+/*! \brief [Graph] Creates a Convolutional Network Softmax Layer Node.
+ * \details  the softmax function, is a generalization of the logistic function that "squashes" a K-dimensional vector \f$ z \f$ of arbitrary real values to a K-dimensional vector
+ * \f$ \sigma(z) \f$ of real values in the range (0, 1) that add up to 1. The function is given by:
+ * \f$ \sigma(z) = \frac{\exp^z}{\sum_i \exp^{z_i}} \f$
+ * \param [in] graph The handle to the graph.
+ * \param [in] inputs The input tensor,  with the number of dimensions according to the following scheme.
+ * In case IFM dimension is 1. Softmax is be calculated on that dimension.
+ * In case IFM dimension is 2. Softmax is be calculated on the first dimension. The second dimension is batching.
+ * In case IFM dimension is 3. Dimensions are [Width, Height, Classes]. And Softmax is calculated on the third dimension.
+ * In case IFM dimension is 4. Dimensions are [Width, Height, Classes, batching]. Softmax is calculated on the third dimension.
+ * Regarding the layout specification, see <tt>\ref vxCreateTensor</tt> and <tt>\ref vxCreateVirtualTensor</tt>.
+ * \param [out] outputs The output tensor. Output will have the same number of dimensions as input. Output tensor data type must be same as the inputs.
+ * \ingroup group_cnn
+ * \return <tt> vx_node</tt>.
+ * \returns A node reference <tt>\ref vx_node</tt>. Any possible errors preventing a
+ * successful creation should be checked using <tt>\ref vxGetStatus</tt>.
+ */
+VX_API_ENTRY vx_node VX_API_CALL vxSoftmaxLayer(vx_graph graph, vx_tensor inputs, vx_tensor outputs);
+
+/*! \brief [Graph] Creates a Convolutional Network Normalization Layer Node.
+* \details Normalizing over local input regions. Each input value is divided by \f$ (1+\frac{\alpha}{n}\sum_i x^2_i)^\beta \f$ , where n is the number of elements to normalize across.
+* and the sum is taken over the region centred at that value (zero padding is added where necessary).
+* \param [in] graph The handle to the graph.
+* \param [in] inputs The input tensor data. 3 lower dimensions represent a single input, 4th dimension for batch of inputs is optional.Dimension layout is [width, height, IFM, #batches].
+* See <tt>\ref vxCreateTensor</tt> and <tt>\ref vxCreateVirtualTensor</tt>.
+* \param [in] type [static] Either same map or across maps (see vx_convolutional_network_norm_type_e).
+* \param [in] norm_size [static] Number of elements to normalize across.
+* \param [in] alpha [static] Alpha parameter in the normalization equation.
+* \param [in] beta  [static ] Beta parameter in the normalization equation.
+* \param [out] outputs The output tensor data. Output will have the same number of dimensions as input.
+* \ingroup group_cnn
+* \return <tt> vx_node</tt>.
+* \retval 0 Node could not be created.
+* \retval * Node handle.
+*/
+VX_API_ENTRY vx_node VX_API_CALL vxNormalizationLayer(vx_graph graph, vx_tensor inputs, vx_enum type,
+        vx_size normalization_size,
+        vx_float32 alpha,
+        vx_float32 beta,
+        vx_tensor outputs);
+
 /*! \brief [Graph] Creates a Convolutional Network Local Response Normalization Layer Node. This function is optional for 8-bit extension with the extension string 'KHR_NN_8'.
  * \details Normalizing over local input regions. Each input value is divided by \f$ (\bias+\frac{\alpha}{n}\sum_i x^2_i)^\beta \f$ , where n is the number of elements to normalize across.
  * and the sum is taken over a rectangle region centred at that value (zero padding is added where necessary).
  * \param [in] graph The handle to the graph.
  * \param [in] inputs The input tensor data. 3 lower dimensions represent a single input, 4th dimension for batch of inputs is optional. Dimension layout is [width, height, IFM, #batches].
- * See <tt>\ref vxCreateTensor2</tt> and <tt>\ref vxCreateVirtualTensor2</tt>.
+ * See <tt>\ref vxCreateTensor</tt> and <tt>\ref vxCreateVirtualTensor</tt>.
  * Implementations must support input tensor data types indicated by the extension strings 'KHR_NN_8 KHR_NN_16'.
  * Since this function is optional for 'KHR_NN_8', so implementations only must support <tt>VX_TYPE_INT16</tt> with fixed_point_position 8.
  * \param [in] type [static] Either same map or across maps (see <tt>\ref vx_nn_norm_type_e</tt>).
@@ -787,7 +876,7 @@ typedef struct _vx_nn_stride_slice_params_t
 :* and the sum is taken over the region centred at that value (zero padding is added where necessary).
 * \param [in] graph The handle to the graph.
 * \param [in] inputs The input tensor data. 3 lower dimensions represent a single input, 4th dimension for batch of inputs is optional.Dimension layout is [width, height, IFM, #batches].
-* See <tt>\ref vxCreateTensor2</tt> and <tt>\ref vxCreateVirtualTensor2</tt>.
+* See <tt>\ref vxCreateTensor</tt> and <tt>\ref vxCreateVirtualTensor</tt>.
 * \param [in] nomalization_params [static] Pointer to <tt>\ref vx_nn_normalization_params_t </tt> parameter structure.
 * \param [in] size_of_normalization_param [static] The size of the parameter structure.
 * \param [out] outputs The output tensor data. Output will have the same number of dimensions as input.
@@ -822,7 +911,7 @@ VX_API_ENTRY vx_node VX_API_CALL vxActivationLayer(vx_graph graph, vx_tensor inp
  * Notice that this node creation function has more parameters than the corresponding kernel. Numbering of kernel parameters (required if you create this node using the generic interface) is explicitly specified here.
  * \param [in] graph The handle to the graph.
  * \param [in] inputs The input tensor data. 3 lower dimensions represent a single input, 4th dimension for batch of inputs is optional. Dimension layout is [width, height, #IFM, #batches].
- * See <tt>\ref vxCreateTensor2</tt> and <tt>\ref vxCreateVirtualTensor2</tt>.
+ * See <tt>\ref vxCreateTensor</tt> and <tt>\ref vxCreateVirtualTensor</tt>.
  * Implementations must support input tensor data types indicated by the extension strings 'KHR_NN_8' or 'KHR_NN_8 KHR_NN_16'.  (Kernel parameter #0)
  * \param [in] inputs_rois The roi array tensor. ROI array with dimensions [4, roi_count, #batches] where the first dimension represents 4 coordinates of the top left and bottom right corners of the roi rectangles, based on the input tensor width and height.
  * #batches is optional and must be the same as in inputs. roi_count is the number of ROI rectangles.  (Kernel parameter #1)
@@ -869,9 +958,9 @@ VX_API_ENTRY vx_node VX_API_CALL vxROIPoolingLayer(vx_graph graph, vx_tensor inp
  * Notice that this node creation function has more parameters than the corresponding kernel. Numbering of kernel parameters (required if you create this node using the generic interface) is explicitly specified here.
  * \param [in] graph The handle to the graph.
  * \param [in] inputs The input tensor. 3 lower dimensions represent a single input, and an optional 4th dimension for batch of inputs. Dimension layout is [width, height, #IFM, #batches].
- * See <tt>\ref vxCreateTensor2</tt> and <tt>\ref vxCreateVirtualTensor2</tt>.
+ * See <tt>\ref vxCreateTensor</tt> and <tt>\ref vxCreateVirtualTensor</tt>.
  * Implementations must support input tensor data types indicated by the extension strings 'KHR_NN_8' or 'KHR_NN_8 KHR_NN_16'.   (Kernel parameter #0)
- * \param [in] weights [static] The 4d weights with dimensions [width, height, #IFM, #OFM]. See <tt>\ref vxCreateTensor2</tt> and <tt>\ref vxCreateVirtualTensor2</tt>.  (Kernel parameter #1)
+ * \param [in] weights [static] The 4d weights with dimensions [width, height, #IFM, #OFM]. See <tt>\ref vxCreateTensor</tt> and <tt>\ref vxCreateVirtualTensor</tt>.  (Kernel parameter #1)
  * \param [in] biases [static] Optional, ignored if NULL. The biases have one dimension [#OFM]. Implementations must support input tensor data type same as the inputs.  (Kernel parameter #2)
  * \param [in] deconvolution_params [static] Pointer to parameters of type <tt>\ref vx_nn_deconvolution_params_t</tt>  (Kernel parameter #3)
  * \param [in] size_of_deconv_params [static] Size in bytes of deconvolution_params. Note that this parameter is not counted as one of the kernel parameters.
@@ -990,6 +1079,29 @@ VX_API_ENTRY vx_node VX_API_CALL vxConcatIndefiniteLayer(
     const vx_nn_concat_params_t* concat_params,
     vx_size size_of_concat_params,
     vx_tensor out
+    );
+
+/*! \brief [Graph] Creates a Reorgnization Layer Node.
+ * \details Reorganize the layer. Picking up pixels from input tensor according to the rule \n
+ * dimension 1: i * stride + (k / out_c) % stride \n
+ * dimension 2: j * stride + (k / out_c) / stride \n
+ * dimension 3: k % out_c  \n
+ * out_c = input_c / (stride * stride), i is in range (0, input_w-1), j is in range (0, input_h-1), k is in range (0, input_c-1)
+ * Output value is in order sequence.
+ * \param [in] graph The reference to the parent graph.
+ * \param [in] inputs The input tensor data to reorg.
+ * \param [in] stride [static] Delta size of two pixels in each dimensions to do a reorg operation.
+ * \param [out] outputs The output tensor data. Output will have different number of each dimensions as input.
+ * \returns <tt> vx_node</tt>.
+ * \retval 0 Node could not be created.
+ * \retval * Node handle.
+ * \ingroup group_cnn
+ */
+VX_API_ENTRY vx_node VX_API_CALL vxReorgLayer(
+    vx_graph                    graph,
+    vx_tensor                   inputs,
+    vx_uint32                   stride,
+    vx_tensor                   outputs
     );
 
 /*! \brief The type list of reorgnization.
@@ -1255,11 +1367,6 @@ typedef struct _vx_nn_yuv2rgb_scale_params_t
     vx_float32  scale_rgb;  /*!< \brief  Scale coefficient value for output rgb; Not the scale ratio; */
     vx_bool     y_only;     /*!< \brief  YUV mode, Y only or normal YUV.  */
     vx_bool     output_rgb; /*!< \brief  Output mode, BGR or RGB.  */
-    vx_bool     output_roi; /*!< \brief  Output full image or partial region of image. Default is full image. */
-    vx_uint8    fill_r;     /*!< \brief  R channel value of output image pad. */
-    vx_uint8    fill_g;     /*!< \brief  G channel value of output image pad. */
-    vx_uint8    fill_b;     /*!< \brief  B channel value of output image pad. */
-    vx_rectangle_t output_rect; /*!< \brief  The rectangle region of output image. It should be smaller than input image. If output_roi is false, this parameter will be ignored.*/
 } vx_nn_yuv2rgb_scale_params_t, * vx_nn_yuv2rgb_scale_params;
 
 /*! \brief [Graph] Creates a scale Layer Node.
@@ -1480,7 +1587,7 @@ typedef struct _vx_nn_pooling_params_ext_t
  * The down scale is done by picking the results according to a skip jump. The skip in the x and y dimension is determined by the output size dimensions.
  * \param [in] graph The handle to the graph.
  * \param [in] inputs The input tensor data. 3 lower dimensions represent a single input, 4th dimension for batch of inputs is optional.Dimension layout is [width, height, #IFM, #batches].
- * See <tt>\ref vxCreateTensor2</tt> and <tt>\ref vxCreateVirtualTensor2</tt>
+ * See <tt>\ref vxCreateTensor</tt> and <tt>\ref vxCreateVirtualTensor</tt>
  * \param [in] pooling_params [static] Pointer to parameters of type <tt>\ref vx_nn_pooling_params_t</tt>
  * \param [in] size_of_pooling_params [static] Size in bytes of pooling_params.
  * \param [out] outputs The output tensor data. Output will have the same number of dimensions as input.
@@ -1632,10 +1739,22 @@ typedef struct _vx_nn_l2norm_params_t
     vx_int32       axis;
 } vx_nn_l2norm_params_t;
 
+/*! \brief [Graph] Creates a Convolutional Network L2Normalize Layer Node.
+* \param [in] graph The handle to the graph.
+* \param [in] inputs The input tensor. 3 lower dimensions represent a single input, and an optional 4th dimension for batch of inputs. Dimension layout is [width, height, #IFM, #batches].
+ * See <tt>\ref vxCreateTensor</tt> and <tt>\ref vxCreateVirtualTensor</tt>.
+* \param [out] outputs The output tensor data. Output will have the same number of dimensions as input.
+* \ingroup group_cnn
+* \return <tt> vx_node</tt>.
+* \retval 0 Node could not be created.
+* \retval * Node handle.
+*/
+VX_API_ENTRY vx_node VX_API_CALL vxL2NormalizeLayer(vx_graph graph, vx_tensor inputs, vx_tensor outputs);
+
 /*! \brief [Graph] Creates a Convolutional Network L2Normalize Layer2 Node.
  * \param [in] graph The handle to the graph.
 * \param [in] inputs The input tensor. 3 lower dimensions represent a single input, and an optional 4th dimension for batch of inputs. Dimension layout is [width, height, #IFM, #batches].
- * See <tt>\ref vxCreateTensor2</tt> and <tt>\ref vxCreateVirtualTensor2</tt>.
+ * See <tt>\ref vxCreateTensor</tt> and <tt>\ref vxCreateVirtualTensor</tt>.
 * \param [in] l2norm_params [static] Pointer to parameters of type <tt>\ref vx_nn_l2norm_params</tt>
 * \param [in] size_of_l2norm_params [static] Size in bytes of vx_nn_l2norm_params.
 * \param [out] outputs The output tensor data. Output will have the same number of dimensions as input.
@@ -1951,15 +2070,6 @@ typedef struct _vx_hardware_caps_params_t
     vx_bool   evis1;         /*!< \brief  evs1 If true, hardware support evis1.*/
     vx_bool   evis2;         /*!< \brief  evs2 If true, hardware support evis2.*/
 } vx_hardware_caps_params_t;
-
-/*! \brief Input parameters for query hardware caps.
- * \ingroup group_context
- */
-typedef struct _vx_hardware_caps_params_ext_t
-{
-    vx_hardware_caps_params_t base;
-    vx_uint32 subGroupSize;        /*!< \brief  shader sub-group size.*/
-} vx_hardware_caps_params_ext_t;
 
 /*! \brief Queries hardware caps information.
  * \param [in] context The reference to the context.

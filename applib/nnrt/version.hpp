@@ -28,8 +28,8 @@
 #include <string>
 
 #define NNRT_MAJOR_VERSION 1
-#define NNRT_MINOR_VERSION 1
-#define NNRT_PATCH_VERSION 11
+#define NNRT_MINOR_VERSION 2
+#define NNRT_PATCH_VERSION 3
 #define _STR(A) #A
 #define STR(A) _STR(A)
 #ifdef GIT_STRING

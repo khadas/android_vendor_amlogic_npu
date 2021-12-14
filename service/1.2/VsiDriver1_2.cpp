@@ -3,7 +3,6 @@
 #include "VsiLock.h"
 
 #include "CapabilityConfig.h"
-#include "AppDetectionConfig.h"
 
 namespace android {
 namespace nn {
@@ -31,27 +30,25 @@ Return<void> VsiDriver::getCapabilities_1_2(V1_2::IDevice::getCapabilities_1_2_c
 #endif
 
     // Load supported operand types
-    update(&capabilities.operandPerformance, OperandType::TENSOR_QUANT8_ASYMM, kPerf);
-    update(&capabilities.operandPerformance, OperandType::TENSOR_BOOL8, kPerf);
-    update(&capabilities.operandPerformance, OperandType::TENSOR_INT32, kPerf);
+    update(&capabilities.operandPerformance, V1_2::OperandType::TENSOR_QUANT8_ASYMM, kPerf);
+    update(&capabilities.operandPerformance, V1_2::OperandType::TENSOR_BOOL8, kPerf);
+    update(&capabilities.operandPerformance, V1_2::OperandType::TENSOR_INT32, kPerf);
 
     if (!disable_float_feature_) {
-        update(&capabilities.operandPerformance, OperandType::TENSOR_FLOAT32, kPerf);
-        update(&capabilities.operandPerformance, OperandType::TENSOR_FLOAT16, kPerf);
+        update(&capabilities.operandPerformance, V1_2::OperandType::TENSOR_FLOAT32, kPerf);
+        update(&capabilities.operandPerformance, V1_2::OperandType::TENSOR_FLOAT16, kPerf);
     }
 
     auto customer_caps = CustomizeOverlay();
     for (auto& override_cap : customer_caps) {
-        LOG(INFO) << "update capability for datatype(" << (uint32_t)override_cap.first
+#if ANDROID_NN_API >= 30
+        auto operand_type = convertOperandTypeToV1_2(override_cap.first);
+#else
+        auto operand_type = override_cap.first;
+#endif
+        LOG(INFO) << "update capability for datatype(" << toString(operand_type)
                   << ")=" << override_cap.second.execTime << ", " << override_cap.second.powerUsage;
-        update(&capabilities.operandPerformance, override_cap.first, override_cap.second);
-    }
-
-    auto app_detection_caps = AppDetectionOverlay();
-    for (auto& override_cap : app_detection_caps) {
-        LOG(INFO) << "update capability for datatype(" << (uint32_t)override_cap.first
-                  << ")=" << override_cap.second.execTime << ", " << override_cap.second.powerUsage;
-        update(&capabilities.operandPerformance, override_cap.first, override_cap.second);
+        update(&capabilities.operandPerformance, operand_type, override_cap.second);
     }
 
     _hidl_cb(ErrorStatus::NONE, capabilities);
@@ -66,7 +63,7 @@ Return<void> VsiDriver::getSupportedOperations_1_2(
         _hidl_cb(ErrorStatus::INVALID_ARGUMENT, supported);
         return Void();
     }
-    return getSupportedOperationsBase(model, _hidl_cb);
+    return getSupportedOperationsBase(HalPlatform::convertVersion(model), _hidl_cb);
     }
 }
 }

@@ -39,7 +39,7 @@ class ReshapeValidate : public OperationValidate<T_model, T_Operation> {
         bool support = true;
         auto model = this->ModelForRead();
         auto operation = this->OperationForRead();
-        auto inputOperand = model.operands[operation.inputs[0]];
+        auto inputOperand = vsi_driver::GetHalOperand(model, operation.inputs[0]);
         size_t sizeOfInput{1};
         for (auto itor = inputOperand.dimensions.begin(); itor != inputOperand.dimensions.end();
              ++itor) {

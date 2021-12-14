@@ -55,7 +55,7 @@ class Compilation
         Interpreter* getInterpreter() { return interpreter_; };
 
         PreparedModelPtr prepareModel(int* err_ptr,
-                                      std::vector<ExecutionIOPtr>& inputs,
+                                      const std::vector<ExecutionIOPtr>& inputs,
                                       SharedContextPtr& ovx_context);
 
        private:

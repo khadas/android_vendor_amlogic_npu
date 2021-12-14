@@ -41,6 +41,7 @@ class PreluValidate : public OperationValidate<T_model, T_Operation> {
         if (inputList && outputList) {
             // Alpha only support 1D shape in ovxlib currently.
             int32_t alphaIndex = inputList->ArgPos("alpha");
+#if ANDROID_SDK_VERSION < 30
             auto alphaRank = this->ModelForRead()
                                  .operands[this->OperationForRead().inputs[alphaIndex]]
                                  .dimensions.size();
@@ -48,6 +49,15 @@ class PreluValidate : public OperationValidate<T_model, T_Operation> {
                 reason += "reject PRELU because alphaRank > 1 not support \n";
                 return false;
             }
+#elif ANDROID_SDK_VERSION >= 30
+            auto alphaRank = this->ModelForRead()
+                                 .main.operands[this->OperationForRead().inputs[alphaIndex]]
+                                 .dimensions.size();
+            if (alphaRank != 1) {
+                reason += "reject PRELU because alphaRank > 1 not support \n";
+                return false;
+            }
+#endif
             return true;
         } else {
             // Input or output data type not support

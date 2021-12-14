@@ -22,52 +22,24 @@
  *
  *****************************************************************************/
 
-#include "VsiDriver.h"
 #include "VsiPreparedModel.h"
 
 #include <sys/mman.h>
 #include <sys/system_properties.h>
 
 #include "OperationsUtils.h"
+#include "VsiDriver.h"
 #if ANDROID_SDK_VERSION >= 28
 #include "ValidateHal.h"
 #endif
-#include "nnrt/event.hpp"
-#include "nnrt/error.hpp"
-
+#include <nnrt/error.hpp>
+#include <nnrt/event.hpp>
 
 namespace android {
 namespace nn {
 namespace vsi_driver {
 
 class VsiDriver;
-static Return<ErrorStatus> convertResultCodeToErrorStatus(int resultCode) {
-    switch (resultCode) {
-        case NNA_NO_ERROR:
-            return ErrorStatus::NONE;
-
-        case NNA_BAD_DATA:
-        case NNA_UNEXPECTED_NULL:
-            LOG(ERROR) << "INVALID_ARGUMENT";
-            return ErrorStatus::INVALID_ARGUMENT;
-
-        case NNA_OUTPUT_INSUFFICIENT_SIZE:
-            LOG(ERROR) << "output insufficient size";
-            return ErrorStatus::OUTPUT_INSUFFICIENT_SIZE;
-
-        default:
-            LOG(ERROR) << "Unknown result code " << resultCode
-                       << " mapped to ErrorStatus::GENERAL_FAILURE";
-            return ErrorStatus::GENERAL_FAILURE;
-        case NNA_BAD_STATE:
-        case NNA_INCOMPLETE:
-        case NNA_OP_FAILED:
-        case NNA_OUT_OF_MEMORY:
-        case NNA_UNMAPPABLE:
-            LOG(ERROR) << "GENERAL_FAILURE";
-            return ErrorStatus::GENERAL_FAILURE;
-    }
-}
 
 static nnrt::OperationType op_code_mapping(
     HalPlatform::OperationType op) {  // Android O 8.1 API LEVEL 27
@@ -175,6 +147,10 @@ static nnrt::OperationType op_code_mapping(
             return nnrt::OperationType::TOPK;
         };
 #endif
+#if ANDROID_SDK_VERSION >= 30
+        MAP_OP(HARD_SWISH);
+        MAP_OP(ELU);
+#endif
 #undef MAP_OP
 
         default:
@@ -203,6 +179,12 @@ static nnrt::OperandType operand_mapping(HalPlatform::OperandType code) {
         MAP_OPERAND(TENSOR_QUANT16_SYMM);
         MAP_OPERAND(TENSOR_QUANT8_SYMM_PER_CHANNEL);
 #endif
+#if ANDROID_SDK_VERSION >= 30
+    case HalPlatform::OperandType::TENSOR_QUANT8_ASYMM_SIGNED: {
+        LOG(INFO) << "add operand: TENSOR_QUANT8_ASYMM_SIGNED";
+        return nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED;
+    }
+#endif
         MAP_OPERAND(FLOAT32);
         MAP_OPERAND(INT32);
         MAP_OPERAND(UINT32);
@@ -225,6 +207,8 @@ void VsiPreparedModel::release_rtinfo(std::vector<VsiRTInfo>& rtInfos) {
         rtInfos.pop_back();
     }
 }
+
+// #if ANDROID_SDK_VERSION < 30
 Return<ErrorStatus> VsiPreparedModel::map_rtinfo_from_hidl_memory(
     const hidl_vec<hidl_memory>& pools, std::vector<VsiRTInfo>& rtInfos) {
     rtInfos.clear();
@@ -238,6 +222,7 @@ Return<ErrorStatus> VsiPreparedModel::map_rtinfo_from_hidl_memory(
     return ErrorStatus::NONE;
 }
 
+#if ANDROID_SDK_VERSION < 30
 void VsiPreparedModel::fill_operand_value(nnrt::op::OperandPtr ovx_operand,
                                           const HalPlatform::Operand& hal_operand) {
     switch (hal_operand.lifetime) {
@@ -269,6 +254,41 @@ void VsiPreparedModel::fill_operand_value(nnrt::op::OperandPtr ovx_operand,
         } break;
     }
 }
+#elif ANDROID_SDK_VERSION >= 30
+void VsiPreparedModel::fill_operand_value(nnrt::op::OperandPtr ovx_operand,
+                                          const HalPlatform::Operand& hal_operand) {
+    switch (hal_operand.lifetime) {
+        case OperandLifeTime::SUBGRAPH_INPUT:
+        case OperandLifeTime::SUBGRAPH_OUTPUT:
+        case OperandLifeTime::TEMPORARY_VARIABLE:
+        case OperandLifeTime::SUBGRAPH:
+            // Skip lifetime is TEMPORARY_VARIABLE, SUBGRAPH_INPUT, SUBGRAPH_OUTPUT, NO_VALUE
+            // ,SUBGRAPH
+            break;
+        case OperandLifeTime::NO_VALUE: {
+            native_model_->setOperandValue(ovx_operand, nullptr, 0);
+        } break;
+        case OperandLifeTime::CONSTANT_COPY: {
+            const auto& location = hal_operand.location;
+            native_model_->setOperandValue(
+                ovx_operand, model_.operandValues.data() + location.offset, location.length);
+        } break;
+        case OperandLifeTime::CONSTANT_REFERENCE: {
+            const auto& location = hal_operand.location;
+            auto& rt_info = const_buffer_[location.poolIndex];
+
+            if ("ashmem" == rt_info.mem_type || "hardware_buffer_blob" == rt_info.mem_type) {
+                const uint8_t* buffer = rt_info.ptr;
+                native_model_->setOperandValue(
+                    ovx_operand, buffer + location.offset, location.length);
+            } else if ("mmap_fd" == rt_info.mem_type) {
+                native_model_->setOperandValueFromMemory(
+                    ovx_operand, rt_info.vsi_mem.get(), location.offset, location.length);
+            }
+        } break;
+    }
+}
+#endif
 
 Return<ErrorStatus> VsiPreparedModel::construct_ovx_operand(
     nnrt::op::OperandPtr ovx_operand, const HalPlatform::Operand& hal_operand) {
@@ -319,8 +339,15 @@ Return<ErrorStatus> VsiPreparedModel::initialize() {
     auto status = map_rtinfo_from_hidl_memory(model_.pools, const_buffer_);
     if (ErrorStatus::NONE != status) return status;
 
+    if(native_model_->get_cache_size() != 0 && native_model_->get_cache_handle() != -1){
+        return initializeCacheInternel();
+    }
     // add operand and set its value
+#if ANDROID_SDK_VERSION < 30
     for (const auto& hal_operand : model_.operands) {
+#elif ANDROID_SDK_VERSION >= 30
+    for (const auto& hal_operand : model_.main.operands) {
+#endif
         uint32_t registered_idx = 0;
         auto ovx_operand = native_model_->addOperand(nullptr, &registered_idx);
         auto status = construct_ovx_operand(ovx_operand, hal_operand);
@@ -333,21 +360,25 @@ Return<ErrorStatus> VsiPreparedModel::initialize() {
     }
 
     std::string not_supported_reason;
+#if ANDROID_SDK_VERSION < 30
     for (const auto& hal_op : model_.operations) {
+#elif ANDROID_SDK_VERSION >= 30
+    for (const auto& hal_op : model_.main.operations) {
+#endif
 #if ANDROID_SDK_VERSION >= 29
         if (VsiDriver::findExtensionOperation(hal_op)) return ErrorStatus::NONE;
 #endif
 
         if (IsOpBlocked(static_cast<int32_t>(hal_op.type)) ||
             !VsiDriver::isSupportedOperation(hal_op, model_, not_supported_reason)) {
-            LOG(ERROR) << "Device do not support operation type: " << static_cast<int>(hal_op.type);
+            LOG(ERROR) << "Device do not support operation type: " << toString(hal_op.type);
             LOG(INFO) << not_supported_reason;
             return ErrorStatus::INVALID_ARGUMENT;
         }
 
         auto ovx_op_type = op_code_mapping(hal_op.type);
         if (nnrt::OperationType::NONE == ovx_op_type) {
-            LOG(ERROR) << "Device do not support operation type: " << static_cast<int>(hal_op.type);
+            LOG(ERROR) << "Device do not support operation type: " << toString(hal_op.type);
             return ErrorStatus::INVALID_ARGUMENT;
         }
 
@@ -365,11 +396,61 @@ Return<ErrorStatus> VsiPreparedModel::initialize() {
         native_model_->relax(true);  // convert fp32 data to fp16 in nnrt.
 
     native_model_->finish();
+#if ANDROID_SDK_VERSION < 30
     std::vector<uint32_t> inputs = model_.inputIndexes;
     std::vector<uint32_t> outputs = model_.outputIndexes;
+#elif ANDROID_SDK_VERSION >= 30
+    std::vector<uint32_t> inputs = model_.main.inputIndexes;
+    std::vector<uint32_t> outputs = model_.main.outputIndexes;
+#endif
     native_model_->identifyInputsAndOutputs(
         inputs.data(), inputs.size(), outputs.data(), outputs.size());
     return ErrorStatus::NONE;
+}
+
+Return<ErrorStatus> VsiPreparedModel::initializeCacheInternel() {
+    LOG(INFO) << "VsiPreparedModel::initializeCache()";
+
+#if ANDROID_SDK_VERSION < 30
+    std::vector<uint32_t> inputs = model_.inputIndexes;
+    std::vector<uint32_t> outputs = model_.outputIndexes;
+#elif ANDROID_SDK_VERSION >= 30
+    std::vector<uint32_t> inputs = model_.main.inputIndexes;
+    std::vector<uint32_t> outputs = model_.main.outputIndexes;
+#endif
+
+    auto op = std::make_shared<nnrt::op::Operation>(nnrt::OperationType::NBG);
+    op->setInputs(inputs);
+    op->setOutputs(outputs);
+    op->setDataLayout(nnrt::DataLayout::NHWC);
+    uint32_t out_index = 0;
+    native_model_->addOperation(op, &out_index);
+
+#if ANDROID_SDK_VERSION < 30
+    for (const auto& hal_operand : model_.operands) {
+#elif ANDROID_SDK_VERSION >= 30
+    for (const auto& hal_operand : model_.main.operands) {
+#endif
+        uint32_t registered_idx = 0;
+        auto ovx_operand = native_model_->addOperand(nullptr, &registered_idx);
+        if (inputs[0] == registered_idx || outputs[0] == registered_idx) {
+            auto status = construct_ovx_operand(ovx_operand, hal_operand);
+            if (ErrorStatus::NONE != status) {
+                LOG(INFO) << "Deivce do not support the operand type"
+                          << static_cast<int32_t>(hal_operand.type);
+                return status;
+            }
+            fill_operand_value(ovx_operand, hal_operand);
+        }
+    }
+    if (model_.relaxComputationFloat32toFloat16) native_model_->relax(true);
+
+    native_model_->finish();
+    native_model_->identifyInputsAndOutputs(
+        inputs.data(), inputs.size(), outputs.data(), outputs.size());
+    return native_model_->allocate_cache_memory()
+               ? ErrorStatus::NONE
+               : ErrorStatus::INVALID_ARGUMENT;
 }
 
 void VsiPreparedModel::update_operand_from_request(const std::vector<uint32_t>& indexes,
@@ -390,6 +471,7 @@ void VsiPreparedModel::update_operand_from_request(const std::vector<uint32_t>& 
     }
 }
 
+// #if ANDROID_SDK_VERSION < 30
 Return<ErrorStatus> VsiPreparedModel::update_pool_info_from_request(
     const Request& request,
     const std::vector<uint32_t>& indexes,
@@ -423,7 +505,7 @@ Return<ErrorStatus> VsiPreparedModel::update_pool_info_from_request(
 
             auto& rt_info = io_buffer_[poolIndex];
             int nn_return = NNA_NO_ERROR;
-            if ("ashmem" == rt_info.mem_type) {
+            if ("ashmem" == rt_info.mem_type || "hardware_buffer_blob" == rt_info.mem_type) {
                 uint8_t* buffer = rt_info.ptr;
                 if (flag == IO::INPUT)
                     nn_return = native_exec_->setInput(
@@ -440,6 +522,18 @@ Return<ErrorStatus> VsiPreparedModel::update_pool_info_from_request(
                 else
                     nn_return = native_exec_->setOutputFromMemory(
                         i, ovx_operand, vsi_mem.get(), location.offset, location.length);
+            } else if ("token" == rt_info.mem_type) {
+                if (flag == IO::INPUT) {
+                    nn_return = native_exec_->setInput(
+                        i, ovx_operand, rt_info.ptr, rt_info.buffer_size);
+                } else {
+                    nn_return = native_exec_->setOutput(
+                        i, ovx_operand, rt_info.ptr, rt_info.buffer_size);
+                }
+            } else if ("hardware_buffer" == rt_info.mem_type) {
+                LOG(ERROR) << "Input & Ouput not set-1";
+            } else {
+                LOG(ERROR) << "Input & Ouput not set.";
             }
 
             auto status = convertResultCodeToErrorStatus(nn_return);
@@ -453,12 +547,45 @@ Return<ErrorStatus> VsiPreparedModel::update_pool_info_from_request(
     return ErrorStatus::NONE;
 }
 
+Return<ErrorStatus> VsiPreparedModel::convertResultCodeToErrorStatus(int resultCode) {
+    switch (resultCode) {
+        case NNA_NO_ERROR:
+            return ErrorStatus::NONE;
+
+        case NNA_BAD_DATA:
+        case NNA_UNEXPECTED_NULL:
+            LOG(ERROR) << "INVALID_ARGUMENT";
+            return ErrorStatus::INVALID_ARGUMENT;
+
+        case NNA_OUTPUT_INSUFFICIENT_SIZE:
+            LOG(ERROR) << "output insufficient size";
+            return ErrorStatus::OUTPUT_INSUFFICIENT_SIZE;
+
+        case NNA_BAD_STATE:
+        case NNA_INCOMPLETE:
+        case NNA_OP_FAILED:
+        case NNA_OUT_OF_MEMORY:
+        case NNA_UNMAPPABLE:
+            LOG(ERROR) << "GENERAL_FAILURE";
+            return ErrorStatus::GENERAL_FAILURE;
+
+        default:
+            LOG(ERROR) << "Unknown result code " << resultCode
+                       << " mapped to ErrorStatus::GENERAL_FAILURE";
+            return ErrorStatus::GENERAL_FAILURE;
+    }
+}
+
 template <typename T_IExecutionCallback>
 Return<ErrorStatus> VsiPreparedModel::executeBase(const Request& request,
                                                   const T_IExecutionCallback& callback) {
     LOG(INFO) << __FUNCTION__;
 
+#if ANDROID_SDK_VERSION >= 30
+    if (!validateRequest(request, HalPlatform::convertToV1_0(model_))) {
+#else
     if (!validateRequest(request, model_)) {
+#endif
         LOG(ERROR) << "invalid request";
         callback->notify(ErrorStatus::INVALID_ARGUMENT);
         return ErrorStatus::INVALID_ARGUMENT;
@@ -480,21 +607,34 @@ Return<ErrorStatus> VsiPreparedModel::executeBase(const Request& request,
     std::vector<RequestArgument> output_args = request.outputs;
     std::vector<OutputShape> outputShapes(request.outputs.size());
 
+#if ANDROID_SDK_VERSION < 30
     update_operand_from_request(model_.inputIndexes, input_args);
     update_operand_from_request(model_.outputIndexes, output_args);
+#elif ANDROID_SDK_VERSION >= 30
+    update_operand_from_request(model_.main.inputIndexes, input_args);
+    update_operand_from_request(model_.main.outputIndexes, output_args);
+#endif
     if (!native_model_->isCompiled()) {
         native_compile_->run();
     }
-
+#if ANDROID_SDK_VERSION < 30
     auto status = update_pool_info_from_request(
         request, model_.inputIndexes, input_args, IO::INPUT, outputShapes);
+#elif ANDROID_SDK_VERSION >= 30
+    auto status = update_pool_info_from_request(
+        request, model_.main.inputIndexes, input_args, IO::INPUT, outputShapes);
+#endif
     if (ErrorStatus::NONE != status) {
         callback->notify(status);
         return status;
     }
-
+#if ANDROID_SDK_VERSION < 30
     status = update_pool_info_from_request(
         request, model_.outputIndexes, output_args, IO::OUTPUT, outputShapes);
+#elif ANDROID_SDK_VERSION >= 30
+    status = update_pool_info_from_request(
+        request, model_.main.outputIndexes, output_args, IO::OUTPUT, outputShapes);
+#endif
     if (ErrorStatus::NONE != status) {
         callback->notify(status);
         return status;
@@ -523,7 +663,8 @@ Return<ErrorStatus> VsiPreparedModel::execute(const Request& request,
 
     native_exec_.reset();
     return err;
-};
+}
+
 }  // namespace vsi_driver
 }  // namespace nn
 }  // namespace android

@@ -39,7 +39,7 @@ namespace vsi_driver {
         const V1_1::Model& model,
         ExecutionPreference preference,
         const sp<V1_0::IPreparedModelCallback>& callback)  {
-        return prepareModelBase(model, preference, callback);
+        return prepareModelBase(model, preference, callback, kInvalidCacheHandle_);
     }
 }  // namespace ovx_driver
 }  // namespace nn

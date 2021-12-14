@@ -27,17 +27,24 @@ NNSDK_PATH=nnsdk/lib/lib32/$(PLATFORM_PATH)
 Target=lib
 endif
 
+RRODUCT_PATH = $(LIB_PATH)/PID0x88
 ifeq ($(PRODUCT_CHIP_ID), PID0x88)
 RRODUCT_PATH := $(LIB_PATH)/PID0x88
-else
+endif
 
 ifeq ($(PRODUCT_CHIP_ID), PID0x99)
 RRODUCT_PATH := $(LIB_PATH)/PID0x99
-else
+endif
+
+ifeq ($(PRODUCT_CHIP_ID), PID0xB9)
 RRODUCT_PATH := $(LIB_PATH)/PID0xB9
 endif
 
+ifeq ($(PRODUCT_CHIP_ID), PID0xE8)
+RRODUCT_PATH := $(LIB_PATH)/PID0xE8
 endif
+
+
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \

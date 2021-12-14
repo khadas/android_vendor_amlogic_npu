@@ -26,6 +26,8 @@
 #include <fstream>
 #include <algorithm>
 
+#include "VsiPlatform.h"
+
 namespace android {
 namespace nn {
 namespace vsi_driver {
@@ -35,7 +37,7 @@ namespace vsi_driver {
 // each number should end with ","
 static inline bool IsOpBlockedByBlockList(int32_t op_type) {
     char env[128] = {0};
-    __system_property_get("NN_DBG_OP_BLK_LIST", env);
+    (void)getSystemProperty("NN_DBG_OP_BLK_LIST", env);
     if (strlen(env) == 0) return false;
 
     std::fstream fs(env);

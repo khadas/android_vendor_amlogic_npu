@@ -35,10 +35,9 @@ namespace op_validate {
 namespace {
 template <typename T_model, typename T_Operation>
 bool ReduceOpRule(T_model model, T_Operation operation, std::string& reason) {
-    auto& inputOperand = model.operands[operation.inputs[0]];
+    auto& inputOperand = vsi_driver::GetHalOperand(model, operation.inputs[0]);
     size_t inputRank = inputOperand.dimensions.size();
-    auto& axesOperand = model.operands[operation.inputs[1]];
-
+    auto& axesOperand = vsi_driver::GetHalOperand(model, operation.inputs[1]);
     vsi_driver::VsiRTInfo axesMemInfo;
     const int32_t* axes = reinterpret_cast<const int32_t*>(
         get_buffer::getOperandDataPtr(model, axesOperand, axesMemInfo));
@@ -53,7 +52,6 @@ bool ReduceOpRule(T_model model, T_Operation operation, std::string& reason) {
         uniqueAxes.insert((*axes + inputRank) % inputRank);
         ++axes;
     }
-
     if (uniqueAxes.size() == inputRank) {
         reason += "reject Reduce because all dimension required reduce is not supported\n";
         return false;

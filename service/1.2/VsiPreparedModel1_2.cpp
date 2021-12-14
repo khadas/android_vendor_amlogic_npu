@@ -22,63 +22,21 @@
  *
  *****************************************************************************/
 
-#include "VsiBurstExecutor.h"
-#include "VsiDriver.h"
-#include "VsiPreparedModel.h"
-#include "VsiLock.h"
-
 #include <sys/mman.h>
+
+#include <nnrt/error.hpp>
+#include <nnrt/event.hpp>
 
 #include "OperationsUtils.h"
 #include "ValidateHal.h"
-
-#include "nnrt/event.hpp"
-#include "nnrt/error.hpp"
-
+#include "VsiBurstExecutor.h"
+#include "VsiDriver.h"
+#include "VsiLock.h"
+#include "VsiPreparedModel.h"
 
 namespace android {
 namespace nn {
 namespace vsi_driver {
-
-using time_point = std::chrono::steady_clock::time_point;
-static const Timing kNoTiming = {.timeOnDevice = UINT64_MAX, .timeInDriver = UINT64_MAX};
-std::atomic_bool isLockDevices = 0;
-
-auto now() {
-    return std::chrono::steady_clock::now();
-};
-
-auto microsecondsDuration(decltype(now()) end, decltype(now()) start) {
-    return std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-};
-
-static Return<ErrorStatus> convertResultCodeToErrorStatus(int resultCode) {
-    switch (resultCode) {
-        case NNA_NO_ERROR:
-            return ErrorStatus::NONE;
-
-        case NNA_BAD_DATA:
-        case NNA_UNEXPECTED_NULL:
-            LOG(ERROR) << "INVALID_ARGUMENT";
-            return ErrorStatus::INVALID_ARGUMENT;
-
-        case NNA_OUTPUT_INSUFFICIENT_SIZE:
-            LOG(ERROR) << "output insufficient size";
-            return ErrorStatus::OUTPUT_INSUFFICIENT_SIZE;
-
-        default:
-            LOG(ERROR) << "Unknown result code " << resultCode
-                       << " mapped to ErrorStatus::GENERAL_FAILURE";
-            return ErrorStatus::GENERAL_FAILURE;
-        case NNA_BAD_STATE:
-        case NNA_INCOMPLETE:
-        case NNA_OP_FAILED:
-        case NNA_OUT_OF_MEMORY:
-        case NNA_UNMAPPABLE:
-            LOG(ERROR) << "GENERAL_FAILURE";
-            return ErrorStatus::GENERAL_FAILURE;
-    }
-}
 
 Return<void> VsiPreparedModel::notify(const sp<V1_0::IExecutionCallback>& callback,
                                       const ErrorStatus& status,
@@ -128,20 +86,19 @@ Return<ErrorStatus> VsiPreparedModel::executeBase(const Request& request,
                                                   hidl_vec<OutputShape>& oOutputShapes,
                                                   Timing& oTiming) {
 #if ANDROID_SDK_VERSION >= 29
-    for (const auto& hal_op : model_.operations) {
-        if (VsiDriver::findExtensionOperation(hal_op) == VSI_NPU_UNLOCK) {
-            isLockDevices = false;
-            return ErrorStatus::NONE;
-        }
-    }
-    if (isLockDevices) return ErrorStatus::DEVICE_UNAVAILABLE;
+    // ONLY normal model can be here
+    if (isDeviceLocked) return ErrorStatus::DEVICE_UNAVAILABLE;
 #endif
 
     Timing timing = kNoTiming;
     time_point deviceStart;
     deviceStart = now();
 
+#if ANDROID_SDK_VERSION >= 30
+    if (!validateRequest(HalPlatform::convertVersion(request), model_)) {
+#else
     if (!validateRequest(request, model_)) {
+#endif
         LOG(ERROR) << "invalid request";
         oStatus = ErrorStatus::INVALID_ARGUMENT;
         oOutputShapes = std::vector<OutputShape>(0);
@@ -163,14 +120,24 @@ Return<ErrorStatus> VsiPreparedModel::executeBase(const Request& request,
     std::vector<RequestArgument> output_args = request.outputs;
     std::vector<OutputShape> outputShapes(request.outputs.size());
 
+#if ANDROID_SDK_VERSION < 30
     update_operand_from_request(model_.inputIndexes, input_args);
     update_operand_from_request(model_.outputIndexes, output_args);
+#elif ANDROID_SDK_VERSION >= 30
+    update_operand_from_request(model_.main.inputIndexes, input_args);
+    update_operand_from_request(model_.main.outputIndexes, output_args);
+#endif
     if (!native_model_->isCompiled()) {
         native_compile_->run();
     }
 
+#if ANDROID_SDK_VERSION < 30
     auto status = update_pool_info_from_request(
         request, model_.inputIndexes, input_args, IO::INPUT, outputShapes);
+#elif ANDROID_SDK_VERSION >= 30
+    auto status = update_pool_info_from_request(
+        request, model_.main.inputIndexes, input_args, IO::INPUT, outputShapes);
+#endif
     if (ErrorStatus::NONE != status) {
         oStatus = status;
         oOutputShapes = outputShapes;
@@ -178,8 +145,13 @@ Return<ErrorStatus> VsiPreparedModel::executeBase(const Request& request,
         return status;
     }
 
+#if ANDROID_SDK_VERSION < 30
     status = update_pool_info_from_request(
         request, model_.outputIndexes, output_args, IO::OUTPUT, outputShapes);
+#elif ANDROID_SDK_VERSION >= 30
+    status = update_pool_info_from_request(
+        request, model_.main.outputIndexes, output_args, IO::OUTPUT, outputShapes);
+#endif
     if (ErrorStatus::NONE != status) {
         oStatus = status;
         oOutputShapes = outputShapes;
@@ -224,22 +196,41 @@ Return<void> VsiPreparedModel::executeSynchronously(const Request& request,
     Timing timing;
 
 #if ANDROID_SDK_VERSION >= 29
+    // idle -> lock -> lock - > idle
+#if ANDROID_SDK_VERSION < 30
     for (const auto& hal_op : model_.operations) {
-        uint16_t extensionType = VsiDriver::findExtensionOperation(hal_op);
-        if (extensionType == VSI_NPU_LOCK) {
-            isLockDevices = true;
-        } else if (extensionType == VSI_NPU_UNLOCK) {
-            isLockDevices = false;
-            cb(ErrorStatus::NONE, outputShapes, timing);
-            native_exec_.reset();
-            return Void();
+#elif ANDROID_SDK_VERSION >= 30
+    for (const auto& hal_op : model_.main.operations) {
+#endif
+            uint16_t extensionType = VsiDriver::findExtensionOperation(hal_op);
+
+            if (isDeviceLocked) {
+                if (VSI_NPU_LOCK == extensionType) {
+                    // lock - > lock
+                    cb(ErrorStatus::DEVICE_UNAVAILABLE, outputShapes, timing);
+                    native_exec_.reset();
+                    return Void();
+                } else if (VSI_NPU_UNLOCK == extensionType) {
+                    // lock -> unlock
+                    isDeviceLocked = false;
+                    cb(ErrorStatus::NONE, outputShapes, timing);
+                    native_exec_.reset();
+                    return Void();
+                }
+            } else {  // device not locked
+                if (VSI_NPU_LOCK == extensionType) {
+                    // unlock - > lock
+                    isDeviceLocked = true;
+                    cb(ErrorStatus::NONE, outputShapes, timing);
+                    native_exec_.reset();
+                    return Void();
+                } else if (VSI_NPU_UNLOCK == extensionType) {
+                    cb(ErrorStatus::NONE, outputShapes, timing);
+                    native_exec_.reset();
+                    return Void();
+                }
+            }
         }
-    }
-    if (isLockDevices) {
-        cb(ErrorStatus::DEVICE_UNAVAILABLE, outputShapes, timing);
-        native_exec_.reset();
-        return Void();
-    }
 #endif
 
     VsiPreparedModel::sandbox_.wait(
@@ -258,17 +249,28 @@ Return<ErrorStatus> VsiPreparedModel::execute_1_2(const Request& request,
                                                   MeasureTiming measure,
                                                   const sp<V1_2::IExecutionCallback>& callback) {
 #if ANDROID_SDK_VERSION >= 29
+#if ANDROID_SDK_VERSION < 30
     for (const auto& hal_op : model_.operations) {
+#elif ANDROID_SDK_VERSION >= 30
+    for (const auto& hal_op : model_.main.operations) {
+#endif
         uint16_t extensionType = VsiDriver::findExtensionOperation(hal_op);
-        if (extensionType == VSI_NPU_LOCK) {
-            isLockDevices = true;
-            return ErrorStatus::DEVICE_UNAVAILABLE;
-        } else if (extensionType == VSI_NPU_UNLOCK) {
-            isLockDevices = false;
+
+        if (isDeviceLocked) {
+            if (extensionType == VSI_NPU_LOCK) {
+                return ErrorStatus::DEVICE_UNAVAILABLE;
+            } else if (extensionType == VSI_NPU_UNLOCK) {
+                isDeviceLocked = false;
+                return ErrorStatus::NONE;
+            }
+        } else {  // device not locked
+            if (extensionType == VSI_NPU_LOCK) {
+                isDeviceLocked = true;
+                return ErrorStatus::NONE;
+            } else if (extensionType == VSI_NPU_UNLOCK) {
+                return ErrorStatus::NONE;
+            }
         }
-    }
-    if (isLockDevices) {
-        return ErrorStatus::DEVICE_UNAVAILABLE;
     }
 #endif
 
@@ -286,7 +288,7 @@ Return<ErrorStatus> VsiPreparedModel::execute_1_2(const Request& request,
     native_exec_.reset();
 
     return status;
-};
+}
 
 }  // namespace vsi_driver
 }  // namespace nn

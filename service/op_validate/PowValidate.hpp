@@ -36,8 +36,20 @@ class PowValidate : public OperationValidate<T_model, T_Operation> {
     PowValidate(const T_model& model, const T_Operation& operation)
         : OperationValidate<T_model, T_Operation>(model, operation) {}
     bool SignatureCheck(std::string& reason) override {
-        return ::hal::limitation::nnapi::match("PowInput", this->InputArgTypes()) &&
-               ::hal::limitation::nnapi::match("PowOutput", this->OutputArgTypes());
+        auto input_list = ::hal::limitation::nnapi::match("PowInput", this->InputArgTypes());
+        auto output_list = ::hal::limitation::nnapi::match("PowOutput", this->OutputArgTypes());
+        if (input_list && output_list) {
+            auto operation = this->OperationForRead();
+            auto ex_operand_id = operation.inputs[input_list->ArgPos("exponent")];
+            if (!(this->IsConstantTensor(ex_operand_id))) {
+                reason += "reject POW because exponent is not constant.\n";
+                return false;
+            }
+            return true;
+        } else {
+            reason += "reject POW because input data type not support.\n";
+            return false;
+        }
     };
 };
 

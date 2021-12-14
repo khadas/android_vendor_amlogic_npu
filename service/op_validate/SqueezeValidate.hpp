@@ -42,9 +42,8 @@ class SqueezeValidate : public OperationValidate<T_model, T_Operation> {
         if ( inputList && outputList) {
             bool is_support = true;
             auto operation = this->OperationForRead();
-            if( operation.inputs.size() > 1)
+            if( operation.inputs.size() > 1 && !this->IsConstantTensor(operation.inputs[1]) )
             {
-                if( !this->IsConstantTensor(operation.inputs[1]) )
                 reason += "Squeeze: dimension tensor should be constant";
                 is_support = false;
             }

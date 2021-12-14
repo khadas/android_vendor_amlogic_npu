@@ -45,6 +45,7 @@ class DepthwiseConv2dValidate : public OperationValidate<T_model, T_Operation> {
         if (inputList && outputList) {
             int32_t inputIndex = inputList->ArgPos("input");
             int32_t kernelIndex = inputList->ArgPos("kernel");
+            int32_t biasIndex = inputList->ArgPos("bias");
             if (operation.inputs[inputIndex] == operation.inputs[kernelIndex]) {
                 reason += "reject Depthwise_conv_2d because input and kernel share a same tensor\n";
                 return false;
@@ -55,20 +56,28 @@ class DepthwiseConv2dValidate : public OperationValidate<T_model, T_Operation> {
             }
 
             if (-1 != kernelIndex) {
-                auto kernelDim = model.operands[operation.inputs[kernelIndex]].dimensions;
+                auto kernelDim = vsi_driver::GetHalOperand(model, operation.inputs[kernelIndex]).dimensions;
                 if (kernelDim[0] != 1) {
                     reason += ("reject Depthwise_conv_2d because kernel[0] != 1\n");
                     return false;
                 }
+
                 if (!this->IsConstantTensor(operation.inputs[kernelIndex])) {
                     reason += "reject Depthwise_conv_2d because kernel is't constant tensor\n";
                     return false;
+                }
+                if (biasIndex != -1) {
+                    if (!this->IsConstantTensor(operation.inputs[biasIndex])) {
+                        reason += "reject Depthwise_conv_2d because bias is't constant tensor\n";
+                        return false;
+                    }
                 }
             } else {
                 LOG(ERROR) << "DepthwiseValidate: kernelIndex = -1";
                 assert(false);
             }
-            auto kernelOperand = model.operands[operation.inputs[kernelIndex]];
+
+            auto kernelOperand = vsi_driver::GetHalOperand(model, operation.inputs[kernelIndex]);
             if (kernelOperand.dimensions[1] * kernelOperand.dimensions[2] > 6400) {
                 reason += "reject Depthwise_conv_2d because kernel size > 6400\n";
                 return false;

@@ -17,10 +17,11 @@ galcore-objs += os/linux/kernel/gc_hal_kernel_iommu.o
 galcore-objs += os/linux/kernel/gc_hal_kernel_drm.o
 galcore-objs += os/linux/kernel/gc_hal_kernel_sync.o
 galcore-objs += os/linux/kernel/gc_hal_kernel_security_channel_emulator.o
+galcore-objs += os/linux/kernel/gc_hal_kernel_debug.o
 galcore-objs += kernel/gc_hal_kernel.o
 galcore-objs += kernel/gc_hal_kernel_command.o
 galcore-objs += kernel/gc_hal_kernel_db.o
-galcore-objs += kernel/gc_hal_kernel_debug.o
+#galcore-objs += kernel/gc_hal_kernel_debug.o
 galcore-objs += kernel/gc_hal_kernel_event.o
 galcore-objs += kernel/gc_hal_kernel_heap.o
 galcore-objs += kernel/gc_hal_kernel_mmu.o
@@ -41,10 +42,10 @@ galcore-objs += security_v1/gc_hal_ta_hardware.o
 galcore-objs += security_v1/gc_hal_ta_mmu.o
 galcore-objs += security_v1/os/emulator/gc_hal_ta_emulator.o
 
-ifeq ($(PLATFORM_VERSION),9)
-galcore-objs += os/linux/kernel/platform/amlogic/gc_hal_kernel_platform_amlogic_p.o
-else
+ifeq ($(CONFIG_PLATFORM_VERSION),10)
 galcore-objs += os/linux/kernel/platform/amlogic/gc_hal_kernel_platform_amlogic_q.o
+else
+galcore-objs += os/linux/kernel/platform/amlogic/gc_hal_kernel_platform_amlogic_p.o
 endif
 
 EXTRA_CFLAGS = -DLINUX -DDRIVER

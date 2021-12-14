@@ -76,16 +76,26 @@ MAKE_SPEC(explicit_padding_base)
     //.bias_(nnrt::OperandType::TENSOR_FLOAT16)
     //);
 
-    // Note: kernel not support perchannel
-    OVERRIDE_SPEC(explicit_padding_base, per_channel_quantize)
+    OVERRIDE_SPEC(explicit_padding_base, per_channel_quantize_u8)
     .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
     .kernel_(nnrt::OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL)
     .bias_(nnrt::OperandType::TENSOR_INT32)
     );
 
-    OVERRIDE_SPEC(explicit_padding_base, 2)
+    OVERRIDE_SPEC(explicit_padding_base, per_channel_quantize_int8)
+    .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
+    .kernel_(nnrt::OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL)
+    .bias_(nnrt::OperandType::TENSOR_INT32)
+    );
+
+    OVERRIDE_SPEC(explicit_padding_base, asymm_u8)
     .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
     .kernel_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
+    .bias_(nnrt::OperandType::TENSOR_INT32));
+
+    OVERRIDE_SPEC(explicit_padding_base, asymm_int8)
+    .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
+    .kernel_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
     .bias_(nnrt::OperandType::TENSOR_INT32));
 
 MAKE_SPEC(implicit_padding_base)
@@ -106,15 +116,26 @@ MAKE_SPEC(implicit_padding_base)
     //.bias_(nnrt::OperandType::TENSOR_FLOAT16)
     //);
 
-    OVERRIDE_SPEC(implicit_padding_base, per_channel_quantize)
+    OVERRIDE_SPEC(implicit_padding_base, per_channel_quantize_u8)
     .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
     .kernel_(nnrt::OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL)
     .bias_(nnrt::OperandType::TENSOR_INT32)
     );
 
-    OVERRIDE_SPEC(implicit_padding_base, 2)
+    OVERRIDE_SPEC(implicit_padding_base, per_channel_quantize_int8)
+    .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
+    .kernel_(nnrt::OperandType::TENSOR_QUANT8_SYMM_PER_CHANNEL)
+    .bias_(nnrt::OperandType::TENSOR_INT32)
+    );
+
+    OVERRIDE_SPEC(implicit_padding_base, asymm_u8)
     .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
     .kernel_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
+    .bias_(nnrt::OperandType::TENSOR_INT32));
+
+    OVERRIDE_SPEC(implicit_padding_base, asymm_int8)
+    .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
+    .kernel_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
     .bias_(nnrt::OperandType::TENSOR_INT32));
 
 #undef ARG_NAMES
@@ -143,9 +164,13 @@ MAKE_SPEC(output_base)
     //.input_(nnrt::OperandType::TENSOR_FLOAT16)
     //.output_(nnrt::OperandType::TENSOR_FLOAT16));
 
-    OVERRIDE_SPEC(output_base, 1)
+    OVERRIDE_SPEC(output_base, asymm_u8)
     .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
     .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM));
+
+    OVERRIDE_SPEC(output_base, asymm_int8)
+    .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
+    .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED));
 
 #undef ARG_NAMES
 #undef ARGC

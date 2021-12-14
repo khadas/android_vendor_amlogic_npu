@@ -22,12 +22,12 @@
 *
 *****************************************************************************/
 
-#ifndef __ANEURALNETWORKS_SQUEEZE_HPP__
-#define __ANEURALNETWORKS_SQUEEZE_HPP__
+#ifndef __ANEURALNETWORKS_MEAN_HPP__
+#define __ANEURALNETWORKS_MEAN_HPP__
 
 #include "hal_limitation/support_macros.hpp"
 // Input Spec
-#define OP_SPEC_NAME MeanInputs
+#define OP_SPEC_NAME MeanInput
 OP_SPEC_BEGIN()
 #define ARG_NAMES \
     (input, \
@@ -44,7 +44,7 @@ OP_SPEC_END()
 MAKE_SPEC(mean)
     .input_(nnrt::OperandType::TENSOR_FLOAT32)
     .reduce_dim_(nnrt::OperandType::TENSOR_INT32)
-    .scale_(nnrt::OperandType::TENSOR_INT32));
+    .scale_(nnrt::OperandType::INT32));
 
     OVERRIDE_SPEC(mean, fp16)
     .input_(nnrt::OperandType::TENSOR_FLOAT16));
@@ -52,12 +52,15 @@ MAKE_SPEC(mean)
     OVERRIDE_SPEC(mean, asymm_u8)
     .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM));
 
+    OVERRIDE_SPEC(mean, asymm_int8)
+    .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED));
+
 #undef ARG_NAMES
 #undef ARGC
 #undef OP_SPEC_NAME
 
 //Output Spec
-#define OP_SPEC_NAME MeanOutputs
+#define OP_SPEC_NAME MeanOutput
 OP_SPEC_BEGIN()
 #define ARG_NAMES         \
     (input,               \
@@ -81,6 +84,10 @@ MAKE_SPEC(output)
     OVERRIDE_SPEC(output, asymm_u8)
     .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
     .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM));
+
+    OVERRIDE_SPEC(output, asymm_int8)
+    .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
+    .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED));
 
 #undef ARG_NAMES
 #undef ARGC

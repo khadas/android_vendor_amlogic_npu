@@ -73,6 +73,21 @@ struct MaximumOperation : EltwiseOperation {
     MaximumOperation() : EltwiseOperation(OperationType::MAXIMUM) {}
 };
 
+struct DequantizeOperation : EltwiseOperation {
+    DequantizeOperation() : EltwiseOperation(OperationType::DEQUANTIZE) {}
+    void handleLayoutInferenceOnInputs(
+    nnrt::Model& model,
+    std::unordered_map<uint32_t, nnrt::layout_inference::IPermuteVectorPtr>&
+        out_permute_vectors) override;
+};
+struct QuantizeOperation : EltwiseOperation {
+    QuantizeOperation() : EltwiseOperation(OperationType::QUANTIZE) {}
+    void handleLayoutInferenceOnInputs(
+    nnrt::Model& model,
+    std::unordered_map<uint32_t, nnrt::layout_inference::IPermuteVectorPtr>&
+        out_permute_vectors) override;
+};
+
 }  // namespace op
 }  // namespace nnrt
 

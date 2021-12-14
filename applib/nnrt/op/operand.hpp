@@ -71,7 +71,15 @@ using OperandPtr = std::shared_ptr<Operand>;
 
 class Operand : public BaseOperand {
    public:
-    void setPerm(const std::vector<uint32_t>& perm) { perm_ = perm; }
+    void setPerm(const std::vector<uint32_t>& perm) {
+        /* Shared constant operand may be broadcasted to different shapes, such as 1x1 or 1, so the
+         * permute on this shared constant operand may has the issue, the perm vector is modified
+         * two times. So we do not neet to modify the perm vector, when the perm vector has been
+         * setted. Because the share operand must has the same layout for its consumer nodes.*/
+        if (perm_.empty()) {
+            perm_ = perm;
+        }
+    }
 
     std::vector<uint32_t>& perm() { return perm_; };
 
@@ -141,12 +149,17 @@ class Operand : public BaseOperand {
 
     void cloneQuantParams(Operand* operand);
 
+    bool isUsed() const { return is_used_; }
+
+    void setUsed(bool flag) { is_used_ = flag; }
+
    private:
     uint32_t number_of_consumers_;
     std::vector<uint32_t> perm_;
     nnrt::layout_inference::IPermuteVectorPtr perm_vector_ = nullptr;
     bool optional_null_ = false;
     bool is_graph_input_output_ = false;
+    bool is_used_ = false;
 };
 
 }

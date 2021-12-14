@@ -1,36 +1,42 @@
 /****************************************************************************
-*
-*    Copyright (c) 2020 Vivante Corporation
-*
-*    Permission is hereby granted, free of charge, to any person obtaining a
-*    copy of this software and associated documentation files (the "Software"),
-*    to deal in the Software without restriction, including without limitation
-*    the rights to use, copy, modify, merge, publish, distribute, sublicense,
-*    and/or sell copies of the Software, and to permit persons to whom the
-*    Software is furnished to do so, subject to the following conditions:
-*
-*    The above copyright notice and this permission notice shall be included in
-*    all copies or substantial portions of the Software.
-*
-*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-*    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-*    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-*    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-*    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-*    DEALINGS IN THE SOFTWARE.
-*
-*****************************************************************************/
+ *
+ *    Copyright (c) 2020 Vivante Corporation
+ *
+ *    Permission is hereby granted, free of charge, to any person obtaining a
+ *    copy of this software and associated documentation files (the "Software"),
+ *    to deal in the Software without restriction, including without limitation
+ *    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ *    and/or sell copies of the Software, and to permit persons to whom the
+ *    Software is furnished to do so, subject to the following conditions:
+ *
+ *    The above copyright notice and this permission notice shall be included in
+ *    all copies or substantial portions of the Software.
+ *
+ *    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ *    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ *    DEALINGS IN THE SOFTWARE.
+ *
+ *****************************************************************************/
 #ifndef __OVXLIB_MODEL_H__
 #define __OVXLIB_MODEL_H__
+#include <list>
 #include <map>
 #include <memory>
-#include <vector>
 #include <string>
+#include <vector>
 
+#ifdef __linux__
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
+
+#include "nnrt/logging.hpp"
 #include "nnrt/memory_pool.hpp"
 #include "nnrt/types.hpp"
-#include "nnrt/logging.hpp"
 
 namespace nnrt {
 namespace op {
@@ -38,7 +44,7 @@ class Operation;
 using OperationPtr = std::shared_ptr<Operation>;
 class Operand;
 using OperandPtr = std::shared_ptr<Operand>;
-}
+}  // namespace op
 
 class Model {
    public:
@@ -117,8 +123,8 @@ class Model {
         return static_cast<T*>(data);
     }
 
-    //template <typename T>
-    //T* getModifiableBuffer(op::OperandPtr operand) {
+    // template <typename T>
+    // T* getModifiableBuffer(op::OperandPtr operand) {
     //    // void* data = nullptr;
     //    // uint32_t index = operand->location.poolIndex;
     //    // uint32_t offset = operand->location.offset;
@@ -142,9 +148,15 @@ class Model {
 
     int32_t setOperandValue(uint32_t operand_index, const void* buffer, size_t length);
 
-    int32_t setOperandValueFromMemory(op::OperandPtr operand, const Memory* memory, size_t offset, size_t length);
+    int32_t setOperandValueFromMemory(op::OperandPtr operand,
+                                      const Memory* memory,
+                                      size_t offset,
+                                      size_t length);
 
-    int32_t setOperandValueFromMemory(uint32_t operand_index, const Memory* memory, size_t offset, size_t length);
+    int32_t setOperandValueFromMemory(uint32_t operand_index,
+                                      const Memory* memory,
+                                      size_t offset,
+                                      size_t length);
 
     void relax(bool fast_model);
 
@@ -184,22 +196,95 @@ class Model {
 
     std::string generateSignature();
 
-    mem_pool::Manager& memory_pool() {
-        return memory_pool_;
-    }
+    mem_pool::Manager& memory_pool() { return memory_pool_; }
 
     // TODO: Move mem_refs_ to memory manager
     mem_pool::shared_ref add_memory_reference(const void* address,
-            size_t len, bool forceNotAcllocateMem = false) {
+                                              size_t len,
+                                              bool forceNotAcllocateMem = false) {
         mem_refs_.push_back(memory_pool_.add_reference(address, len, forceNotAcllocateMem));
         return mem_refs_.back();
     }
 
     // TODO: Move mem_refs_ to memory manager
     mem_pool::shared_ref add_memory_reference(const nnrt::Memory* address,
-            size_t offset, size_t len) {
+                                              size_t offset,
+                                              size_t len) {
         mem_refs_.push_back(memory_pool_.add_reference(address, offset, len));
         return mem_refs_.back();
+    }
+
+    void remove_memory_reference(const mem_pool::shared_ref& ref) {
+        if (!ref) return;
+        auto it = std::find(mem_refs_.begin(), mem_refs_.end(), ref);
+        if (it != mem_refs_.end()) {
+            it->reset();
+            mem_refs_.erase(it);
+        }
+    }
+
+    int get_cache_handle() { return cache_handle_; }
+
+    int get_cache_size() { return cache_size_; }
+
+    bool set_cache_handle(int handle){
+        if (-1 == handle) return false;
+        bool status = false;
+
+#ifdef __linux__
+        if (cache_handle_ != -1) {
+            NNRT_LOGD_PRINT(
+                "Close previous model cache, it's safe because different compilation should have "
+                "some model structure\n");
+            close(cache_handle_);
+            cache_handle_ = -1;
+        }
+
+        auto is_writeable = [handle]() {
+            int test_data = 0x5A5A5A5A;
+            size_t length = write(handle, &test_data, sizeof(test_data));
+            lseek(handle, 0, SEEK_SET);
+            ftruncate(handle, 0);  // reset file content
+
+            return (length == sizeof(test_data));
+        };
+
+        cache_size_ = lseek(handle, 0, SEEK_END);
+        lseek(handle, 0, SEEK_SET);
+
+        if (cache_size_ || is_writeable()) {
+            cache_handle_ = dup(handle);
+            status = (cache_handle_ != -1);
+        } else {
+            NNRT_LOGD_PRINT("Set cache handle failed");
+            cache_handle_ = -1;
+            cache_size_ = 0;
+        }
+#endif
+        return status;
+    }
+
+    bool allocate_cache_memory() {
+#ifdef __linux__
+        auto flag = (-1 == cache_handle_) ? (MAP_SHARED | MAP_ANONYMOUS) : (MAP_SHARED);
+        cache_memory_ = mmap(nullptr, cache_size_, PROT_READ, flag, cache_handle_, 0);
+        return (cache_memory_ == nullptr) ? false : true;
+#endif
+        return false;
+    }
+    const char* get_cache_memory() { return (const char*)cache_memory_; }
+
+    bool replace_model_with_nbg() {
+        if (cache_handle_ == -1 || cache_size_ == 0) return true;
+        operations_.clear();
+        operation_unique_id_ = 0;
+        const uint32_t* inputs = input_indexes_.data();
+        uint32_t input_size = input_indexes_.size();
+        const uint32_t* outputs = output_indexes_.data();
+        uint32_t output_size = output_indexes_.size();
+        uint32_t* out_index = nullptr;
+        addOperation(OperationType::NBG, inputs, input_size, outputs, output_size, out_index);
+        return allocate_cache_memory();
     }
 
    private:
@@ -209,6 +294,11 @@ class Model {
     bool finalized_{false};
     bool compiled_{false};
     bool valid_{false};
+
+    int cache_handle_{-1};
+    int cache_size_{0};
+    void* cache_memory_{nullptr};
+
     std::string signature_;
     std::map<uint32_t, op::OperationPtr> operations_;
     std::map<uint32_t, op::OperandPtr> operands_;
@@ -216,10 +306,10 @@ class Model {
     std::vector<uint32_t> output_indexes_;
 
     mem_pool::Manager memory_pool_;
-    std::vector<mem_pool::shared_ref> mem_refs_;
+    std::list<mem_pool::shared_ref> mem_refs_;
 };
 
 using ModelPtr = std::shared_ptr<Model>;
-}
+}  // namespace nnrt
 
 #endif

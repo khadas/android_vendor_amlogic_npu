@@ -39,12 +39,10 @@ class MeanValidate : public OperationValidate<T_model, T_Operation> {
     bool SignatureCheck(std::string& reason) override {
         auto inputList = ::hal::limitation::nnapi::match("MeanInput", this->InputArgTypes());
         auto outputList = ::hal::limitation::nnapi::match("MeanOutput", this->OutputArgTypes());
-        if ( inputList && outputList) {
+        if (inputList && outputList) {
             bool is_support = true;
             auto operation = this->OperationForRead();
-            if( operation.inputs.size() > 1)
-            {
-                if( !this->IsConstantTensor(operation.inputs[1]) )
+            if(operation.inputs.size() > 1 && !this->IsConstantTensor(operation.inputs[1])){
                 reason += "Mean: dimension tensor should be constant";
                 is_support = false;
             }

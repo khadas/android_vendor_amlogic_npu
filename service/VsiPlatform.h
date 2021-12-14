@@ -24,9 +24,10 @@
 #ifndef ANDROID_ML_NN_VSI_PALTFORM_H
 #define ANDROID_ML_NN_VSI_PALTFORM_H
 
-#include "nnrt/file_map_memory.hpp"
-#include "Utils.h"
+#include <nnrt/file_map_memory.hpp>
+
 #include "HalInterfaces.h"
+#include "Utils.h"
 
 #if ANDROID_SDK_VERSION >= 28
 #include "ValidateHal.h"
@@ -34,6 +35,7 @@
 
 #if ANDROID_SDK_VERSION >= 29
 #include <ui/GraphicBuffer.h>
+
 #include "ExecutionBurstServer.h"
 #include "Tracing.h"
 #endif
@@ -136,17 +138,76 @@ struct Hal<29> {
 };
 #endif
 
-#if ANDROID_SDK_VERSION >= 29
-using HalPlatform = struct Hal<29>;
-#else
-using HalPlatform = struct Hal<ANDROID_SDK_VERSION>;
+#if ANDROID_SDK_VERSION >= 30
+template <>
+struct Hal<30> {
+    using Device = V1_3::IDevice;
+    using PrepareModel = V1_3::IPreparedModel;
+    using Operand = V1_3::Operand;
+    using OperandType = V1_3::OperandType;
+    using Operation = V1_3::Operation;
+    using OperationType = V1_3::OperationType;
+    using Model = V1_3::Model;
+    using OperandLifeTime = V1_3::OperandLifeTime;
+    using ErrorStatus = V1_0::ErrorStatus;
+    using Request = V1_0::Request;
+
+    template <typename T_type>
+    static auto inline convertVersion(const T_type& variable) {
+        return android::nn::convertToV1_3(variable);
+    }
+
+    template <typename T_type>
+    static auto inline convertToV1_0(const T_type& variable) {
+        return android::nn::convertToV1_0(variable);
+    }
+
+    template <typename T_type>
+    static auto inline convertToV1_2(T_type& variable) {
+        return android::nn::convertToV1_2(variable);
+    }
+
+    template <typename T_type>
+    static bool inline validatePool(const T_type& hidl_pool) {
+        return android::nn::validatePool(hidl_pool);
+    }
+};
 #endif
 
+using HalPlatform = struct Hal<ANDROID_SDK_VERSION>;
 using ErrorStatus = HalPlatform::ErrorStatus;
 using Request = HalPlatform::Request;
 using OperandLifeTime = HalPlatform::OperandLifeTime;
+using Model = HalPlatform::Model;
 using OperandType = HalPlatform::OperandType;
 using OperationType = HalPlatform::OperationType;
+
+inline static auto& GetHalOperand(const Model& model, uint32_t index) {
+#if ANDROID_SDK_VERSION < 30
+    return model.operands[index];
+#elif ANDROID_SDK_VERSION >= 30
+    return model.main.operands[index];
+#endif
+}
+
+/**
+ * @brief Get the System Property As Int
+ *
+ * @param prop_name
+ * @param default
+ * @return int
+ */
+int getSystemPropertyAsInt(const char* prop_name, int default_value = 0);
+
+/**
+ * @brief Get the System Property
+ *
+ * @param prop_name : INPUT
+ * @param value : OUTPUT
+ * @return int
+ */
+int getSystemProperty(const char* prop_name, char* value);
+
 }  // namespace vsi_driver
 }  // namespace nn
 }  // namespace android

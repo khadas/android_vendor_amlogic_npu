@@ -41,15 +41,21 @@ class SliceValidate : public OperationValidate<T_model, T_Operation> {
         auto inputList = ::hal::limitation::nnapi::match("SliceInput", this->InputArgTypes());
         auto outputList = ::hal::limitation::nnapi::match("SliceOutput", this->OutputArgTypes());
         if (inputList && outputList) {
-            auto& beginOperand = model.operands[operation.inputs[inputList->ArgPos("beginning")]];
-            auto& sizeOperand = model.operands[operation.inputs[inputList->ArgPos("size")]];
+
+            auto& beginOperand = vsi_driver::GetHalOperand(model, operation.inputs[inputList->ArgPos("beginning")]);
+            auto& sizeOperand = vsi_driver::GetHalOperand(model, operation.inputs[inputList->ArgPos("size")]);
+#if ANDROID_SDK_VERSION < 30
             if (OperandLifeTime::MODEL_INPUT == beginOperand.lifetime ||
                 OperandLifeTime::MODEL_INPUT == sizeOperand.lifetime) {
+#elif ANDROID_SDK_VERSION >= 30
+            if (OperandLifeTime::SUBGRAPH_INPUT == beginOperand.lifetime ||
+                OperandLifeTime::SUBGRAPH_INPUT == sizeOperand.lifetime) {
+#endif
                 reason += "reject SLICE because not support beginning or size as model input\n";
                 return false;
             }
-            auto& inputOperand = model.operands[operation.inputs[inputList->ArgPos("input")]];
-            auto& outputOperand = model.operands[operation.outputs[0]];
+            auto& inputOperand = vsi_driver::GetHalOperand(model, operation.inputs[inputList->ArgPos("input")]);
+            auto& outputOperand = vsi_driver::GetHalOperand(model, operation.outputs[0]);
             if (inputOperand.dimensions[0] != outputOperand.dimensions[0]) {
                 reason += "reject SLICE because not support slice on batch\n";
                 return false;

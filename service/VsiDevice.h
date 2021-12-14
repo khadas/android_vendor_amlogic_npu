@@ -32,7 +32,7 @@
 #include <sys/system_properties.h>
 
 #include "HalInterfaces.h"
-#include "nnrt/model.hpp"
+#include <nnrt/model.hpp>
 #include "Utils.h"
 
 #include "VsiPreparedModel.h"
@@ -40,16 +40,21 @@
 #if ANDROID_SDK_VERSION >= 29
 #include "VsiLock.h"
 #endif
+
+#if ANDROID_SDK_VERSION >= 30
+#include "BufferTracker.h"
+#endif
+
 using android::sp;
 
 namespace android {
 namespace nn {
 namespace vsi_driver {
-
 class VsiDevice : public HalPlatform::Device
 {
    public:
-    VsiDevice(const char* name) : name_(name) {}
+    VsiDevice(const char* name)
+        : name_(name) {}
     ~VsiDevice() override {}
 
     Return<ErrorStatus> prepareModel(
@@ -95,11 +100,31 @@ class VsiDevice : public HalPlatform::Device
     Return<void>
         getNumberOfCacheFilesNeeded(V1_2::IDevice::getNumberOfCacheFilesNeeded_cb _hidl_cb)override {
         // Set both numbers to be 0 for cache not supported.
-        _hidl_cb(ErrorStatus::NONE, /*numModelCache=*/0, /*numDataCache=*/0);
+        _hidl_cb(ErrorStatus::NONE, /*numModelCache=*/1, /*numDataCache=*/1);
         return Void();
     };
 #endif
 
+#if ANDROID_SDK_VERSION >= 30
+    Return<V1_3::ErrorStatus> prepareModel_1_3(
+            const V1_3::Model& model, ExecutionPreference preference,
+            hal::Priority priority, const OptionalTimePoint& deadline,
+            const hidl_vec<hidl_handle>& modelCache,
+            const hidl_vec<hidl_handle>& dataCache, const CacheToken& token,
+            const sp<V1_3::IPreparedModelCallback>& callback);
+
+    Return<V1_3::ErrorStatus> prepareModelFromCache_1_3(
+            const OptionalTimePoint& deadline,
+            const hidl_vec<hidl_handle>& modelCache,
+            const hidl_vec<hidl_handle>& dataCache, const CacheToken& token,
+            const sp<V1_3::IPreparedModelCallback>& callback) override;
+
+    Return<void> allocate(const V1_3::BufferDesc& desc,
+                          const hidl_vec<sp<V1_3::IPreparedModel>>& preparedModels,
+                          const hidl_vec<V1_3::BufferRole>& inputRoles,
+                          const hidl_vec<V1_3::BufferRole>& outputRoles,
+                          V1_3::IDevice::allocate_cb cb) override;
+#endif
     Return<DeviceStatus> getStatus() override {
         VLOG(DRIVER) << "getStatus()";
         return DeviceStatus::AVAILABLE;
@@ -121,6 +146,7 @@ class VsiDevice : public HalPlatform::Device
    protected:
     std::string name_;
    private:
+    const int kInvalidCacheHandle_ = -1;
         static void notify(const sp<V1_0::IPreparedModelCallback>& callback, const ErrorStatus& status,
                            const sp<VsiPreparedModel>& preparedModel) {
             callback->notify(status, preparedModel);
@@ -133,6 +159,12 @@ class VsiDevice : public HalPlatform::Device
         }
 #endif
 
+#if ANDROID_SDK_VERSION >= 30
+        static void notify(const sp<V1_3::IPreparedModelCallback>& callback, const V1_3::ErrorStatus& status,
+                           const sp<VsiPreparedModel>& preparedModel) {
+            callback->notify_1_3(status, preparedModel);
+        }
+#endif
         template <typename T_IPreparedModelCallback>
         static void asyncPrepareModel(sp<VsiPreparedModel> vsiPreapareModel, const T_IPreparedModelCallback &callback){
             auto status = vsiPreapareModel->initialize();
@@ -143,10 +175,24 @@ class VsiDevice : public HalPlatform::Device
             notify(callback, status, vsiPreapareModel);
         }
 
+#if ANDROID_SDK_VERSION >= 30
+        template <typename T_IPreparedModelCallback>
+        static void asyncPrepareModel_1_3(sp<VsiPreparedModel> vsiPreapareModel,
+                                          const T_IPreparedModelCallback& callback) {
+            auto status = vsiPreapareModel->initialize();
+            if( ErrorStatus::NONE != status){
+                notify(callback, HalPlatform::convertVersion(status), nullptr);
+                return;
+            }
+            notify(callback, HalPlatform::convertVersion(status), vsiPreapareModel);
+        }
+#endif
+
         template <typename T_Model, typename T_IPreparedModelCallback>
         Return<ErrorStatus> prepareModelBase(const T_Model& model,
                                          ExecutionPreference preference,
-                                         const sp<T_IPreparedModelCallback>& callback){
+                                         const sp<T_IPreparedModelCallback>& callback,
+                                         int cacheHandle){
             if (VLOG_IS_ON(DRIVER)) {
                 VLOG(DRIVER) << "prepareModel";
                 logModelToInfo(model);
@@ -166,7 +212,7 @@ class VsiDevice : public HalPlatform::Device
                 return ErrorStatus::INVALID_ARGUMENT;
             }
 
-            sp<VsiPreparedModel> preparedModel = new VsiPreparedModel( HalPlatform::convertVersion(model), preference);
+            sp<VsiPreparedModel> preparedModel = new VsiPreparedModel( HalPlatform::convertVersion(model), preference, cacheHandle);
             std::thread(asyncPrepareModel<sp<T_IPreparedModelCallback>>, preparedModel, callback).detach();
 
             return ErrorStatus::NONE;

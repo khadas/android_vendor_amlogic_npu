@@ -68,9 +68,17 @@ MAKE_SPEC(output)
     .input_(nnrt::OperandType::TENSOR_FLOAT32)
     .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM));
 
-    OVERRIDE_SPEC(output, float16)
+    OVERRIDE_SPEC(output, fp32_to_asymm_int8)
+    .input_(nnrt::OperandType::TENSOR_FLOAT32)
+    .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED));
+
+    OVERRIDE_SPEC(output, fp16_to_asymm_u8)
     .input_(nnrt::OperandType::TENSOR_FLOAT16)
     .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM));
+
+    OVERRIDE_SPEC(output, fp16_to_asymm_int8)
+    .input_(nnrt::OperandType::TENSOR_FLOAT16)
+    .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED));
 
 #undef ARG_NAMES
 #undef ARGC

@@ -25,8 +25,8 @@ top:   the class of top 5
 =================================================*/
 typedef struct __nn_image_classify
 {
-	float   score[5];
-	unsigned int  topClass[5];
+    float   score[5];
+    unsigned int  topClass[5];
 }img_classify_out_t;
 /*=================================================
 output of aml_module_t type:OBJECT_DETECT
@@ -35,8 +35,8 @@ pBox:   the object info detect
 =================================================*/
 typedef struct __nn_obj_detect
 {
-	unsigned int  detNum;
-	detBox *pBox;
+    unsigned int  detNum;
+    detBox *pBox;
 }obj_detect_out_t;
 /*=================================================
 output of aml_module_t type:FACE_DETECTION
@@ -45,8 +45,8 @@ pBox:   the face info detect
 =================================================*/
 typedef struct __nn_face_detect
 {
-	unsigned int  detNum;
-	detBox pBox[MAX_DETECT_NUM];
+    unsigned int  detNum;
+    detBox pBox[MAX_DETECT_NUM];
 }face_detect_out_t;
 /*=================================================
 output of aml_module_t type:FACE_LANDMARK_5
@@ -59,9 +59,9 @@ pos value:
 =================================================*/
 typedef struct __nn_face_landmark_5
 {
-	unsigned int   detNum;
-	detBox facebox[MAX_DETECT_NUM];
-	point_t pos[MAX_DETECT_NUM][5];
+    unsigned int   detNum;
+    detBox facebox[MAX_DETECT_NUM];
+    point_t pos[MAX_DETECT_NUM][5];
 }face_landmark5_out_t;
 
 /*=================================================
@@ -78,9 +78,9 @@ output of aml_module_t type:FACE_LANDMARK_68
 =================================================*/
 typedef struct __nn_face_landmark_68
 {
-	unsigned int detNum;
-	detBox facebox[MAX_DETECT_NUM];
-	point_t pos[MAX_DETECT_NUM][68];
+    unsigned int detNum;
+    detBox facebox[MAX_DETECT_NUM];
+    point_t pos[MAX_DETECT_NUM][68];
 }face_landmark68_out_t;
 /*=================================================
 output of aml_module_t type:FACE_RECOGNIZE
@@ -89,7 +89,7 @@ can recognized by this vector
 =================================================*/
 typedef struct __nn_face_recognize
 {
-	float faceVector[512];
+    float faceVector[512];
 }face_recognize_out_t;
 /*=================================================
 output of aml_module_t type:FACE_COMPARISION
@@ -100,7 +100,7 @@ if compareScore < 1.18,  not same person
 =================================================*/
 typedef struct __nn_face_compare
 {
-	float compareScore;
+    float compareScore;
 }face_compare_out_t;
 /*=================================================
 output of aml_module_t type:FACE_AGE
@@ -108,7 +108,7 @@ age value:
 =================================================*/
 typedef struct __nn_face_age
 {
-	int age;
+    int age;
 }face_age_out_t;
 /*=================================================
 output of aml_module_t type:FACE_GENDER
@@ -118,7 +118,7 @@ gender < 0.5: male
 =================================================*/
 typedef struct __nn_face_gender
 {
-	float gender;
+    float gender;
 }face_gender_out_t;
 /*=================================================
 output of aml_module_t type:FACE_EMOTION
@@ -132,7 +132,7 @@ output of aml_module_t type:FACE_EMOTION
 =================================================*/
 typedef struct __nn_face_emotion
 {
-	int emotion;
+    int emotion;
     float prob;
 }face_emotion_out_t;
 /*=================================================
@@ -159,12 +159,12 @@ now just support single person pose
 =================================================*/
 typedef struct __nn_bodypos
 {
-	int valid;    //whether this point is valid
-	point_t pos;
+    int valid;    //whether this point is valid
+    point_t pos;
 }bodypos_t;
 typedef struct __nn_body_pose
 {
-	bodypos_t bpos[18];
+    bodypos_t bpos[18];
 }body_pose_out_t;
 
 
@@ -173,21 +173,21 @@ output of aml_module_t type:FINGER_POSE
 =================================================*/
 typedef struct __nn_finger_pose
 {
-	image_out_t fingerOut;
+    image_out_t fingerOut;
 }finger_pose_out_t;
 /*=================================================
 output of aml_module_t type:IMAGE_SR
 =================================================*/
 typedef struct __nn_sr_out
 {
-	image_out_t srOut;
+    image_out_t srOut;
 }sr_out_t;
 /*=================================================
 output of aml_module_t type:IMAGE_SEGMENTATION
 =================================================*/
 typedef struct __nn_segment_out
 {
-	image_out_t segOut;
+    image_out_t segOut;
 }segment_out_t;
 
 /*=================================================
@@ -196,7 +196,7 @@ the return value are detect region for these type.
 =================================================*/
 typedef struct __nn_head_detect
 {
-	obj_detect_out_t headOut;
+    obj_detect_out_t headOut;
 }head_det_out_t;
 /*=================================================
 output of aml_module_t type:CARPLATE_DETECTION
@@ -204,7 +204,7 @@ the return value are detect region for these type.
 =================================================*/
 typedef struct __nn_car_detect
 {
-	obj_detect_out_t carOut;
+    obj_detect_out_t carOut;
 }car_det_out_t;
 /*=================================================
 output of aml_module_t type:TEXT_DETECTION
@@ -212,7 +212,7 @@ the return value are detect region for these type.
 =================================================*/
 typedef struct __nn_text_detect
 {
-	obj_detect_out_t textOut;
+    obj_detect_out_t textOut;
 }text_det_out_t;
 /*=================================================
 output of aml_module_t type:CARPLATE_RECOG
@@ -223,8 +223,8 @@ val: the index number for license value;
 =================================================*/
 typedef struct __nn_car_recognize
 {
-	float confidence;
-	unsigned char val[32];
+    float confidence;
+    unsigned char val[32];
 }car_license_out_t;
 //////////////////////////////////////////////////////
 
@@ -283,6 +283,8 @@ float sigmod(float x);
 unsigned char *transpose(const unsigned char * src,int width,int height);
 void process_top5(float *buf,unsigned int num,img_classify_out_t* clsout);
 void *post_process_all_module(aml_module_t type,nn_output *pOut);
+int max_index(float *a, int n);
+box get_region_box(float *x, float *biases, int n, int index, int i, int j, int w, int h);
 
 #ifdef __cplusplus
 } //extern "C"

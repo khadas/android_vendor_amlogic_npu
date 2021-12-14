@@ -36,6 +36,12 @@ class ArgmaxArgminValidate : public OperationValidate<T_model, T_Operation> {
     ArgmaxArgminValidate(const T_model& model, const T_Operation& operation)
         : OperationValidate<T_model, T_Operation>(model, operation) {}
     bool SignatureCheck(std::string& reason) override {
+        if (!::hal::limitation::nnapi::match("ArgmaxArgminInput", this->InputArgTypes())) {
+            LOG(INFO) << "ArgmaxArgminInput mis-match.";
+        }
+        if (!::hal::limitation::nnapi::match("ArgmaxArgminOutput", this->OutputArgTypes())) {
+            LOG(INFO) << "ArgmaxArgminOutput mis-match.";
+        }
         return ::hal::limitation::nnapi::match("ArgmaxArgminInput", this->InputArgTypes()) &&
                ::hal::limitation::nnapi::match("ArgmaxArgminOutput", this->OutputArgTypes());
     };

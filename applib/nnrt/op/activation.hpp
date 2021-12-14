@@ -52,6 +52,10 @@ struct LeakyReluOperation : ActivationOperation<OperationType::LEAKY_RELU> {
     float ratio{0.1f};
 };
 
+struct EluOperation : ActivationOperation<OperationType::ELU> {
+    float alpha{1.0f};
+};
+
 using Relu1Operation = ActivationOperation<OperationType::RELU1>;
 using Relu6Operation = ActivationOperation<OperationType::RELU6>;
 using ReluOperation = ActivationOperation<OperationType::RELU>;
@@ -62,6 +66,7 @@ using SqrtOperation = ActivationOperation<OperationType::SQRT>;
 using RSqrtOperation = ActivationOperation<OperationType::RSQRT>;
 using SquareOperation = ActivationOperation<OperationType::SQUARE>;
 using LinearOperation = ActivationOperation<OperationType::LINEAR>;
+using HardSwishOperation = ActivationOperation<OperationType::HARD_SWISH>;
 
 }
 }

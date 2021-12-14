@@ -981,7 +981,7 @@ _EXT_ vxc_ushort8 viv_intrinsic_vx_MulShift_us(vxc_ushort8 a, vxc_ushort8 b, uin
  *      r[i] = clamp(a[i], b[i], c[i]) ;  i E [0, elem(r) )
  *
  *  In boolean mode it will write a 0 in the result if the value
- *  is inside the specified min/max range, otherwise all 1\92s will
+ *  is inside the specified min/max range, otherwise all 1’s will
  *  be written to the result.
  */
 _EXT_ vxc_uchar16 viv_intrinsic_vx_Clamp_uc(vxc_uchar16 a, vxc_uchar16 b, vxc_uchar16 c) _RET0_

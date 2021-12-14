@@ -36,31 +36,70 @@ class StridedSliceValidate : public OperationValidate<T_model, T_Operation> {
     StridedSliceValidate(const T_model& model, const T_Operation& operation)
         : OperationValidate<T_model, T_Operation>(model, operation) {}
 
-    bool IsSplitOnBatch(std::string& reason) {
+    bool IsValidParam(std::string& reason) {
         bool isSupport = true;
         {
-            const uint32_t input = 0;
-            const uint32_t operand_begin = 1;
-            const uint32_t operand_end = 2;
-            const uint32_t operand_stride = 3;
+            auto operation = this->OperationForRead();
+            const uint32_t operand_input = operation.inputs[0];
+            const uint32_t operand_begin = operation.inputs[1];
+            const uint32_t operand_end = operation.inputs[2];
+            const uint32_t operand_stride = operation.inputs[3];
+            const uint32_t operand_begin_mask = operation.inputs[4];
+            const uint32_t operand_end_mask = operation.inputs[5];
+            const uint32_t operand_shrink_axis_mask = operation.inputs[6];
 
-            auto input_rank =
-                this->m_Model.operands[this->m_Operation.inputs[input]].dimensions.size();
-            auto input_batch =
-                this->m_Model.operands[this->m_Operation.inputs[input]].dimensions[0];
+            auto input_dims = get_buffer::getOpeand(this->m_Model, operand_input).dimensions;
+            auto begin_dims = get_buffer::getOpeand(this->m_Model, operand_begin).dimensions;
+            auto end_dims = get_buffer::getOpeand(this->m_Model, operand_end).dimensions;
+            auto stride_dims = get_buffer::getOpeand(this->m_Model, operand_stride).dimensions;
 
-            struct vsi_driver::VsiRTInfo rt;
+            if (begin_dims.size() != 1 || end_dims.size() != 1 || stride_dims.size() != 1 ||
+                begin_dims[0] != input_dims.size() || end_dims[0] != input_dims.size() ||
+                stride_dims[0] != input_dims.size()) {
+                reason += "Reject StrideSlice, becasue of invalid parameter";
+                return false;
+            }
 
+            struct vsi_driver::VsiRTInfo begin_rt;
             auto begin_vec = reinterpret_cast<const int32_t*>(get_buffer::getOperandDataPtr(
-                this->m_Model,
-                this->m_Model.operands[this->m_Operation.inputs[operand_begin]],
-                rt));
+                this->m_Model, get_buffer::getOpeand(this->m_Model, operand_begin), begin_rt));
+
+            struct vsi_driver::VsiRTInfo end_rt;
             auto end_vec = reinterpret_cast<const int32_t*>(get_buffer::getOperandDataPtr(
-                this->m_Model, this->m_Model.operands[this->m_Operation.inputs[operand_end]], rt));
+                this->m_Model, get_buffer::getOpeand(this->m_Model, operand_end), end_rt));
+
+            struct vsi_driver::VsiRTInfo stride_rt;
             auto stride_vec = reinterpret_cast<const int32_t*>(get_buffer::getOperandDataPtr(
-                this->m_Model,
-                this->m_Model.operands[this->m_Operation.inputs[operand_stride]],
-                rt));
+                this->m_Model, get_buffer::getOpeand(this->m_Model, operand_stride), stride_rt));
+
+            const int32_t begin_mask = get_buffer::getScalarData<int32_t>(
+                this->m_Model, get_buffer::getOpeand(this->m_Model, operand_begin_mask));
+            const int32_t end_mask = get_buffer::getScalarData<int32_t>(
+                this->m_Model, get_buffer::getOpeand(this->m_Model, operand_end_mask));
+            const int32_t shrink_axis_mask = get_buffer::getScalarData<int32_t>(
+                this->m_Model, get_buffer::getOpeand(this->m_Model, operand_shrink_axis_mask));
+
+            for (int32_t idx = 0; idx < input_dims.size(); idx++) {
+                int32_t begin = (begin_mask & (1 << idx)) ? 0 : begin_vec[idx];
+                int32_t end = (end_mask & (1 << idx)) ? input_dims.size() - 1 : end_vec[idx];
+                int32_t stride = stride_vec[idx];
+
+                if (stride <= 0) {
+                    reason += "StridedSilce: not supported stride parameter less than 0";
+                    return false;
+                }
+
+                int32_t outDim = ceil((end - begin) / static_cast<float>(stride));
+
+                if ((shrink_axis_mask & (1 << idx)) && outDim != 1) {
+                    reason += "StridedSilce: invalid input paramter, because the " +
+                              std::to_string(idx) + "th bit of shrink_axis_mask is set to 1," +
+                              "please check parameter $begin and $end ";
+                    return false;
+                }
+            }
+            auto input_rank = get_buffer::getOpeand(this->m_Model, operand_input).dimensions.size();
+            auto input_batch = get_buffer::getOpeand(this->m_Model, operand_input).dimensions[0];
 
             bool isSplitNotOnBatch =
                 (begin_vec[0] == 0) && (end_vec[0] == input_batch) && (stride_vec[0] == 1);
@@ -74,26 +113,23 @@ class StridedSliceValidate : public OperationValidate<T_model, T_Operation> {
                 isSupport &= false;
             }
         }
-
         return isSupport;
     }
 
     bool SignatureCheck(std::string& reason) override {
         if (::hal::limitation::nnapi::match("StridedSlice_Inputs", this->InputArgTypes()) &&
             ::hal::limitation::nnapi::match("StridedSlice_Outputs", this->OutputArgTypes())) {
-            bool is_support = IsSplitOnBatch(reason);
-            for (auto input_idx = 1; is_support && (input_idx < this->m_Operation.inputs.size()); ++input_idx) {
-                if (this->IsInput(input_idx)) {
-                    is_support = false;
+            auto operation = this->OperationForRead();
+            for (auto input_idx = 1; input_idx < operation.inputs.size(); ++input_idx) {
+                if (!this->IsConstantTensor(operation.inputs[input_idx])) {
                     reason +=
                         "StridedSlice: not supported because only input(0) can be model_input";
-                    break;
+                    return false;
                 }
             }
 
-            return is_support;
-        }
-        else {
+            return IsValidParam(reason);
+        } else {
             reason += "StridedSlice: signature matching failed";
             return false;
         }

@@ -50,6 +50,9 @@ MAKE_SPEC(squeeze)
     OVERRIDE_SPEC(squeeze, asymm_u8)
     .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM));
 
+    OVERRIDE_SPEC(squeeze, asymm_int8)
+    .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED));
+
 #undef ARG_NAMES
 #undef ARGC
 #undef OP_SPEC_NAME
@@ -79,6 +82,10 @@ MAKE_SPEC(output)
     OVERRIDE_SPEC(output, asymm_u8)
     .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
     .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM));
+
+    OVERRIDE_SPEC(output, asymm_int8)
+    .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
+    .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED));
 
 #undef ARG_NAMES
 #undef ARGC

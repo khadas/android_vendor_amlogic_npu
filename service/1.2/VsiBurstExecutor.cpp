@@ -29,9 +29,6 @@ namespace android {
 namespace nn {
 namespace vsi_driver {
 
-    using time_point = std::chrono::steady_clock::time_point;
-    static const Timing kNoTiming = {.timeOnDevice = UINT64_MAX, .timeInDriver = UINT64_MAX};
-
     bool BurstExecutorWithCache::isCacheEntryPresent(int32_t slot) const {
         LOG(INFO)<<__FUNCTION__;
         const auto it = memoryCache_.find(slot);
@@ -66,8 +63,12 @@ namespace vsi_driver {
         fullRequest.pools = std::move(pools);
 
         // validate request object against the model
+#if ANDROID_SDK_VERSION >= 30
+        if (!validateRequest(HalPlatform::convertVersion(fullRequest), model_)) {
+#else
         if (!validateRequest(fullRequest, model_)) {
-            LOG(ERROR)<<"invalid request";
+#endif
+            LOG(ERROR) << "invalid request";
             return {ErrorStatus::INVALID_ARGUMENT, {}, kNoTiming};
         }
 

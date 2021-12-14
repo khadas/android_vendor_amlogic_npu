@@ -40,7 +40,16 @@ namespace vsi_driver {
         const hidl_vec<hidl_handle>& dataCache,
         const HidlToken& token,
         const sp<V1_2::IPreparedModelCallback>& callback) {
-        return prepareModelBase(model, preference, callback);
+        int handle = -1;
+        if (modelCache.size() == 1 && dataCache.size() == 1 && modelCache[0]->numFds == 1 &&
+            dataCache[0]->numFds == 1) {
+            handle = modelCache[0]->data[0];
+            if (handle == -1){
+                LOG(ERROR) << "PrepareModel_1_2 get error cache handle.";
+                return ErrorStatus::GENERAL_FAILURE;
+            }
+        }
+        return prepareModelBase(model, preference, callback, handle);
     }
 
     Return<ErrorStatus> VsiDevice::prepareModelFromCache(

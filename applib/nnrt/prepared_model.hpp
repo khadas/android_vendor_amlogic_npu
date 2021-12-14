@@ -41,7 +41,7 @@ class PreparedModel
 {
     public:
         PreparedModel(Model* model, SharedContextPtr context,
-                std::vector<ExecutionIOPtr> &inputs,
+                const std::vector<ExecutionIOPtr> &inputs,
                 Interpreter* interpreter = NULL);
         ~PreparedModel();
 

@@ -70,6 +70,9 @@ MAKE_SPEC(explicit_padding_base)
     OVERRIDE_SPEC(explicit_padding_base, asymm_u8)
     .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM));
 
+    OVERRIDE_SPEC(explicit_padding_base, asymm_int8)
+    .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED));
+
 MAKE_SPEC(implicit_padding_base)
     .input_(nnrt::OperandType::TENSOR_FLOAT32)
     .implicit_padding_type_(nnrt::OperandType::INT32)
@@ -85,6 +88,9 @@ MAKE_SPEC(implicit_padding_base)
 
     OVERRIDE_SPEC(implicit_padding_base, asymm_u8)
     .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM));
+
+    OVERRIDE_SPEC(implicit_padding_base, asymm_int8)
+    .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED));
 
 #undef ARG_NAMES
 #undef ARGC
@@ -108,13 +114,17 @@ MAKE_SPEC(output)
     .input_(nnrt::OperandType::TENSOR_FLOAT32)
     .output_(nnrt::OperandType::TENSOR_FLOAT32));
 
-    OVERRIDE_SPEC(output, 0)
+    OVERRIDE_SPEC(output, fp16)
     .input_(nnrt::OperandType::TENSOR_FLOAT16)
     .output_(nnrt::OperandType::TENSOR_FLOAT16));
 
-    OVERRIDE_SPEC(output, 1)
+    OVERRIDE_SPEC(output, aymm_u8)
     .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
     .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM));
+
+    OVERRIDE_SPEC(output, asymm_int8)
+    .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
+    .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED));
 
 #undef ARG_NAMES
 #undef ARGC

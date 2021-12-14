@@ -126,8 +126,12 @@ MAKE_SPEC(float16_base)
     .input_(nnrt::OperandType::TENSOR_FLOAT32)
     );
 
-    OVERRIDE_SPEC(float16_base, quant8_asymm)
+    OVERRIDE_SPEC(float16_base, asymm_u8)
     .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
+    );
+
+    OVERRIDE_SPEC(float16_base, asymm_int8)
+    .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
     );
 
 #undef ARG_NAMES
@@ -155,9 +159,13 @@ MAKE_SPEC(float16_base)
     .input_(nnrt::OperandType::TENSOR_FLOAT32)
     .output_(nnrt::OperandType::TENSOR_FLOAT32));
 
-    OVERRIDE_SPEC(float16_base, quant8_asymm)
+    OVERRIDE_SPEC(float16_base, asymm_u8)
     .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
     .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM));
+
+    OVERRIDE_SPEC(float16_base, asymm_int8)
+    .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
+    .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED));
 
 #undef ARG_NAMES
 #undef ARGC
@@ -186,8 +194,12 @@ MAKE_SPEC(float16_base)
     .input_(nnrt::OperandType::TENSOR_FLOAT32)
     );
 
-    OVERRIDE_SPEC(float16_base, quant8_asymm)
+    OVERRIDE_SPEC(float16_base, asymm_u8)
     .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
+    );
+
+    OVERRIDE_SPEC(float16_base, asymm_int8)
+    .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
     );
 
 #undef ARG_NAMES
@@ -215,9 +227,13 @@ MAKE_SPEC(float16_base)
     .input_(nnrt::OperandType::TENSOR_FLOAT32)
     .output_(nnrt::OperandType::TENSOR_FLOAT32));
 
-    OVERRIDE_SPEC(float16_base, quant8_asymm)
+    OVERRIDE_SPEC(float16_base, asymm_u8)
     .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
     .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM));
+
+    OVERRIDE_SPEC(float16_base, asymm_int8)
+    .input_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
+    .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED));
 
 
 #undef ARG_NAMES

@@ -60,6 +60,10 @@ MAKE_SPEC(maximum_minimum)
     .input0_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
     .input1_(nnrt::OperandType::TENSOR_QUANT8_ASYMM));
 
+    OVERRIDE_SPEC(maximum_minimum, asymm_int8)
+    .input0_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
+    .input1_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED));
+
 #undef ARG_NAMES
 #undef ARGC
 #undef OP_SPEC_NAME
@@ -82,15 +86,19 @@ MAKE_SPEC(output)
     .input0_(nnrt::OperandType::TENSOR_FLOAT32)
     .output_(nnrt::OperandType::TENSOR_FLOAT32));
 
-    OVERRIDE_SPEC(output, 0)
+    OVERRIDE_SPEC(output, fp16)
     .input0_(nnrt::OperandType::TENSOR_FLOAT16)
     .output_(nnrt::OperandType::TENSOR_FLOAT16));
 
-    OVERRIDE_SPEC(output, 1)
+    OVERRIDE_SPEC(output, asymm_u8)
     .input0_(nnrt::OperandType::TENSOR_QUANT8_ASYMM)
     .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM));
 
-    // OVERRIDE_SPEC(output, 2)
+    OVERRIDE_SPEC(output, asymm_int8)
+    .input0_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED)
+    .output_(nnrt::OperandType::TENSOR_QUANT8_ASYMM_SIGNED));
+
+    // OVERRIDE_SPEC(output, int32)
     // .input0_(nnrt::OperandType::TENSOR_INT32)
     // .output_(nnrt::OperandType::TENSOR_INT32));
 

@@ -57,10 +57,13 @@ class Conv2dValidate : public OperationValidate<T_model, T_Operation> {
                 reason += "reject conv_2d because input is constant tensor\n";
                 return false;
             }
-
-            auto kernelOperand = model.operands[kernelOperandIndex];
+            auto kernelOperand = vsi_driver::GetHalOperand(model, kernelOperandIndex);
             if (kernelOperand.dimensions[1] * kernelOperand.dimensions[2] > 6400) {
                 reason += "reject CONVOLUTION_2D because kernel size > 6400\n";
+                return false;
+            }
+            if (!(this->IsConstantTensor(biasOperandIndex))) {
+                reason += "reject CONVOLUTION_2D because bias is not constant.\n";
                 return false;
             }
             return true;

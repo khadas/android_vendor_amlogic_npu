@@ -21,11 +21,6 @@ extern "C" {
 typedef struct{
     float x, y;
 } landmark;
-/*
-typedef struct{
-    float x, y, w, h;
-} box;
-*/
 typedef struct{
     float x, y, w, h, prob_obj;
 } box;
@@ -36,12 +31,13 @@ typedef struct{
 } sortable_bbox;
 
 ///////////////////////////////////////some util api///////////////////////////////////////////////
-unsigned char *get_jpeg_rawData(const char *name,unsigned int width,unsigned int height);
 int init_fb(void);
 void *camera_thread_func(void *arg);
 int sysfs_control_read(const char* name,char *out);
 int sysfs_control_write(const char* pname,char *value);
 int findtok(const char *buff,const char token,int lenth);
+void activate_array(float *start, int num);
+int entry_index(int lw, int lh, int lclasses, int loutputs, int batch, int location, int entry);
 #ifdef __cplusplus
 } //extern "C"
 #endif

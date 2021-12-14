@@ -8,11 +8,12 @@ namespace android {
 namespace nn {
 namespace vsi_driver {
 
-std::vector<std::pair<OperandType, PerformanceInfo>> CustomizeOverlay() {
+static std::vector<std::pair<OperandType, PerformanceInfo>> CustomizeOverlay() {
     std::vector<std::pair<OperandType, PerformanceInfo>> caps;
     // caps.push_back(std::make_pair(OperandType::TENSOR_FLOAT32, PerformanceInfo{FLT_MAX, FLT_MAX}));
     return caps;
 }
+
 }  // namespace vsi_driver
 }  // namespace nn
 }  // namespace android

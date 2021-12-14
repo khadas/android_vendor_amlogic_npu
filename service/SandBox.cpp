@@ -76,7 +76,6 @@ void SandBox::loop() {
     while (1) {
         auto proc = pull();
         bool exit = proc();
-        LOG(INFO) << __FILE__ << ":"<< __FUNCTION__ <<"->proc done";
 
         {
             std::lock_guard<std::mutex> guard(wait_mtx_);

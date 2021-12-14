@@ -30,26 +30,26 @@ extern "C" {
 //////////////////////nn sdk demo struct type//////////////////
 typedef struct __box
 {
-	float x;
-	float y;
-	float w;
-	float h;
-	float score;
-	float objectClass;
+    float x;
+    float y;
+    float w;
+    float h;
+    float score;
+    float objectClass;
 }detBox;
 
 typedef struct __point
 {
-	float x;
-	float y;
+    float x;
+    float y;
 }point_t;
 
 typedef struct __nn_image_out
 {
-	int height;
-	int width;
-	int channel;
-	unsigned char *data;  //this buffer is returned by aml_module_output_get
+    int height;
+    int width;
+    int channel;
+    unsigned char *data;  //this buffer is returned by aml_module_output_get
 }image_out_t;
 
 /////////////////////common type//////////////////////
@@ -59,17 +59,17 @@ the common type for sdk api
 typedef enum {
     AML_IN_PICTURE      = 0,
     AML_IN_VIDEO        = 1,
-	AML_IN_CAMERA       = 2
+    AML_IN_CAMERA       = 2
 } amlnn_input_mode_t;
 
 typedef enum _amlnn_model_ {
     CAFFE    = 0,
-	TENSORFLOW,
+    TENSORFLOW,
     TENSORFLOWLITE,
     DARKNET,
     ONNX,
-	KERAS,
-	PYTORCH,
+    KERAS,
+    PYTORCH,
     MEDEL_MAX
 } amlnn_model_type;
 /*=================================================================================
@@ -81,18 +81,18 @@ typedef enum _amlnn_nbg_type_ {
 } amlnn_nbg_type;
 
 typedef enum _amlnn_input_ {
-	RGB24_RAW_DATA = 0,
-	TENSOR_RAW_DATA,
-	QTENSOR_RAW_DATA,
-	BINARY_RAW_DATA,
-	INPUT_DMA_DATA,
-	RAW_DATA_MAX
+    RGB24_RAW_DATA = 0,
+    TENSOR_RAW_DATA,
+    QTENSOR_RAW_DATA,
+    BINARY_RAW_DATA,
+    INPUT_DMA_DATA,
+    RAW_DATA_MAX
 } amlnn_input_type;
 
  /*  QUERY_PERF_RUN,  query the time of run,should query after amlnn_outputs_get. */
 typedef enum _amlnn_query_cmd {
     QUERY_INPUT_NUM = 0,                                /* query the number of input  tensor. */
-	QUERY_OUTPUT_NUM,                                   /* query the number of output  tensor. */
+    QUERY_OUTPUT_NUM,                                   /* query the number of output  tensor. */
     QUERY_INPUT_ATTR,                                   /* query the attribute of input tensor. */
     QUERY_OUTPUT_ATTR,                                  /* query the attribute of output tensor. */
     QUERY_SDK_VERSION,                                  /* query the sdk & driver version */
@@ -151,6 +151,7 @@ typedef enum {
     FACE_NET            = 22,
     FACE_RECOG_U        = 23,
     FACE_RFB_DETECTION  = 24,
+    AML_PERSON_DETECT   = 25,
     CUSTOM_NETWORK      = 99,   ///< custom network, for user development
     MODEL_MAX           = 100    ///< max model number
 } aml_module_t;
@@ -158,25 +159,38 @@ typedef enum {
 typedef enum {
     AML_OUTDATA_FLOAT32      = 0,
     AML_OUTDATA_RAW          = 1,
-	AML_OUTDATA_DMA          = 2
+    AML_OUTDATA_DMA          = 2
 } aml_output_format_t;
+
 typedef enum {
-	AML_PROFILE_NONE         = 0,
+    AML_NO_PERF            = 0,
+    AML_PERF_INFERRENCE    = 1,
+    AML_PERF_OUTPUT        = 2
+} aml_perf_mode_t;
+
+typedef enum {
+    AML_PROFILE_NONE         = 0,
     AML_PROFILE_PERFORMANCE  = 1,
     AML_PROFILE_BANDWIDTH    = 2,
-	AML_PROFILE_MEMORY       = 3
+    AML_PROFILE_MEMORY       = 3
 } aml_profile_type_t;
 
 typedef enum {
     AML_PERFORMANCE_MODE         = 1,
     AML_POWER_SAVE_MODE          = 2,
-	AML_MINIMUM_POWER_MODE       = 3
+    AML_MINIMUM_POWER_MODE       = 3
 } aml_policy_type_t;
+
+typedef enum {
+    AML_IO_VIRTUAL      = 0,
+    AML_IO_PHYS         = 1,
+} aml_io_format_t;
 
 typedef  struct __amlnn_module_out_data_t
 {
-	int typeSize;
+    int typeSize;
     aml_module_t mdType;
+    aml_perf_mode_t perfMode;
     aml_output_format_t format;
 } aml_output_config_t;
 
@@ -199,54 +213,65 @@ typedef struct _nn_buffer_create_params_t
      quant_data; /*<! \brief The union of quantization information */
 } nn_buffer_params_t;
 
+
+typedef enum {
+    AML_INPUT_DEFAULT   = 0,    //channle format: caffe 2 1 0 ,others 0 1 2
+    AML_INPUT_MODEL_1   = 1,    //channle format: 0 1 2
+    AML_INPUT_MODEL_2   = 2,    //channle format: 2 1 0
+} aml_input_format_t;
+
+
 typedef struct out_buf
 {
-	unsigned int size;
-	unsigned char *buf;
-	nn_buffer_params_t *param;
-	char  name[MAX_NAME_LEGTH];     //output tensor name
+    unsigned int size;
+    unsigned char *buf;
+    nn_buffer_params_t *param;
+    char  name[MAX_NAME_LEGTH];     //output tensor name
+    aml_output_format_t out_format;
 }outBuf_t;
 
 typedef struct __nnout
 {
-	int typeSize;
-	unsigned int num;   /*===========output tensor number============*/
-	outBuf_t out[OUTPUT_MAX_NUM];
+    int typeSize;
+    unsigned int num;   /*===========output tensor number============*/
+    outBuf_t out[OUTPUT_MAX_NUM];
 }nn_output;
 
 
 typedef struct
 {
-	int valid;
-	float mean[INPUT_CNANNEL];
-	float scale;
+    int valid;
+    float mean[INPUT_CNANNEL];
+    float scale;
+    aml_input_format_t input_format;
 }input_info;
 
 typedef struct __nn_input
 {
-	int typeSize;
-	int  input_index;
-	int  size;
-	unsigned char* input;
-	amlnn_input_type input_type;
-	input_info info;
+    int typeSize;
+    int  input_index;
+    int  size;
+    unsigned char* input;
+    amlnn_input_type input_type;
+    input_info info;
 }nn_input;
 
 typedef struct __assign_address
 {
-	unsigned char* inAddr[ADDRESS_MAX_NUM];
-	unsigned char* outAddr[ADDRESS_MAX_NUM];
+    aml_io_format_t io_type;
+    unsigned char* inAddr[ADDRESS_MAX_NUM];
+    unsigned char* outAddr[ADDRESS_MAX_NUM];
 }assign_user_address_t;
 
 typedef struct __aml_nn_config
 {
-	int typeSize;
-	const char *path;
-	const char *pdata;
-	int length;
-	amlnn_model_type modelType;
-	amlnn_nbg_type nbgType;
-	assign_user_address_t inOut;
+    int typeSize;
+    const char *path;
+    const char *pdata;
+    int length;
+    amlnn_model_type modelType;
+    amlnn_nbg_type nbgType;
+    assign_user_address_t inOut;
 }aml_config;
 
 typedef struct {
@@ -262,20 +287,30 @@ typedef struct {
 } info;
 
 typedef struct {
-	unsigned int valid;
+    unsigned int valid;
     unsigned int num;
-	info *info;
+    info *info;
 } tensor_info;
 
 typedef enum {
     AML_INPUT_TENSOR      = 0,
     AML_OUTPUT_TENSOR     = 1,
 } aml_flush_type_t;
+
+typedef enum {
+    AML_HARDWARE_VSI_UNIFY           = 0,
+    AML_HARDWARE_VIPLITE             = 1,
+    AML_HARDWARE_ADLA                = 2,
+    AML_HARDWARE_AMAZON              = 3,
+
+    AML_HARDWARE_INVALID             = 100,
+} aml_hw_type_t;
+
 //////////////////////////////////////////////////////////
 
 
 /*=============================================================
-                     NNSDK main api 
+                     NNSDK main api
 ==============================================================*/
 void* aml_module_create(aml_config* config);                   /*==========create aml network module======*/
 int aml_module_input_set(void* context,nn_input *pInput);      /*==========set network input==============*/
@@ -288,17 +323,22 @@ int aml_module_destroy(void* context);      /*=====destroy network environment,f
 ==============================================================*/
 unsigned char * aml_util_mallocAlignedBuffer(int mem_size);  /*======malloc 4k align buffer for dma IO====*/
 void aml_util_freeAlignedBuffer(unsigned char *addr);        /*======free buffer alloced by above=========*/
+/*===========flush tensor cache memory=======================*/
+int  aml_util_flushTensorHandle(void* context,aml_flush_type_t type);
 /*==swap input buffer,the inputId(for multi-number input)is ordered as amlnn_get_input_tensor_info array==*/
 int aml_util_swapInputBuffer(void *context,void *newBuffer,unsigned int inputId);
+int aml_util_swapOutputBuffer(void *context,void *newBuffer,unsigned int outputId);
+int aml_util_switchInputBuffer(void *context,void *newBuffer,unsigned int inputId);
+int aml_util_switchOutputBuffer(void *context,void *newBuffer,unsigned int outputId);
 tensor_info* aml_util_getInputTensorInfo(const char* nbgdata);  /*====get model input tensor information list=====*/
 tensor_info* aml_util_getOutputTensorInfo(const char* nbgdata); /*====get model output tensor information list====*/
 void aml_util_freeTensorInfo(tensor_info* tinfo);     /*====free the tensor_info memory get by above two functions*/
-/*===========flush tensor cache memory=======================*/
-int  aml_util_flushTensorHandle(void* context,aml_flush_type_t type);
+/*===========get hardinfo from drivers and set profile=======================*/
 int  aml_util_setProfile(aml_profile_type_t type,const char *savepath); /*===set profile type===*/
 int  aml_util_setPowerPolicy(aml_policy_type_t type); /*===set power policy===*/
-int  aml_util_getHardwareStatus(int *customID,int *powerStatus); /*===get hardware info===*/
+int  aml_util_getHardwareStatus(int* customID,int *powerStatus,int* version); /*===get hardware info===*/
 int  aml_util_setAutoSuspend(int timeout);  /*===get hardware info===*/
+
 
 #ifdef __cplusplus
 } //extern "C"

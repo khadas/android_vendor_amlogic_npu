@@ -66,11 +66,17 @@ LOCAL_SRC_FILES += \
     1.2/VsiBurstExecutor.cpp    \
     hal_limitation/nnapi_limitation.cpp \
     hal_limitation/support.cpp
+endif
 
+ifeq ($(shell expr $(PLATFORM_SDK_VERSION) ">=" 30),1)
+LOCAL_SRC_FILES += \
+    1.3/VsiDevice1_3.cpp \
+    1.3/VsiDriver1_3.cpp \
+    1.3/VsiPrepareModel1_3.cpp \
+    1.3/VsiBuffer.cpp
 endif
 
 ifeq ($(shell expr $(PLATFORM_SDK_VERSION) ">=" 28),1)
-
 LOCAL_SHARED_LIBRARIES += android.hardware.neuralnetworks@1.1
 LOCAL_STATIC_LIBRARIES += libneuralnetworks_common
 
@@ -78,7 +84,11 @@ LOCAL_CFLAGS += -Wno-error=unused-variable -Wno-error=unused-function -Wno-error
                 -Wno-unused-parameter
 
 LOCAL_C_INCLUDES += frameworks/native/libs/nativewindow/include \
-                    frameworks//native/libs/arect/include
+                    frameworks/native/libs/arect/include
+LOCAL_SHARED_LIBRARIES += libneuralnetworks
+
+LOCAL_MODULE      := android.hardware.neuralnetworks@1.1-service-ovx-driver
+LOCAL_INIT_RC := android.hardware.neuralnetworks@1.1-service-ovx-driver.rc
 
 ifeq ($(shell expr $(PLATFORM_SDK_VERSION) ">=" 29),1)
 LOCAL_C_INCLUDES += frameworks/ml/nn/runtime/include \
@@ -86,32 +96,30 @@ LOCAL_C_INCLUDES += frameworks/ml/nn/runtime/include \
                     frameworks/native/libs/nativebase/include \
                     system/libfmq/include   \
                     $(LOCAL_PATH)/hal_limitation \
-                    $(LOCAL_PATH)/op_validate
+                    $(LOCAL_PATH)/op_validate \
+                    $(LOCAL_PATH)/extension_op
 
 LOCAL_SHARED_LIBRARIES += libfmq \
                           libui \
                           android.hardware.neuralnetworks@1.2
 
+LOCAL_MODULE      := android.hardware.neuralnetworks@1.2-service-ovx-driver
+LOCAL_INIT_RC := android.hardware.neuralnetworks@1.2-service-ovx-driver.rc
+
 ifeq ($(shell expr $(PLATFORM_SDK_VERSION) ">=" 30),1)
 LOCAL_SHARED_LIBRARIES += \
-                          android.hardware.neuralnetworks@1.3
-
+                          android.hardware.neuralnetworks@1.3 \
+                          libnativewindow
 LOCAL_CFLAGS += -DANDROID_NN_API=30
-endif
 
 LOCAL_MODULE      := android.hardware.neuralnetworks@1.2-service-ovx-driver
 LOCAL_INIT_RC := android.hardware.neuralnetworks@1.2-service-ovx-driver.rc
-else
-LOCAL_SHARED_LIBRARIES += libneuralnetworks
-LOCAL_MODULE      := android.hardware.neuralnetworks@1.1-service-ovx-driver
-LOCAL_INIT_RC := android.hardware.neuralnetworks@1.1-service-ovx-driver.rc
-endif
 
+endif  #30
 
-else
+endif  #29
 
-LOCAL_MODULE      := android.hardware.neuralnetworks@1.0-service-ovx-driver
-endif
+endif  #28
 
 LOCAL_CFLAGS += -DANDROID_SDK_VERSION=$(PLATFORM_SDK_VERSION)  -Wno-error=unused-parameter
 LOCAL_MODULE_TAGS := optional
