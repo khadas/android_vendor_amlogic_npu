@@ -1,0 +1,160 @@
+
+cc_prebuilt_library_shared {
+   name: "libGAL",
+   vendor: true,
+   arch: {
+      arm: {
+         srcs: ["libraryso/lib32/so_p/libGAL.so"],
+      },
+      arm64: {
+         srcs: ["libraryso/lib64/so_p/libGAL.so"],
+      },
+   },
+   shared_libs: ["libc++", "libc", "libcutils", "libdl", "liblog", "libm", "libsync"],
+   strip: {
+            none:true,
+   },
+}
+
+cc_prebuilt_library_shared {
+   name: "libOpenVXU",
+   vendor: true,
+   arch: {
+      arm: {
+         srcs: ["libraryso/lib32/so_p/libOpenVXU.so"],
+      },
+      arm64: {
+         srcs: ["libraryso/lib64/so_p/libOpenVXU.so"],
+      },
+   },
+   shared_libs:  ["libOpenVX", "libc++", "libc", "libdl", "liblog", "libm"],
+   strip: {
+            none:true,
+   },
+}
+
+cc_prebuilt_library_shared {
+   name: "libNNArchPerf",
+   vendor: true,
+   arch: {
+      arm: {
+         srcs: ["libraryso/lib32/so_p/libNNArchPerf.so"],
+      },
+      arm64: {
+         srcs: ["libraryso/lib64/so_p/libNNArchPerf.so"],
+      },
+   },
+   shared_libs: ["libc++", "libc", "libcutils", "libdl", "liblog", "libm", "libsync"],
+   strip: {
+            none:true,
+   },
+}
+
+cc_prebuilt_library_shared {
+   name: "libarchmodelSw",
+   vendor: true,
+   arch: {
+      arm: {
+         srcs: ["libraryso/lib32/so_p/libarchmodelSw.so"],
+      },
+      arm64: {
+         srcs: ["libraryso/lib64/so_p/libarchmodelSw.so"],
+      },
+   },
+   shared_libs: ["libNNArchPerf", "libc++", "libc", "libdl", "libm"],
+   strip: {
+            none:true,
+   },
+}
+
+
+cc_prebuilt_library_shared {
+   name: "libVSC",
+   vendor: true,
+   arch: {
+      arm: {
+         srcs: ["libraryso/lib32/so_p/libVSC.so"],
+      },
+      arm64: {
+         srcs: ["libraryso/lib64/so_p/libVSC.so"],
+      },
+   },
+   shared_libs: ["libc++", "libc", "libcutils", "libdl", "liblog", "libm", "libsync", "libGAL"],
+   strip: {
+            none:true,
+   },
+}
+
+cc_prebuilt_library_shared {
+   name: "libOpenVX",
+   vendor: true,
+   arch: {
+      arm: {
+         srcs: ["libraryso/lib32/so_p/libOpenVX.so"],
+      },
+      arm64: {
+         srcs: ["libraryso/lib64/so_p/libOpenVX.so"],
+      },
+   },
+   shared_libs:   ["libGAL", "libNNArchPerf", "libVSC", "libarchmodelSw", "libc++", "libc", "libcutils", "libdl", "liblog", "libm"],
+   strip: {
+            none:true,
+   },
+}
+
+cc_prebuilt_library_shared {
+   name: "libovxlib",
+   vendor: true,
+   arch: {
+      arm: {
+         srcs: ["libraryso/lib32/so_p/libovxlib.so"],
+      },
+      arm64: {
+         srcs: ["libraryso/lib64/so_p/libovxlib.so"],
+      },
+   },
+   shared_libs: ["libc++", "libc", "libcutils", "libdl", "liblog", "libm", "libsync", "libGAL", "libOpenVX", "libVSC" ],
+   strip: {
+            none:true,
+   },
+}
+
+cc_prebuilt_library_shared {
+   name: "libnnsdk",
+   vendor: true,
+   arch: {
+      arm: {
+         srcs: ["nnsdk/lib/lib32/so_p/libnnsdk.so"],
+      },
+      arm64: {
+         srcs: ["nnsdk/lib/lib64/so_p/libnnsdk.so"],
+      },
+   },
+   shared_libs: ["libGAL", "libOpenVX", "libOpenVXU", "libc++", "libc", "libdl", "liblog", "libm", "libovxlib"],
+   strip: {
+            none:true,
+   },
+}
+
+cc_prebuilt_library_shared {
+   name: "libnndemo",
+   vendor: true,
+   arch: {
+      arm: {
+         srcs: ["nnsdk/lib/lib32/so_p/libnndemo.so"],
+      },
+      arm64: {
+         srcs: ["nnsdk/lib/lib64/so_p/libnndemo.so"],
+      },
+   },
+   shared_libs: ["libGAL", "libOpenVX", "libOpenVXU", "libc++", "libc", "libdl", "liblog", "libm", "libovxlib"],
+   strip: {
+            none:true,
+   },
+}
+
+cc_library_headers {
+    name: "libnnsdk_headers",
+    vendor: true,
+    export_include_dirs: ["nnsdk/include"],
+}
