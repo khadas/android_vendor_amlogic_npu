@@ -129,6 +129,10 @@ EXTRA_CFLAGS1 += -D gcdENABLE_DRM=0
 endif
 EXTRA_CFLAGS1 += -D gcdLINUX_SYNC_FILE=1
 
+EXTRA_CFLAGS1 += -DgcdENABLE_TRUST_APPLICATION=1
+EXTRA_CFLAGS1 += -DgcdINTERRUPT_STATISTIC=1
+EXTRA_CFLAGS1 += -DgcdENABLE_GPU_1M_PAGE=0
+
 EXTRA_INCLUDE := -I$(KERNEL_SRC)/$(M)/hal/inc
 EXTRA_INCLUDE += -I$(KERNEL_SRC)/$(M)/hal/kernel/inc
 EXTRA_INCLUDE += -I$(KERNEL_SRC)/$(M)/hal/kernel
@@ -142,14 +146,29 @@ EXTRA_INCLUDE += -Iarch/arm/mm
 CONFIGS_BUILD := -Wno-undef -Wno-pointer-sign \
 		-Wno-unused-const-variable \
 		-Wimplicit-function-declaration \
+		-Wno-unused-function
+
 
 modules:
+	echo CC=$(CC)
+	echo CROSS_COMPILE=$(CROSS_COMPILE)
+ifeq ($(CC),clang)
+	#./aml_buildroot.sh $(M) $(KERNEL_SRC) $(O) $(CC) $(HOSTCC) $(LD) $(NM) $(OBJCOPY) $(KERNEL_ARCH)
 	$(MAKE) -C $(KERNEL_SRC) M=$(M)/hal  modules ARCH=$(KERNEL_ARCH)  "EXTRA_CFLAGS+=-I$(INCLUDE) -Wno-error -I$(EXTRA_CFLAGS1) $(CONFIGS_BUILD) $(EXTRA_INCLUDE)" $(CONFIGS)
+else
+	$(MAKE) -C $(KERNEL_SRC) M=$(M)/hal  modules ARCH=$(KERNEL_ARCH)  "EXTRA_CFLAGS+=-I$(INCLUDE) -Wno-error -I$(EXTRA_CFLAGS1) $(CONFIGS_BUILD) $(EXTRA_INCLUDE)" $(CONFIGS)
+endif
+
 
 all:modules
 
 modules_install:
+ifeq ($(CC),clang)
+	#$(MAKE) INSTALL_MOD_STRIP=1 M=$(M) -C $(KERNEL_SRC) modules_install
 	$(MAKE) INSTALL_MOD_STRIP=1 M=$(M)/hal -C $(KERNEL_SRC) modules_install
+else
+	$(MAKE) INSTALL_MOD_STRIP=1 M=$(M)/hal -C $(KERNEL_SRC) modules_install
+endif
 	mkdir -p ${OUT_DIR}/../vendor_lib/modules
 	cd ${OUT_DIR}/$(M)/; find -name "*.ko" -exec cp {} ${OUT_DIR}/../vendor_lib/modules/ \;
 

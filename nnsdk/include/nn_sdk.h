@@ -172,7 +172,10 @@ typedef enum {
     AML_PROFILE_NONE         = 0,
     AML_PROFILE_PERFORMANCE  = 1,
     AML_PROFILE_BANDWIDTH    = 2,
-    AML_PROFILE_MEMORY       = 3
+    AML_PROFILE_MEMORY       = 3,
+    AML_PERLAYER_RUNTIME     = 4,
+    AML_PERLAYER_BANDWIDTH   = 5,
+    AML_PERLAYER_OUTPUT      = 6
 } aml_profile_type_t;
 
 typedef enum {
@@ -338,7 +341,7 @@ int  aml_util_setProfile(aml_profile_type_t type,const char *savepath); /*===set
 int  aml_util_setPowerPolicy(aml_policy_type_t type); /*===set power policy===*/
 int  aml_util_getHardwareStatus(int* customID,int *powerStatus,int* version); /*===get hardware info===*/
 int  aml_util_setAutoSuspend(int timeout);  /*===get hardware info===*/
-
+int aml_get_hardware_type(void);
 
 #ifdef __cplusplus
 } //extern "C"
