@@ -19,6 +19,14 @@ LIB_PATH=libraryso/lib32/so_p
 Target=lib
 endif
 
+ifeq ($(PLATFORM_VERSION), 11)
+SERVICE_PATH=$(LOCAL_PATH)/service/r
+NNRT_SOURCE=$(LIB_PATH)/libnnrt_r.so
+else
+SERVICE_PATH=$(LOCAL_PATH)/service/p
+NNRT_SOURCE=$(LIB_PATH)/libnnrt.so
+endif
+
 RRODUCT_PATH = $(LIB_PATH)/PID0x88
 ifeq ($(PRODUCT_CHIP_ID), PID0x88)
 RRODUCT_PATH := $(LIB_PATH)/PID0x88
@@ -124,7 +132,7 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
-    $(LIB_PATH)/libnnrt.so
+    $(NNRT_SOURCE)
 LOCAL_MODULE         := libnnrt
 LOCAL_MODULE_SUFFIX  := .so
 LOCAL_MODULE_TAGS    := optional
@@ -139,6 +147,8 @@ endif
 include $(BUILD_PREBUILT)
 
 ifeq ($(BOARD_NPU_SERVICE_ENABLE), true)
+ifeq ($(TARGET_ARCH), arm)
 include $(LOCAL_PATH)/service/Android.mk
+endif
 endif
 

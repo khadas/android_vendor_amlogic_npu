@@ -136,9 +136,9 @@
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION (4, 1, 0)
 #ifdef gcdIRQ_SHARED
-#       define gcdIRQF_FLAG   (IRQF_SHARED | IRQF_TRIGGER_HIGH)
+#       define gcdIRQF_FLAG   (IRQF_SHARED)
 #   else
-#       define gcdIRQF_FLAG   (IRQF_TRIGGER_HIGH)
+#       define gcdIRQF_FLAG   0
 #   endif
 #else
 #ifdef gcdIRQ_SHARED
@@ -179,6 +179,13 @@
 #define untagged_addr(addr) (addr)
 #endif
 
+#if (LINUX_VERSION_CODE > KERNEL_VERSION (4,20,17) && !defined(CONFIG_ARCH_NO_SG_CHAIN)) ||   \
+    (LINUX_VERSION_CODE >= KERNEL_VERSION (3,6,0)       \
+    && (defined(ARCH_HAS_SG_CHAIN) || defined(CONFIG_ARCH_HAS_SG_CHAIN)))
+#define gcdUSE_Linux_SG_TABLE_API 1
+#else
+#define gcdUSE_Linux_SG_TABLE_API 0
+#endif
 gceSTATUS get_nna_status(struct platform_device *dev);
 
 

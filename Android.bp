@@ -51,14 +51,14 @@ cc_prebuilt_library_shared {
 }
 
 cc_prebuilt_library_shared {
-   name: "libarchmodelSw",
+   name: "libArchModelSw",
    vendor: true,
    arch: {
       arm: {
-         srcs: ["libraryso/lib32/so_p/libarchmodelSw.so"],
+         srcs: ["libraryso/lib32/so_p/libArchModelSw.so"],
       },
       arm64: {
-         srcs: ["libraryso/lib64/so_p/libarchmodelSw.so"],
+         srcs: ["libraryso/lib64/so_p/libArchModelSw.so"],
       },
    },
    shared_libs: ["libNNArchPerf", "libc++", "libc", "libdl", "libm"],
@@ -96,7 +96,7 @@ cc_prebuilt_library_shared {
          srcs: ["libraryso/lib64/so_p/libOpenVX.so"],
       },
    },
-   shared_libs:   ["libGAL", "libNNArchPerf", "libVSC", "libarchmodelSw", "libc++", "libc", "libcutils", "libdl", "liblog", "libm"],
+   shared_libs:   ["libGAL", "libNNArchPerf", "libVSC", "libArchModelSw", "libc++", "libc", "libcutils", "libdl", "liblog", "libm"],
    strip: {
             none:true,
    },
